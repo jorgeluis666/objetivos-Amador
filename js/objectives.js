@@ -256,6 +256,12 @@
     const label = reached ? 'Sobre el objetivo' : 'Debajo del objetivo';
     return `<span class="reservation-value">${value}</span><span class="reservation-trend ${reached ? 'up' : 'down'}" title="${label}: ${value}/${goal}" aria-label="${label}: ${value} de ${goal}">${reached ? '▲' : '▼'} Objetivo: ${goal}</span>`;
   }
+  function renderTrend(reservas, goal) {
+    if (goal == null || Number(goal) <= 0) return '';
+    const reached = Number(reservas) >= Number(goal);
+    const label = reached ? 'Sobre el objetivo' : 'Debajo del objetivo';
+    return `<span class="reservation-trend ${reached ? 'up' : 'down'}" title="${label}: ${reservas}/${goal}" aria-label="${label}: ${reservas} de ${goal}">${reached ? '▲' : '▼'} Objetivo: ${goal}</span>`;
+  }
   function renderDeadline(endDate, days) {
     if (!endDate) return '-';
     if (days == null) return endDate;
@@ -311,8 +317,8 @@
         if (i === 0) tr += `<td class="campaign-name"${rs}>${c.name}</td>`;
         tr += `<td class="ad-name-col">${adName}</td>`;
         tr += `<td><span class="objective-pill">${obj || '—'}</span></td>`;
-        tr += `<td class="resultados-col">${renderReservationProgress(reservas, goal)}</td>`;
-        tr += `<td class="goal-col">${currentAd.name ? renderGoalInput(c, currentAd) : '-'}</td>`;
+        tr += `<td class="resultados-col">${reservas}</td>`;
+        tr += `<td class="goal-col">${currentAd.name ? renderTrend(reservas, goal) + renderGoalInput(c, currentAd) : '-'}</td>`;
         tr += `<td class="num">${fmtCount(messages)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerMessage)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerReservation)}</td>`;
