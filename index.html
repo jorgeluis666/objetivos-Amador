@@ -30,8 +30,10 @@
   .inline-edit { border: 1px solid #e2e8f0; border-radius: 4px; color: #0f172a; font-size: 12px; padding: 2px 6px; width: 90px; }
   .inline-edit.wide { width: 130px; }
   .inline-edit:focus { border-color: #3b82f6; outline: none; }
-  .campaign-name .add-ad-btn { opacity: 0; transition: opacity .15s; }
-  .campaign-name:hover .add-ad-btn { opacity: 1; }
+  .campaign-sep td { height: 0; padding: 0 !important; border: none; position: relative; text-align: center; }
+  .add-ad-line-btn { background: #fff; border: 1px solid #cbd5e1; border-radius: 10px; color: #64748b; cursor: pointer; font-size: 10px; font-weight: 700; line-height: 16px; opacity: 0; padding: 0 10px; position: relative; top: -8px; transition: opacity .15s, border-color .15s; }
+  .campaign-sep:hover .add-ad-line-btn { opacity: 1; }
+  .add-ad-line-btn:hover { border-color: #3b82f6; color: #1d4ed8; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 </head>

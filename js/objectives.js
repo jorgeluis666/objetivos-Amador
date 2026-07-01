@@ -344,10 +344,10 @@
         if (i === 0) {
           if (isCustomC) {
             tr += `<td class="type-col"${rs}><input class="inline-edit" type="text" placeholder="Tipo" value="${c.type || ''}" data-field="type" data-cid="${c._id}"></td>`;
-            tr += `<td class="campaign-name"${rs}><input class="inline-edit wide" type="text" placeholder="Nombre campaña" value="${c.name || ''}" data-field="cname" data-cid="${c._id}"> <button class="add-ad-btn icon-btn" data-cid="${c._id}" data-cname="${c.name || ''}" title="Agregar anuncio">＋</button></td>`;
+            tr += `<td class="campaign-name"${rs}><input class="inline-edit wide" type="text" placeholder="Nombre campaña" value="${c.name || ''}" data-field="cname" data-cid="${c._id}"></td>`;
           } else {
             tr += `<td class="type-col"${rs}>${c.type || '—'}</td>`;
-            tr += `<td class="campaign-name"${rs}>${c.name} <button class="add-ad-btn icon-btn" data-cname="${c.name}" title="Agregar anuncio">＋</button></td>`;
+            tr += `<td class="campaign-name"${rs}>${c.name}</td>`;
           }
         }
         if (isExtraAd || isCustomC) {
@@ -379,6 +379,8 @@
         tr += '</tr>';
         rows.push(tr);
       });
+      // Separator row with "add ad" button on the dividing line
+      rows.push(`<tr class="campaign-sep"><td colspan="23"><button class="add-ad-btn add-ad-line-btn" data-cname="${c.name}">＋ Agregar anuncio</button></td></tr>`);
     }
     rows.push(`<tr class="add-campaign-row"><td colspan="23"><button class="add-campaign-btn">＋ Agregar campaña</button></td></tr>`);
     rows.push(`<tr class="reservations-total-row"><td></td><td></td><td></td><td class="total-label">Total actualizado ${month.name.toLowerCase()}</td><td class="resultados-col">${totalReservas}</td><td></td><td class="num">${totalMessages}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="num">${fmtMoney(month.adSpendTotal)}</td><td class="num">${fmtMoney(month.budgetTotal)}</td><td class="num">${fmtMoney(month.spend)}</td><td class="num">${fmtMoney(month.balanceTotal)}</td><td></td><td></td><td></td></tr>`);
