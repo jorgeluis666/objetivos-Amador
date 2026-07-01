@@ -32,6 +32,18 @@
   function saveGoals() {
     try { localStorage.setItem(GOALS_KEY, JSON.stringify(state.goals)); } catch {}
   }
+
+  // ── Custom campaigns / ads (stored in localStorage) ──────────────────────
+  const CUSTOM_KEY = 'amador-custom-rows-v1';
+  function readCustom() { try { return JSON.parse(localStorage.getItem(CUSTOM_KEY) || '{}'); } catch { return {}; } }
+  function saveCustom(data) { try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(data)); } catch {} }
+  function getMonthCustom() { return readCustom()[state.month] || { campaigns: [], extraAds: {} }; }
+  function setMonthCustom(fn) {
+    const all = readCustom();
+    all[state.month] = fn(all[state.month] || { campaigns: [], extraAds: {} });
+    saveCustom(all);
+  }
+  function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function normalizeHeader(value) {
     return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toLowerCase();
   }
@@ -273,12 +285,24 @@
     const value = effectiveGoal(campaign, ad);
     return `<input class="reservation-goal-input" type="number" min="0" step="1" value="${value ?? ''}" data-campaign="${campaign.name}" data-ad="${ad.name}" aria-label="Objetivo Reservas ${campaign.name} ${ad.name}">`;
   }
+  function effectiveGoalCampaign(campaign) {
+    const key = goalKey(campaign.name, '__campaign__');
+    const saved = state.goals[key];
+    if (saved !== '' && saved != null) return Number(saved);
+    return campaign.ads?.[0]?.reservationGoal ?? null;
+  }
+  function renderGoalInputCampaign(campaign) {
+    const value = effectiveGoalCampaign(campaign);
+    return `<input class="reservation-goal-input" type="number" min="0" step="1" value="${value ?? ''}" data-campaign="${campaign.name}" data-ad="__campaign__" aria-label="Objetivo Reservas ${campaign.name}">`;
+  }
   function renderCampaigns() {
     const month = sourceMonth(state.month);
-    const campaigns = month.campaigns || [];
-    const active = campaigns.filter(c => ['activa', 'activo'].includes(String(c.status || '').toLowerCase())).length;
+    const baseCampaigns = month.campaigns || [];
+    const monthCustom = getMonthCustom();
+    const campaigns = [...baseCampaigns, ...monthCustom.campaigns];
+    const active = baseCampaigns.filter(c => ['activa', 'activo'].includes(String(c.status || '').toLowerCase())).length;
     document.getElementById('campaigns-title').textContent = `Campanas de ${month.name} 2026`;
-    document.getElementById('campaigns-sub').textContent = campaigns.length ? `${active} activas de ${campaigns.length} campanas registradas.` : 'Sin detalle de campanas en el archivo fuente.';
+    document.getElementById('campaigns-sub').textContent = baseCampaigns.length ? `${active} activas de ${baseCampaigns.length} campanas registradas.` : 'Sin detalle de campanas en el archivo fuente.';
     const note = document.getElementById('campaigns-note');
     if (note) {
       const observation = String(month.totalObservation || '').trim();
@@ -291,10 +315,15 @@
     let totalReservas = 0;
     let totalMessages = 0;
     for (const c of campaigns) {
-      const ads = c.ads?.length ? c.ads : [null];
+      const isCustomC = !!(c._id);
+      const baseAds = c.ads?.length ? c.ads : [null];
+      const extraAds = (monthCustom.extraAds || {})[c.name] || [];
+      const ads = [...baseAds, ...extraAds];
       const span = ads.length;
+      const campaignTotalReservas = ads.reduce((s, ad) => s + Number((ad || {}).reservas ?? (ads.length === 1 ? c.reservas : 0) ?? 0), 0);
       ads.forEach((ad, i) => {
         const currentAd = ad || {};
+        const isExtraAd = extraAds.includes(ad);
         const budget = currentAd.budget ?? c.budget;
         const spent = currentAd.spent ?? (span === 1 ? c.spent : null);
         const daily = currentAd.dailyAmount ?? c.dailyAmount;
@@ -303,7 +332,6 @@
         const adName = currentAd.name ?? '—';
         const reservas = Number(currentAd.reservas ?? (span === 1 ? c.reservas : 0) ?? 0);
         const messages = Number(currentAd.messages ?? (span === 1 ? c.messages : 0) ?? 0);
-        const goal = effectiveGoal(c, currentAd);
         const costPerMessage = currentAd.costPerMessage ?? (messages > 0 && spent != null ? spent / messages : null);
         const costPerReservation = currentAd.costPerReservation ?? (reservas > 0 && spent != null ? spent / reservas : null);
         const ratio = currentAd.reservationRatio ?? (messages > 0 ? reservas / messages * 100 : null);
@@ -313,12 +341,24 @@
         totalMessages += messages;
         const rs = span > 1 ? ` rowspan="${span}"` : '';
         let tr = '<tr>';
-        if (i === 0) tr += `<td class="type-col"${rs}>${c.type || '—'}</td>`;
-        if (i === 0) tr += `<td class="campaign-name"${rs}>${c.name}</td>`;
-        tr += `<td class="ad-name-col">${adName}</td>`;
-        tr += `<td><span class="objective-pill">${obj || '—'}</span></td>`;
+        if (i === 0) {
+          if (isCustomC) {
+            tr += `<td class="type-col"${rs}><input class="inline-edit" type="text" placeholder="Tipo" value="${c.type || ''}" data-field="type" data-cid="${c._id}"></td>`;
+            tr += `<td class="campaign-name"${rs}><input class="inline-edit wide" type="text" placeholder="Nombre campaña" value="${c.name || ''}" data-field="cname" data-cid="${c._id}"> <button class="add-ad-btn icon-btn" data-cid="${c._id}" data-cname="${c.name || ''}" title="Agregar anuncio">＋</button></td>`;
+          } else {
+            tr += `<td class="type-col"${rs}>${c.type || '—'}</td>`;
+            tr += `<td class="campaign-name"${rs}>${c.name} <button class="add-ad-btn icon-btn" data-cname="${c.name}" title="Agregar anuncio">＋</button></td>`;
+          }
+        }
+        if (isExtraAd || isCustomC) {
+          tr += `<td class="ad-name-col"><input class="inline-edit" type="text" placeholder="Nombre anuncio" value="${currentAd.name || ''}" data-field="adname" data-cname="${c.name || ''}" data-cid="${c._id || ''}" data-aid="${currentAd._id || ''}"></td>`;
+          tr += `<td><input class="inline-edit" type="text" placeholder="Objetivo" value="${obj || ''}" data-field="adobj" data-cname="${c.name || ''}" data-cid="${c._id || ''}" data-aid="${currentAd._id || ''}"></td>`;
+        } else {
+          tr += `<td class="ad-name-col">${adName}</td>`;
+          tr += `<td><span class="objective-pill">${obj || '—'}</span></td>`;
+        }
         tr += `<td class="resultados-col">${reservas}</td>`;
-        tr += `<td class="goal-col">${currentAd.name ? renderGoalInput(c, currentAd) + renderTrend(reservas, goal) : '-'}</td>`;
+        if (i === 0) tr += `<td class="goal-col"${rs}>${renderGoalInputCampaign(c)}${renderTrend(campaignTotalReservas, effectiveGoalCampaign(c))}</td>`;
         tr += `<td class="num">${fmtCount(messages)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerMessage)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerReservation)}</td>`;
@@ -340,6 +380,7 @@
         rows.push(tr);
       });
     }
+    rows.push(`<tr class="add-campaign-row"><td colspan="23"><button class="add-campaign-btn">＋ Agregar campaña</button></td></tr>`);
     rows.push(`<tr class="reservations-total-row"><td></td><td></td><td></td><td class="total-label">Total actualizado ${month.name.toLowerCase()}</td><td class="resultados-col">${totalReservas}</td><td></td><td class="num">${totalMessages}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="num">${fmtMoney(month.adSpendTotal)}</td><td class="num">${fmtMoney(month.budgetTotal)}</td><td class="num">${fmtMoney(month.spend)}</td><td class="num">${fmtMoney(month.balanceTotal)}</td><td></td><td></td><td></td></tr>`);
     body.innerHTML = rows.join('');
   }
@@ -368,10 +409,60 @@
     document.getElementById('spend-type-select').addEventListener('change', event => { state.type = event.target.value; renderChart(); });
     document.getElementById('campaigns-body').addEventListener('change', event => {
       const input = event.target.closest('.reservation-goal-input');
-      if (!input) return;
-      state.goals[goalKey(input.dataset.campaign, input.dataset.ad)] = input.value;
-      saveGoals();
-      renderCampaigns();
+      if (input) {
+        state.goals[goalKey(input.dataset.campaign, input.dataset.ad)] = input.value;
+        saveGoals();
+        renderCampaigns();
+        return;
+      }
+      const edit = event.target.closest('.inline-edit');
+      if (edit) {
+        const { field, cid, cname, aid } = edit.dataset;
+        setMonthCustom(mc => {
+          if (field === 'type' || field === 'cname') {
+            const camp = mc.campaigns.find(x => x._id === cid);
+            if (camp) {
+              if (field === 'type') camp.type = edit.value;
+              if (field === 'cname') {
+                // also rename extraAds key
+                if (mc.extraAds[camp.name]) { mc.extraAds[edit.value] = mc.extraAds[camp.name]; delete mc.extraAds[camp.name]; }
+                camp.name = edit.value;
+              }
+            }
+          } else if (field === 'adname' || field === 'adobj') {
+            const key = cname || cid;
+            const ads = mc.extraAds[key] || [];
+            const adItem = ads.find(a => a._id === aid);
+            if (adItem) {
+              if (field === 'adname') adItem.name = edit.value;
+              if (field === 'adobj') adItem.objective = edit.value;
+            }
+          }
+          return mc;
+        });
+        renderCampaigns();
+      }
+    });
+    document.getElementById('campaigns-body').addEventListener('click', event => {
+      const addAdBtn = event.target.closest('.add-ad-btn');
+      if (addAdBtn) {
+        const cname = addAdBtn.dataset.cname || '';
+        setMonthCustom(mc => {
+          if (!mc.extraAds[cname]) mc.extraAds[cname] = [];
+          mc.extraAds[cname].push({ _id: genId(), name: '', objective: '' });
+          return mc;
+        });
+        renderCampaigns();
+        return;
+      }
+      const addCampBtn = event.target.closest('.add-campaign-btn');
+      if (addCampBtn) {
+        setMonthCustom(mc => {
+          mc.campaigns.push({ _id: genId(), name: '', type: '', status: 'Activo', ads: [] });
+          return mc;
+        });
+        renderCampaigns();
+      }
     });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) syncLiveSheet({ silent: true }); });
   }
