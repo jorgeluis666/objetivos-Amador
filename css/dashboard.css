@@ -579,15 +579,10 @@
   position: absolute;
   top: 1px;
   left: 0;
-  display: grid;
   width: 54px;
   height: 54px;
-  place-items: center;
-  border-radius: 11px;
-  color: #ffffff;
-  background:
-    radial-gradient(circle at center, transparent 0 7px, #ffffff 7px 9px, transparent 9px 13px, rgba(255,255,255,.72) 13px 15px, transparent 15px),
-    #17233a;
+  border-radius: 50%;
+  background: url('../assets/logo-amador.jpg') center / cover no-repeat;
   box-shadow: 0 9px 22px rgba(15, 23, 42, .13);
   content: "";
 }
