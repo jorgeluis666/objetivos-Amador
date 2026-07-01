@@ -318,7 +318,7 @@
         tr += `<td class="ad-name-col">${adName}</td>`;
         tr += `<td><span class="objective-pill">${obj || '—'}</span></td>`;
         tr += `<td class="resultados-col">${reservas}</td>`;
-        tr += `<td class="goal-col">${currentAd.name ? renderTrend(reservas, goal) + renderGoalInput(c, currentAd) : '-'}</td>`;
+        tr += `<td class="goal-col">${currentAd.name ? renderGoalInput(c, currentAd) + renderTrend(reservas, goal) : '-'}</td>`;
         tr += `<td class="num">${fmtCount(messages)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerMessage)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerReservation)}</td>`;
