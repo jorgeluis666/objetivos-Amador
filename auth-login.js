@@ -19,13 +19,6 @@
     #rb-auth-error{display:none;margin-top:12px;font-size:12px;color:#dc2626;font-family:inherit}
     #rb-auth-bg{flex:1;height:100%;background-size:cover;background-position:center;background-repeat:no-repeat;filter:grayscale(20%)}
   `;
-  function loadReservationGoals() {
-    if (document.querySelector('script[src="js/reservation-goals.js"]')) return;
-    const script = document.createElement('script');
-    script.src = 'js/reservation-goals.js';
-    script.defer = true;
-    document.head.appendChild(script);
-  }
   function init(opts) {
     opts = opts || {};
     const PASSWORD = opts.password || 'RB2026';
@@ -33,7 +26,6 @@
     const BRAND = opts.brand || 'Lima Retail';
     const TITLE = opts.title || 'Centro de\nControl';
     const SESSION_KEY = opts.sessionKey || 'rb_auth';
-    loadReservationGoals();
     const style = document.createElement('style');
     style.textContent = CSS;
     document.head.appendChild(style);
