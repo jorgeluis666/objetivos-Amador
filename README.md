@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.1.0`.
+Version actual: `v1.3.0`.
 
 ## Versionado
 
@@ -23,7 +23,7 @@ Los modulos Comparativo YoY, Distribucion, Productos Web y Usuarios y Claves se 
 
 ## Datos
 
-La fuente normalizada del dashboard esta en `data/amador-ads-2026.json`. Junio se sincronizo el 24 de junio de 2026 desde `Distribucion-amador / Junio`; el CSV de respaldo esta en `data/csv-backups/`.
+La fuente normalizada del dashboard esta en `data/amador-ads-2026.json`. Junio se cerro el 1 de julio de 2026 con los datos finales de `Distribucion-amador / Junio`; el CSV de respaldo esta en `data/csv-backups/`. Julio se inicializo el 1 de julio de 2026 con las campanas vigentes en julio segun la misma hoja (Jueves x Amador, 07-Jul al 18-Jul).
 
 ## Desarrollo
 

@@ -15,7 +15,7 @@
     messages: { label: 'Mensajes', unit: 'count', color: '#16a34a', fill: 'rgba(22,163,74,.10)' },
     reservations: { label: 'Reservas', unit: 'count', color: '#ea580c', fill: 'rgba(234,88,12,.10)' },
   };
-  const state = { data: null, type: 'investment', month: 'Junio', chart: null, syncTimer: null, goals: readGoals(), lastSync: null };
+  const state = { data: null, type: 'investment', month: 'Julio', chart: null, syncTimer: null, goals: readGoals(), lastSync: null };
 
   const fmtMoney = value => Number.isFinite(Number(value)) ? `S/. ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
   const fmtCount = value => Number(value || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 });
@@ -250,10 +250,14 @@
     host.innerHTML = MONTHS.map(name => {
       const available = !!sourceMonth(name);
       const selected = name === state.month;
-      return `<button type="button" class="month-tab ${selected ? 'active' : ''}" data-month="${name}" ${available ? '' : 'disabled'}>${name}${name === 'Junio' ? '<span class="current-dot"></span>' : ''}</button>`;
+      return `<button type="button" class="month-tab ${selected ? 'active' : ''}" data-month="${name}" ${available ? '' : 'disabled'}>${name}${name === 'Julio' ? '<span class="current-dot"></span>' : ''}</button>`;
     }).join('');
     host.querySelectorAll('.month-tab:not(:disabled)').forEach(button => {
-      button.addEventListener('click', () => { state.month = button.dataset.month; renderAll(false); });
+      button.addEventListener('click', () => {
+        state.month = button.dataset.month;
+        host.querySelectorAll('.month-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.month === state.month));
+        renderAll(false);
+      });
     });
   }
   function statusClass(status) {
