@@ -21,6 +21,7 @@ function main() {
   const sidebar = readFile('js/sidebar.js');
   const data = readFile('data/amador-ads-2026.json').replace(/</g, '\\u003c');
   const juneData = readFile('data/amador-june-sheet-2026.json').replace(/</g, '\\u003c');
+  const julyData = readFile('data/amador-july-sheet-2026.json').replace(/</g, '\\u003c');
 
   html = html.replace(
     '<link rel="stylesheet" href="css/dashboard.css">',
@@ -48,7 +49,7 @@ function main() {
   );
   html = html.replace(
     '</head>',
-    `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_JUNE_DATA = ${juneData};</script></head>`
+    `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_JUNE_DATA = ${juneData};window.AMADOR_JULY_DATA = ${julyData};</script></head>`
   );
 
   fs.rmSync(DIST_DIR, { recursive: true, force: true });

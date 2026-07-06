@@ -1,15 +1,18 @@
 ﻿(function () {
   const DATA_URL = 'data/amador-ads-2026.json';
   const JUNE_DATA_URL = 'data/amador-june-sheet-2026.json';
+  const JULY_DATA_URL = 'data/amador-july-sheet-2026.json';
   const SHEET_ID = '1Lj5rEepYZhHlf-VyGJwRYVMqnpWLu9lg3oL6wes3o-s';
-  const SHEET_GID = '1847912276';
-  const LIVE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`;
+  const SHEET_MONTH = 'Julio';
+  const LIVE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_MONTH)}`;
   const SYNC_INTERVAL_MS = 60 * 60 * 1000;
   const GOALS_KEY = 'amador-reservation-goals-v1';
   const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const SHORT_MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const REQUIRED_HEADERS = ['Tipo','Campaña','Anuncio','Objetivo','Reservas','Objetivo Reservas','Mensajes','Costo por mensaje','Costo por reserva','Ratio de reservas','Estado','Fecha de inicio','Fecha de fin','Duración (días)','Días restantes','Importe diario','Presupuesto total x anuncio','Gasto x Anuncio','Presupuesto total x campaña','Gasto x Campaña','Saldo x anuncio','Saldo por campaña','Proyección real de gasto mesual'];
-  const OPTIONAL_HEADERS = ['Nuevo ppto diario','Observaciones'];
+  const REQUIRED_HEADERS = ['Tipo','Campaña','Anuncio','Objetivo','Reservas','Objetivo Reservas','Mensajes','Costo por mensaje','Costo por reserva','Ratio de reservas','Estado','Fecha de inicio','Fecha de fin','Duración (días)','Días restantes','Importe diario','Presupuesto total x campaña','Gasto x Campaña','Saldo x anuncio','Saldo por campaña','Proyección real de gasto mesual'];
+  const OPTIONAL_HEADERS = ['Nuevo ppto diario','Observaciones','Vista previa'];
+  const AD_BUDGET_HEADERS = ['Presupuesto total x anuncio','Presupuesto total x conjunto'];
+  const AD_SPENT_HEADERS = ['Gasto x Anuncio','Gasto x conjunto'];
   const SERIES = {
     investment: { label: 'Inversion', unit: 'money', color: '#2563eb', fill: 'rgba(37,99,235,.11)' },
     messages: { label: 'Mensajes', unit: 'count', color: '#16a34a', fill: 'rgba(22,163,74,.10)' },
@@ -78,9 +81,14 @@
     return map;
   }
   function get(row, map, name) { return row[map[normalizeHeader(name)]] ?? ''; }
+  function getAny(row, map, names) {
+    const name = names.find(item => map[normalizeHeader(item)] != null);
+    return name ? get(row, map, name) : '';
+  }
   function validateHeaders(headers) {
     const map = headerMap(headers);
     const missing = REQUIRED_HEADERS.filter(name => map[normalizeHeader(name)] == null);
+    [AD_BUDGET_HEADERS, AD_SPENT_HEADERS].forEach(group => { if (!group.some(name => map[normalizeHeader(name)] != null)) missing.push(group.join(' / ')); });
     if (missing.length) throw new Error(`Cabeceras faltantes: ${missing.join(', ')}`);
     return map;
   }
@@ -113,7 +121,7 @@
     if (series.unit === 'money') return short ? fmtShort(value) : fmtMoney(value);
     return fmtCount(value);
   }
-  function sheetToJuneData(rows) {
+  function sheetToMonthData(rows) {
     const headerIndex = rows.findIndex(row => row.some(cell => normalizeHeader(cell) === 'tipo') && row.some(cell => normalizeHeader(cell) === 'estado'));
     if (headerIndex < 0) throw new Error('No se encontro la fila de cabeceras del sheet.' );
     const headers = rows[headerIndex];
@@ -161,12 +169,12 @@
         duration: parseNumber(get(row, map, 'Duración (días)')),
         daysRemaining: parseNumber(get(row, map, 'Días restantes')),
         dailyAmount: parseNumber(get(row, map, 'Importe diario')),
-        budget: parseNumber(get(row, map, 'Presupuesto total x anuncio')),
-        spent: parseNumber(get(row, map, 'Gasto x Anuncio')),
+        budget: parseNumber(getAny(row, map, AD_BUDGET_HEADERS)),
+        spent: parseNumber(getAny(row, map, AD_SPENT_HEADERS)),
         balance: parseNumber(get(row, map, 'Saldo x anuncio')),
         newDailyAmount: parseNumber(get(row, map, 'Nuevo ppto diario')),
         observation: String(get(row, map, 'Observaciones')).trim() || null,
-        adUrl: null
+        adUrl: String(get(row, map, 'Vista previa')).trim() || null
       };
       if (ad.costPerMessage == null && ad.messages > 0 && ad.spent != null) ad.costPerMessage = ad.spent / ad.messages;
       if (ad.costPerReservation == null && ad.reservas > 0 && ad.spent != null) ad.costPerReservation = ad.spent / ad.reservas;
@@ -177,31 +185,33 @@
       if (ad.observation && !current.observation) current.observation = ad.observation;
     });
     const allAds = campaigns.flatMap(campaign => campaign.ads);
-    const adSpendTotal = parseNumber(totals && get(totals, map, 'Gasto x Anuncio')) ?? allAds.reduce((sum, ad) => sum + Number(ad.spent || 0), 0);
-    const spend = parseNumber(totals && get(totals, map, 'Gasto x Campaña')) ?? campaigns.reduce((sum, campaign) => sum + Number(campaign.spent || 0), 0);
-    const budgetTotal = parseNumber(totals && get(totals, map, 'Presupuesto total x campaña')) ?? campaigns.reduce((sum, campaign) => sum + Number(campaign.budget || 0), 0);
-    const balanceTotal = parseNumber(totals && get(totals, map, 'Saldo por campaña')) ?? campaigns.reduce((sum, campaign) => sum + Number(campaign.balance || 0), 0);
+    const round2 = value => Math.round(Number(value) * 100) / 100;
+    const adSpendTotal = parseNumber(totals && getAny(totals, map, AD_SPENT_HEADERS)) ?? round2(allAds.reduce((sum, ad) => sum + Number(ad.spent || 0), 0));
+    const spend = parseNumber(totals && get(totals, map, 'Gasto x Campaña')) ?? round2(campaigns.reduce((sum, campaign) => sum + Number(campaign.spent || 0), 0));
+    const budgetTotal = parseNumber(totals && get(totals, map, 'Presupuesto total x campaña')) ?? round2(campaigns.reduce((sum, campaign) => sum + Number(campaign.budget || 0), 0));
+    const balanceTotal = parseNumber(totals && get(totals, map, 'Saldo por campaña')) ?? round2(campaigns.reduce((sum, campaign) => sum + Number(campaign.balance || 0), 0));
+    const brandingSpend = round2(campaigns.filter(campaign => campaign.ads.some(ad => normalizeHeader(ad.objective).includes('reconocimiento'))).reduce((sum, campaign) => sum + Number(campaign.spent || 0), 0));
     return {
-      name: 'Junio',
+      name: SHEET_MONTH,
       spend,
       messages: allAds.reduce((sum, ad) => sum + Number(ad.messages || 0), 0),
       reservations: allAds.reduce((sum, ad) => sum + Number(ad.reservas || 0), 0),
       adSpendTotal,
       budgetTotal,
       balanceTotal,
-      newDailyTotal: parseNumber(totals && get(totals, map, 'Nuevo ppto diario')),
-      totalObservation: String(totals && get(totals, map, 'Observaciones')).trim(),
-      spendBreakdown: { sales: Math.max(0, spend - 326.61), branding: 326.61 },
+      newDailyTotal: parseNumber(totals && get(totals, map, 'Nuevo ppto diario')) ?? round2(allAds.reduce((sum, ad) => sum + Number(ad.newDailyAmount || 0), 0)),
+      totalObservation: String((totals && get(totals, map, 'Observaciones')) || '').trim(),
+      spendBreakdown: { sales: round2(spend - brandingSpend), branding: brandingSpend },
       campaigns,
       headers: headers.map(header => String(header || '').trim()).filter(Boolean),
-      source: 'Google Sheets / Distribucion-amador / Junio'
+      source: `Google Sheets / Distribucion-amador / ${SHEET_MONTH}`
     };
   }
-  function mergeJuneData(juneData, source = 'Google Sheets') {
+  function mergeSheetMonth(monthData, source = 'Google Sheets') {
     const data = cloneData(state.data);
-    const index = data.months.findIndex(month => month.name === 'Junio');
-    if (index >= 0) data.months[index] = juneData;
-    else data.months.push(juneData);
+    const index = data.months.findIndex(month => month.name === monthData.name);
+    if (index >= 0) data.months[index] = monthData;
+    else data.months.push(monthData);
     data.cutoff = new Date().toISOString().slice(0, 10);
     data.source = source;
     state.data = data;
@@ -209,12 +219,12 @@
   async function fetchLiveSheet() {
     const response = await fetch(`${LIVE_CSV_URL}&cacheBust=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return sheetToJuneData(parseCsv(await response.text()));
+    return sheetToMonthData(parseCsv(await response.text()));
   }
   async function syncLiveSheet({ silent = false } = {}) {
     try {
-      const juneData = await fetchLiveSheet();
-      mergeJuneData(juneData);
+      const monthData = await fetchLiveSheet();
+      mergeSheetMonth(monthData);
       state.lastSync = new Date();
       renderAll();
       updateSyncLabel('Datos sincronizados desde Google Sheets');
@@ -225,7 +235,7 @@
   }
   function updateSyncLabel(text) {
     const label = document.getElementById('topbar-status');
-    if (label && state.month === 'Junio') label.textContent = text;
+    if (label && state.month === SHEET_MONTH) label.textContent = text;
   }
   function renderKpis() {
     const month = sourceMonth(state.month);
@@ -358,7 +368,7 @@
           tr += `<td class="ad-name-col"><input class="inline-edit" type="text" placeholder="Nombre anuncio" value="${currentAd.name || ''}" data-field="adname" data-cname="${c.name || ''}" data-cid="${c._id || ''}" data-aid="${currentAd._id || ''}"></td>`;
           tr += `<td><input class="inline-edit" type="text" placeholder="Objetivo" value="${obj || ''}" data-field="adobj" data-cname="${c.name || ''}" data-cid="${c._id || ''}" data-aid="${currentAd._id || ''}"></td>`;
         } else {
-          tr += `<td class="ad-name-col">${adName}</td>`;
+          tr += `<td class="ad-name-col">${currentAd.adUrl ? `<a href="${currentAd.adUrl}" target="_blank" rel="noopener" title="Ver vista previa del anuncio">${adName}</a>` : adName}</td>`;
           tr += `<td><span class="objective-pill">${obj || '—'}</span></td>`;
         }
         tr += `<td class="resultados-col">${reservas}</td>`;
@@ -477,7 +487,9 @@
       if (window.AMADOR_ADS_DATA) state.data = window.AMADOR_ADS_DATA;
       else { const response = await fetch(DATA_URL, { cache: 'no-store' }); if (!response.ok) throw new Error(`HTTP ${response.status}`); state.data = await response.json(); }
       const juneData = window.AMADOR_JUNE_DATA || await fetch(JUNE_DATA_URL, { cache: 'no-store' }).then(response => response.json());
-      mergeJuneData(juneData, state.data.source || 'Datos locales');
+      mergeSheetMonth(juneData, state.data.source || 'Datos locales');
+      const julyData = window.AMADOR_JULY_DATA || await fetch(JULY_DATA_URL, { cache: 'no-store' }).then(response => response.json());
+      mergeSheetMonth(julyData, state.data.source || 'Datos locales');
       wireEvents();
       renderAll();
       syncLiveSheet({ silent: true });
