@@ -147,6 +147,7 @@
           spent: parseNumber(get(row, map, 'Gasto x Campaña')),
           balance: parseNumber(get(row, map, 'Saldo por campaña')),
           realBalance: null,
+          reservationGoal: parseNumber(get(row, map, 'Objetivo Reservas')),
           reservas: 0,
           messages: 0,
           ads: []
@@ -199,6 +200,7 @@
       adSpendTotal,
       budgetTotal,
       balanceTotal,
+      reservationGoalTotal: parseNumber(totals && get(totals, map, 'Objetivo Reservas')),
       newDailyTotal: parseNumber(totals && get(totals, map, 'Nuevo ppto diario')) ?? round2(allAds.reduce((sum, ad) => sum + Number(ad.newDailyAmount || 0), 0)),
       totalObservation: String((totals && get(totals, map, 'Observaciones')) || '').trim(),
       spendBreakdown: { sales: round2(spend - brandingSpend), branding: brandingSpend },
@@ -303,11 +305,18 @@
     const key = goalKey(campaign.name, '__campaign__');
     const saved = state.goals[key];
     if (saved !== '' && saved != null) return Number(saved);
-    return campaign.ads?.[0]?.reservationGoal ?? null;
+    return campaign.reservationGoal ?? campaign.ads?.[0]?.reservationGoal ?? null;
+  }
+  function sheetGoalCampaign(campaign) {
+    return campaign.reservationGoal ?? campaign.ads?.find(ad => ad?.reservationGoal != null)?.reservationGoal ?? null;
   }
   function renderGoalInputCampaign(campaign) {
     const value = effectiveGoalCampaign(campaign);
     return `<input class="reservation-goal-input" type="number" min="0" step="1" value="${value ?? ''}" data-campaign="${campaign.name}" data-ad="__campaign__" aria-label="Objetivo Reservas ${campaign.name}">`;
+  }
+  function renderGoalValueCampaign(campaign) {
+    const value = sheetGoalCampaign(campaign);
+    return `<span class="sheet-goal-value">${value ?? '—'}</span>`;
   }
   function renderCampaigns() {
     const month = sourceMonth(state.month);
@@ -372,7 +381,10 @@
           tr += `<td><span class="objective-pill">${obj || '—'}</span></td>`;
         }
         tr += `<td class="resultados-col">${reservas}</td>`;
-        if (i === 0) tr += `<td class="goal-col"${rs}>${renderGoalInputCampaign(c)}${renderTrend(campaignTotalReservas, effectiveGoalCampaign(c))}</td>`;
+        if (i === 0) {
+          const goal = isCustomC ? effectiveGoalCampaign(c) : sheetGoalCampaign(c);
+          tr += `<td class="goal-col"${rs}>${isCustomC ? renderGoalInputCampaign(c) : renderGoalValueCampaign(c)}${renderTrend(campaignTotalReservas, goal)}</td>`;
+        }
         tr += `<td class="num">${fmtCount(messages)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerMessage)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerReservation)}</td>`;
@@ -397,7 +409,7 @@
       rows.push(`<tr class="campaign-sep"><td colspan="23"><button class="add-ad-btn add-ad-line-btn" data-cname="${c.name}">＋ Agregar anuncio</button></td></tr>`);
     }
     rows.push(`<tr class="add-campaign-row"><td colspan="23"><button class="add-campaign-btn">＋ Agregar campaña</button></td></tr>`);
-    rows.push(`<tr class="reservations-total-row"><td></td><td></td><td></td><td class="total-label">Total actualizado ${month.name.toLowerCase()}</td><td class="resultados-col">${totalReservas}</td><td></td><td class="num">${totalMessages}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="num">${fmtMoney(month.adSpendTotal)}</td><td class="num">${fmtMoney(month.budgetTotal)}</td><td class="num">${fmtMoney(month.spend)}</td><td class="num">${fmtMoney(month.balanceTotal)}</td><td></td><td></td><td></td></tr>`);
+    rows.push(`<tr class="reservations-total-row"><td></td><td></td><td></td><td class="total-label">Total actualizado ${month.name.toLowerCase()}</td><td class="resultados-col">${totalReservas}</td><td class="goal-col">${month.reservationGoalTotal ?? ''}</td><td class="num">${totalMessages}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="num">${fmtMoney(month.adSpendTotal)}</td><td class="num">${fmtMoney(month.budgetTotal)}</td><td class="num">${fmtMoney(month.spend)}</td><td class="num">${fmtMoney(month.balanceTotal)}</td><td></td><td></td><td></td></tr>`);
     body.innerHTML = rows.join('');
   }
   function chartOptions(series) {

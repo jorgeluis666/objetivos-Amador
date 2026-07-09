@@ -1,53 +1,193 @@
 {
   "account": "Amador",
   "year": 2026,
-  "cutoff": "2026-07-06",
-  "source": "Distribucion-amador / Junio (sincronizacion Google Sheets)",
+  "cutoff": "2026-07-09",
+  "source": "Distribucion-amador / Julio (sincronizacion Google Sheets)",
   "months": [
     {
       "name": "Enero",
       "spend": 1389.72,
-      "spendBreakdown": { "sales": 1389.72, "branding": 0 },
+      "spendBreakdown": {
+        "sales": 1389.72,
+        "branding": 0
+      },
       "campaigns": []
     },
     {
       "name": "Febrero",
       "spend": 1726.13,
-      "spendBreakdown": { "sales": 1726.13, "branding": 0 },
+      "spendBreakdown": {
+        "sales": 1726.13,
+        "branding": 0
+      },
       "campaigns": []
     },
     {
       "name": "Marzo",
       "spend": 2987.76,
-      "spendBreakdown": { "sales": 2987.76, "branding": 0 },
+      "spendBreakdown": {
+        "sales": 2987.76,
+        "branding": 0
+      },
       "campaigns": [
-        { "name": "Relatos de Amador - FEB 26", "status": "Desactiva", "objective": "Mensajes", "budget": 328.9, "spent": 329.9, "dailyAmount": 23.49, "adUrls": [] },
-        { "name": "Reservas Almuerzos - FEB 26", "status": "Desactiva", "objective": "Mensajes", "budget": null, "spent": 0, "dailyAmount": null, "adUrls": [] },
-        { "name": "Evento Viva la Isla", "status": "Desactiva", "objective": "Mensajes", "budget": 1300, "spent": 1255.4, "dailyAmount": 144.44, "adUrls": [] },
-        { "name": "Reservas Almuerzos - Marzo 26", "status": "Desactiva", "objective": "Mensajes", "budget": 1402.46, "spent": 1402.46, "dailyAmount": 51.94, "adUrls": [] }
+        {
+          "name": "Relatos de Amador - FEB 26",
+          "status": "Desactiva",
+          "objective": "Mensajes",
+          "budget": 328.9,
+          "spent": 329.9,
+          "dailyAmount": 23.49,
+          "adUrls": []
+        },
+        {
+          "name": "Reservas Almuerzos - FEB 26",
+          "status": "Desactiva",
+          "objective": "Mensajes",
+          "budget": null,
+          "spent": 0,
+          "dailyAmount": null,
+          "adUrls": []
+        },
+        {
+          "name": "Evento Viva la Isla",
+          "status": "Desactiva",
+          "objective": "Mensajes",
+          "budget": 1300,
+          "spent": 1255.4,
+          "dailyAmount": 144.44,
+          "adUrls": []
+        },
+        {
+          "name": "Reservas Almuerzos - Marzo 26",
+          "status": "Desactiva",
+          "objective": "Mensajes",
+          "budget": 1402.46,
+          "spent": 1402.46,
+          "dailyAmount": 51.94,
+          "adUrls": []
+        }
       ]
     },
     {
       "name": "Abril",
       "spend": 2510.49,
-      "spendBreakdown": { "sales": 2510.49, "branding": 0 },
+      "spendBreakdown": {
+        "sales": 2510.49,
+        "branding": 0
+      },
       "campaigns": [
-        { "name": "Relatos 06.04/26.04", "status": "Finalizada", "objective": "Mensajes", "budget": 875.98, "spent": 875.98, "dailyAmount": 70, "adUrls": ["https://fb.me/adspreview/facebook/1RBGegOC9UhYvmH", "https://fb.me/adspreview/facebook/1TkVajiXD62gST6"] },
-        { "name": "Amador de Dia", "status": "Desactiva", "objective": "Mensajes", "budget": 378.39, "spent": 378.39, "dailyAmount": 72, "adUrls": ["https://fb.me/adspreview/facebook/1RBGegOC9UhYvmH"] },
-        { "name": "Reservas Web - Amador de Dia", "status": "Activa", "objective": "Clics", "budget": 1192.66, "spent": 1192.66, "dailyAmount": 72, "adUrls": ["https://fb.me/adspreview/facebook/1RBGegOC9UhYvmH"] },
-        { "name": "Relatos hasta 28/04", "status": "Finalizada", "objective": "Mensajes", "budget": 34.94, "spent": 34.94, "dailyAmount": 35, "adUrls": ["https://fb.me/adspreview/facebook/1TkVajiXD62gST6"] },
-        { "name": "Fiesta Carioca 30/04 - 05/05", "status": "Activa", "objective": "Mensajes", "budget": 28.52, "spent": 28.52, "dailyAmount": 80, "adUrls": ["https://fb.me/adspreview/facebook/205Lf8GWnUkulhF"] }
+        {
+          "name": "Relatos 06.04/26.04",
+          "status": "Finalizada",
+          "objective": "Mensajes",
+          "budget": 875.98,
+          "spent": 875.98,
+          "dailyAmount": 70,
+          "adUrls": [
+            "https://fb.me/adspreview/facebook/1RBGegOC9UhYvmH",
+            "https://fb.me/adspreview/facebook/1TkVajiXD62gST6"
+          ]
+        },
+        {
+          "name": "Amador de Dia",
+          "status": "Desactiva",
+          "objective": "Mensajes",
+          "budget": 378.39,
+          "spent": 378.39,
+          "dailyAmount": 72,
+          "adUrls": [
+            "https://fb.me/adspreview/facebook/1RBGegOC9UhYvmH"
+          ]
+        },
+        {
+          "name": "Reservas Web - Amador de Dia",
+          "status": "Activa",
+          "objective": "Clics",
+          "budget": 1192.66,
+          "spent": 1192.66,
+          "dailyAmount": 72,
+          "adUrls": [
+            "https://fb.me/adspreview/facebook/1RBGegOC9UhYvmH"
+          ]
+        },
+        {
+          "name": "Relatos hasta 28/04",
+          "status": "Finalizada",
+          "objective": "Mensajes",
+          "budget": 34.94,
+          "spent": 34.94,
+          "dailyAmount": 35,
+          "adUrls": [
+            "https://fb.me/adspreview/facebook/1TkVajiXD62gST6"
+          ]
+        },
+        {
+          "name": "Fiesta Carioca 30/04 - 05/05",
+          "status": "Activa",
+          "objective": "Mensajes",
+          "budget": 28.52,
+          "spent": 28.52,
+          "dailyAmount": 80,
+          "adUrls": [
+            "https://fb.me/adspreview/facebook/205Lf8GWnUkulhF"
+          ]
+        }
       ]
     },
     {
       "name": "Mayo",
       "spend": 2522.92,
-      "spendBreakdown": { "sales": 2357.31, "branding": 165.61 },
+      "spendBreakdown": {
+        "sales": 2357.31,
+        "branding": 165.61
+      },
       "campaigns": [
-        { "name": "Reservas Web - Amador de Dia", "status": "Activa", "objective": "Clics", "budget": 1740.87, "spent": 1740.87, "dailyAmount": 72, "adUrls": ["https://fb.me/adspreview/facebook/1YyrzN4eXzHybyk"] },
-        { "name": "Fiesta Carioca 30/04 - 05/05", "status": "Finalizada", "objective": "Mensajes", "budget": 393.66, "spent": 393.66, "dailyAmount": 80, "adUrls": ["https://fb.me/adspreview/facebook/205Lf8GWnUkulhF"] },
-        { "name": "Fiesta Carioca 08/05 - 15/05", "status": "Desactiva", "objective": "Mensajes", "budget": 222.78, "spent": 222.78, "dailyAmount": 80, "adUrls": ["https://fb.me/adspreview/facebook/28L5OargcygIG6J", "https://fb.me/adspreview/facebook/2546Zc1JTPI8MFL", "https://fb.me/adspreview/facebook/22KHyLuGmYnUolS"] },
-        { "name": "Nuevos cocteles - 31/05", "status": "Activa", "objective": "Thruplays", "budget": 165.61, "spent": 165.61, "dailyAmount": 35, "adUrls": ["https://fb.me/adspreview/facebook/29iYfQhwpR9oRCw"] }
+        {
+          "name": "Reservas Web - Amador de Dia",
+          "status": "Activa",
+          "objective": "Clics",
+          "budget": 1740.87,
+          "spent": 1740.87,
+          "dailyAmount": 72,
+          "adUrls": [
+            "https://fb.me/adspreview/facebook/1YyrzN4eXzHybyk"
+          ]
+        },
+        {
+          "name": "Fiesta Carioca 30/04 - 05/05",
+          "status": "Finalizada",
+          "objective": "Mensajes",
+          "budget": 393.66,
+          "spent": 393.66,
+          "dailyAmount": 80,
+          "adUrls": [
+            "https://fb.me/adspreview/facebook/205Lf8GWnUkulhF"
+          ]
+        },
+        {
+          "name": "Fiesta Carioca 08/05 - 15/05",
+          "status": "Desactiva",
+          "objective": "Mensajes",
+          "budget": 222.78,
+          "spent": 222.78,
+          "dailyAmount": 80,
+          "adUrls": [
+            "https://fb.me/adspreview/facebook/28L5OargcygIG6J",
+            "https://fb.me/adspreview/facebook/2546Zc1JTPI8MFL",
+            "https://fb.me/adspreview/facebook/22KHyLuGmYnUolS"
+          ]
+        },
+        {
+          "name": "Nuevos cocteles - 31/05",
+          "status": "Activa",
+          "objective": "Thruplays",
+          "budget": 165.61,
+          "spent": 165.61,
+          "dailyAmount": 35,
+          "adUrls": [
+            "https://fb.me/adspreview/facebook/29iYfQhwpR9oRCw"
+          ]
+        }
       ]
     },
     {
@@ -60,7 +200,10 @@
       "balanceTotal": 670.09,
       "newDailyTotal": 17.15,
       "totalObservation": "Total ajustado = presupuesto actualizado considerando Padrísimo con un solo video, Jueves OFF y extra de almuerzos.",
-      "spendBreakdown": { "sales": 2528.3, "branding": 326.61 },
+      "spendBreakdown": {
+        "sales": 2528.3,
+        "branding": 326.61
+      },
       "campaigns": [
         {
           "name": "Padrísimo - Una noche mexa",
@@ -72,8 +215,42 @@
           "realBalance": null,
           "reservas": 11,
           "ads": [
-            { "name": "Video 1", "objective": "Mensajes", "status": "OFF", "reservas": 0, "reservationGoal": 10, "messages": 108, "startDate": "13-Jun", "endDate": "23-Jun", "duration": 10, "daysRemaining": 0, "dailyAmount": 25, "budget": 250, "spent": 234.47, "balance": 15.53, "newDailyAmount": 0, "adUrl": null },
-            { "name": "Video 2", "objective": "Reservas", "status": "OFF", "reservas": 11, "reservationGoal": null, "messages": 0, "startDate": "04-Jun", "endDate": "09-Jun", "duration": 5, "daysRemaining": 0, "dailyAmount": 50, "budget": 250, "spent": 251.46, "balance": -251.46, "newDailyAmount": 0, "adUrl": null }
+            {
+              "name": "Video 1",
+              "objective": "Mensajes",
+              "status": "OFF",
+              "reservas": 0,
+              "reservationGoal": 10,
+              "messages": 108,
+              "startDate": "13-Jun",
+              "endDate": "23-Jun",
+              "duration": 10,
+              "daysRemaining": 0,
+              "dailyAmount": 25,
+              "budget": 250,
+              "spent": 234.47,
+              "balance": 15.53,
+              "newDailyAmount": 0,
+              "adUrl": null
+            },
+            {
+              "name": "Video 2",
+              "objective": "Reservas",
+              "status": "OFF",
+              "reservas": 11,
+              "reservationGoal": null,
+              "messages": 0,
+              "startDate": "04-Jun",
+              "endDate": "09-Jun",
+              "duration": 5,
+              "daysRemaining": 0,
+              "dailyAmount": 50,
+              "budget": 250,
+              "spent": 251.46,
+              "balance": -251.46,
+              "newDailyAmount": 0,
+              "adUrl": null
+            }
           ]
         },
         {
@@ -87,7 +264,24 @@
           "observation": "Alerta el 30-Jun para decidir si se reactiva hasta el 07-Jul.",
           "reservas": 7,
           "ads": [
-            { "name": "Video 1", "objective": "Reservas", "status": "Activo", "reservas": 7, "reservationGoal": 10, "messages": 138, "startDate": "20-Jun", "endDate": "30-Jun", "duration": 10, "daysRemaining": 0, "dailyAmount": 50, "budget": 500, "spent": 477.99, "balance": 22.01, "newDailyAmount": 0, "adUrl": null }
+            {
+              "name": "Video 1",
+              "objective": "Reservas",
+              "status": "Activo",
+              "reservas": 7,
+              "reservationGoal": 10,
+              "messages": 138,
+              "startDate": "20-Jun",
+              "endDate": "30-Jun",
+              "duration": 10,
+              "daysRemaining": 0,
+              "dailyAmount": 50,
+              "budget": 500,
+              "spent": 477.99,
+              "balance": 22.01,
+              "newDailyAmount": 0,
+              "adUrl": null
+            }
           ]
         },
         {
@@ -100,8 +294,42 @@
           "realBalance": null,
           "reservas": 6,
           "ads": [
-            { "name": "Video 1", "objective": "Reservas/Mensajes", "status": "OFF", "reservas": 6, "reservationGoal": 10, "messages": 91, "startDate": "17-Jun", "endDate": "26-Jun", "duration": 9, "daysRemaining": 0, "dailyAmount": 33.33, "budget": 300, "spent": 380.7, "balance": 147.66, "newDailyAmount": 0, "adUrl": null },
-            { "name": "Video 2", "objective": "Reservas/Mensajes", "status": "OFF", "reservas": 0, "reservationGoal": null, "messages": 6, "startDate": "17-Jun", "endDate": "26-Jun", "duration": 9, "daysRemaining": 0, "dailyAmount": 33.33, "budget": 300, "spent": 71.67, "balance": 0, "newDailyAmount": 0, "adUrl": null }
+            {
+              "name": "Video 1",
+              "objective": "Reservas/Mensajes",
+              "status": "OFF",
+              "reservas": 6,
+              "reservationGoal": 10,
+              "messages": 91,
+              "startDate": "17-Jun",
+              "endDate": "26-Jun",
+              "duration": 9,
+              "daysRemaining": 0,
+              "dailyAmount": 33.33,
+              "budget": 300,
+              "spent": 380.7,
+              "balance": 147.66,
+              "newDailyAmount": 0,
+              "adUrl": null
+            },
+            {
+              "name": "Video 2",
+              "objective": "Reservas/Mensajes",
+              "status": "OFF",
+              "reservas": 0,
+              "reservationGoal": null,
+              "messages": 6,
+              "startDate": "17-Jun",
+              "endDate": "26-Jun",
+              "duration": 9,
+              "daysRemaining": 0,
+              "dailyAmount": 33.33,
+              "budget": 300,
+              "spent": 71.67,
+              "balance": 0,
+              "newDailyAmount": 0,
+              "adUrl": null
+            }
           ]
         },
         {
@@ -115,7 +343,24 @@
           "observation": "Presupuesto base casi agotado. Para sostener S/40 diarios hasta fin de mes se propone +S/560.",
           "reservas": 0,
           "ads": [
-            { "name": "Video 1", "objective": "Reservas web", "status": "OFF", "reservas": 0, "reservationGoal": 10, "messages": 0, "startDate": "01-Jun", "endDate": "30-Jun", "duration": 29, "daysRemaining": 0, "dailyAmount": 25, "budget": 725, "spent": 793.77, "balance": -78.36, "newDailyAmount": 0, "adUrl": null }
+            {
+              "name": "Video 1",
+              "objective": "Reservas web",
+              "status": "OFF",
+              "reservas": 0,
+              "reservationGoal": 10,
+              "messages": 0,
+              "startDate": "01-Jun",
+              "endDate": "30-Jun",
+              "duration": 29,
+              "daysRemaining": 0,
+              "dailyAmount": 25,
+              "budget": 725,
+              "spent": 793.77,
+              "balance": -78.36,
+              "newDailyAmount": 0,
+              "adUrl": null
+            }
           ]
         },
         {
@@ -129,7 +374,23 @@
           "observation": "Campaña apagada por solicitud. Gasto conocido: S/271.85; saldo no usado: S/328.15.",
           "reservas": 0,
           "ads": [
-            { "name": "Video 1", "objective": "Interacción/Reservas", "status": "OFF", "reservas": 0, "messages": 52, "startDate": "07-Jul", "endDate": "18-Jul", "duration": 11, "daysRemaining": 18, "dailyAmount": 20, "budget": 220, "spent": 308.68, "balance": 291.32, "newDailyAmount": 17.15, "adUrl": null }
+            {
+              "name": "Video 1",
+              "objective": "Interacción/Reservas",
+              "status": "OFF",
+              "reservas": 0,
+              "messages": 52,
+              "startDate": "07-Jul",
+              "endDate": "18-Jul",
+              "duration": 11,
+              "daysRemaining": 18,
+              "dailyAmount": 20,
+              "budget": 220,
+              "spent": 308.68,
+              "balance": 291.32,
+              "newDailyAmount": 17.15,
+              "adUrl": null
+            }
           ]
         },
         {
@@ -143,35 +404,97 @@
           "observation": "Campaña always on del mes.",
           "reservas": 0,
           "ads": [
-            { "name": "Video 1", "objective": "Reconocimiento/Interacción", "status": "OFF", "reservas": 0, "messages": 0, "startDate": "01-Jun", "endDate": "30-Jun", "duration": 29, "daysRemaining": 0, "dailyAmount": 20, "budget": 580, "spent": 326.61, "balance": 273.39, "newDailyAmount": 0, "adUrl": null }
+            {
+              "name": "Video 1",
+              "objective": "Reconocimiento/Interacción",
+              "status": "OFF",
+              "reservas": 0,
+              "messages": 0,
+              "startDate": "01-Jun",
+              "endDate": "30-Jun",
+              "duration": 29,
+              "daysRemaining": 0,
+              "dailyAmount": 20,
+              "budget": 580,
+              "spent": 326.61,
+              "balance": 273.39,
+              "newDailyAmount": 0,
+              "adUrl": null
+            }
           ]
         }
       ]
     },
     {
       "name": "Julio",
-      "spend": 776.01,
-      "messages": 188,
-      "reservations": 4,
-      "adSpendTotal": 776.01,
+      "spend": 1038.2,
+      "messages": 287,
+      "reservations": 7,
+      "adSpendTotal": 1038.2,
       "budgetTotal": 3855,
-      "balanceTotal": 3078.99,
-      "newDailyTotal": 192.77,
+      "balanceTotal": 2816.8,
+      "reservationGoalTotal": 69,
+      "newDailyTotal": 178.12,
       "totalObservation": "",
-      "spendBreakdown": { "sales": 776.01, "branding": 0 },
+      "spendBreakdown": {
+        "sales": 1038.2,
+        "branding": 0
+      },
       "campaigns": [
         {
           "name": "Mensajes - Relatos: Hasta 30.06 | LR",
           "type": "Evento",
-          "status": "Activo",
+          "status": "OFF",
           "budget": 325,
-          "spent": 238.92,
-          "balance": 86.08,
+          "spent": 292.33,
+          "balance": 32.67,
           "realBalance": null,
-          "reservas": 0,
+          "reservationGoal": 5,
+          "reservas": 3,
+          "messages": 145,
           "ads": [
-            { "name": "Video 1", "objective": "Mensajes", "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 22, "startDate": "01-Jul", "endDate": "06-Jul", "duration": 6, "daysRemaining": 2, "dailyAmount": 27, "budget": 162, "spent": 84.12, "balance": 77.88, "newDailyAmount": 43.04, "adUrl": "https://www.facebook.com/?feed_demo_ad=120245330403230145&h=AQLbouV6stqw7HDhhmBiLF6cDa8" },
-            { "name": "Video 2", "objective": "Mensajes", "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 98, "startDate": null, "endDate": null, "duration": null, "daysRemaining": null, "dailyAmount": 27, "budget": 162, "spent": 154.8, "balance": 7.2, "newDailyAmount": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120247210442090145&h=AQIW2ial9x3uDoYY5R7l0PlCFfE" }
+            {
+              "name": "Video 1",
+              "objective": "0",
+              "status": "OFF",
+              "reservas": 3,
+              "reservationGoal": 5,
+              "messages": 28,
+              "costPerMessage": 4.23,
+              "costPerReservation": 97.44,
+              "reservationRatio": 2.07,
+              "startDate": "01-Jul",
+              "endDate": "06-Jul",
+              "duration": 6,
+              "daysRemaining": 0,
+              "dailyAmount": 27,
+              "budget": 162,
+              "spent": 118.47,
+              "balance": 43.53,
+              "newDailyAmount": null,
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120245330403230145&h=AQLbouV6stqw7HDhhmBiLF6cWDE"
+            },
+            {
+              "name": "Video 2",
+              "objective": "0",
+              "status": "OFF",
+              "reservas": 0,
+              "reservationGoal": null,
+              "messages": 117,
+              "costPerMessage": 1.49,
+              "costPerReservation": null,
+              "reservationRatio": null,
+              "startDate": null,
+              "endDate": null,
+              "duration": null,
+              "daysRemaining": null,
+              "dailyAmount": 27,
+              "budget": 162,
+              "spent": 173.86,
+              "balance": -11.86,
+              "newDailyAmount": null,
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120247210442090145&h=AQIW2ial9x3uDoYY5R7l0PlC6JU"
+            }
           ]
         },
         {
@@ -179,13 +502,55 @@
           "type": "Evento",
           "status": "Activo",
           "budget": 1430,
-          "spent": 299.39,
-          "balance": 1130.61,
+          "spent": 420.29,
+          "balance": 1009.71,
           "realBalance": null,
+          "reservationGoal": 22,
           "reservas": 0,
+          "messages": 52,
           "ads": [
-            { "name": "Imagen 1", "objective": "Mensajes", "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 22, "startDate": "01-Jul", "endDate": "18-Jul", "duration": 18, "daysRemaining": 14, "dailyAmount": 79.44, "budget": 1430, "spent": 103.63, "balance": 1130.61, "newDailyAmount": 80.76, "adUrl": "https://www.facebook.com/?feed_demo_ad=120247299285510145&h=AQJ4bDK-HvMKGauQBsBfg2rTMm4" },
-            { "name": "Video 1", "objective": null, "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 23, "startDate": null, "endDate": null, "duration": null, "daysRemaining": null, "dailyAmount": null, "budget": null, "spent": 195.76, "balance": null, "newDailyAmount": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120247299191310145&h=AQIUBV2SRqe89Oo7GjS-nyIQXAg" }
+            {
+              "name": "Imagen 1",
+              "objective": "0",
+              "status": "Activo",
+              "reservas": 0,
+              "reservationGoal": 22,
+              "messages": 22,
+              "costPerMessage": 5.84,
+              "costPerReservation": null,
+              "reservationRatio": 0,
+              "startDate": "01-Jul",
+              "endDate": "18-Jul",
+              "duration": 18,
+              "daysRemaining": 10,
+              "dailyAmount": 79.44,
+              "budget": 1430,
+              "spent": 128.42,
+              "balance": 1009.71,
+              "newDailyAmount": 100.97,
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120247299285510145&h=AQJ4bDK-HvMKGauQBsBfg2rTDbo"
+            },
+            {
+              "name": "Video 1",
+              "objective": "0",
+              "status": "Activo",
+              "reservas": 0,
+              "reservationGoal": null,
+              "messages": 30,
+              "costPerMessage": 9.73,
+              "costPerReservation": null,
+              "reservationRatio": null,
+              "startDate": null,
+              "endDate": null,
+              "duration": null,
+              "daysRemaining": null,
+              "dailyAmount": null,
+              "budget": null,
+              "spent": 291.87,
+              "balance": null,
+              "newDailyAmount": null,
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120247299191310145&h=AQIUBV2SRqe89Oo7GjS-nyIQ5eA"
+            }
           ]
         },
         {
@@ -193,12 +558,55 @@
           "type": "Always On",
           "status": "Activo",
           "budget": 2100,
-          "spent": 237.7,
-          "balance": 1862.3,
+          "spent": 325.58,
+          "balance": 1774.42,
           "realBalance": null,
+          "reservationGoal": 42,
           "reservas": 4,
+          "messages": 90,
           "ads": [
-            { "name": "Video 1", "objective": "Mensajes", "status": "Activo", "reservas": 4, "reservationGoal": null, "messages": 23, "startDate": "01-Jul", "endDate": "31-Jul", "duration": 31, "daysRemaining": 27, "dailyAmount": 67.74, "budget": 2100, "spent": 237.7, "balance": 1862.3, "newDailyAmount": 68.97, "adUrl": "https://www.facebook.com/?feed_demo_ad=120247301923740145&h=AQL10_gg37hZghXS6sQuj5q6V6c" }
+            {
+              "name": "Video 1",
+              "objective": "0",
+              "status": "Activo",
+              "reservas": 4,
+              "reservationGoal": 42,
+              "messages": 90,
+              "costPerMessage": 0.18,
+              "costPerReservation": 81.4,
+              "reservationRatio": 4.44,
+              "startDate": "01-Jul",
+              "endDate": "31-Jul",
+              "duration": 31,
+              "daysRemaining": 23,
+              "dailyAmount": 67.74,
+              "budget": 2100,
+              "spent": 16.23,
+              "balance": 1774.42,
+              "newDailyAmount": 77.15,
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120247434501910145&h=AQJbix4dnqDdNPV0RMfo8Jqs8qo"
+            },
+            {
+              "name": "Video 2",
+              "objective": "0",
+              "status": "Activo",
+              "reservas": 0,
+              "reservationGoal": null,
+              "messages": 0,
+              "costPerMessage": null,
+              "costPerReservation": null,
+              "reservationRatio": null,
+              "startDate": null,
+              "endDate": null,
+              "duration": null,
+              "daysRemaining": null,
+              "dailyAmount": null,
+              "budget": null,
+              "spent": 309.35,
+              "balance": null,
+              "newDailyAmount": null,
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120247301923740145&h=AQL10_gg37hZghXS6sQuj5q6Nhg"
+            }
           ]
         }
       ]
