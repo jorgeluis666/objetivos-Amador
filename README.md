@@ -23,7 +23,18 @@ Los modulos Comparativo YoY, Distribucion, Productos Web y Usuarios y Claves se 
 
 ## Datos
 
-La fuente normalizada del dashboard esta en `data/amador-ads-2026.json`. Junio se cerro el 1 de julio de 2026 con los datos finales de `Distribucion-amador / Junio`; el CSV de respaldo esta en `data/csv-backups/`. Julio se sincronizo el 6 de julio de 2026 desde la pestana `Distribucion-amador / Julio` (`data/amador-july-sheet-2026.json`); la sincronizacion en vivo apunta a esa pestana por nombre de hoja.
+La fuente normalizada del dashboard esta en `data/amador-ads-2026.json`. Junio se cerro el 1 de julio de 2026 con los datos finales de `Distribucion-amador / Junio`; el CSV de respaldo esta en `data/csv-backups/`. Julio se sincronizo el 9 de julio de 2026 desde la pestana `Distribucion-amador / Julio` (`data/amador-july-sheet-2026.json`); la sincronizacion en vivo apunta a esa pestana por nombre de hoja.
+
+## Sincronizacion de escritura con Google Sheets
+
+GitHub Pages puede leer el CSV publicado de Google Sheets, pero necesita un puente autorizado para escribir cambios de vuelta en el spreadsheet. Para activar la edicion sincronizada de `Objetivo Reservas`:
+
+1. Crear un proyecto de Apps Script vinculado al Google Sheet.
+2. Copiar el contenido de `scripts/google-sheets-sync.gs`.
+3. Publicarlo como Web App con ejecucion como propietario y acceso permitido a los usuarios que usaran el panel.
+4. Abrir el dashboard una vez con `?sheetSyncEndpoint=URL_DE_LA_WEB_APP`. El panel guardara ese endpoint en el navegador.
+
+Desde ese momento, los cambios en `Objetivo Reservas` se actualizan localmente y se envian al Sheet.
 
 ## Desarrollo
 

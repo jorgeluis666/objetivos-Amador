@@ -7,6 +7,7 @@
   const LIVE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_MONTH)}`;
   const SYNC_INTERVAL_MS = 60 * 60 * 1000;
   const GOALS_KEY = 'amador-reservation-goals-v1';
+  const SHEET_SYNC_ENDPOINT_KEY = 'amador-sheet-sync-endpoint-v1';
   const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const SHORT_MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const REQUIRED_HEADERS = ['Tipo','Campaña','Anuncio','Objetivo','Reservas','Objetivo Reservas','Mensajes','Costo por mensaje','Costo por reserva','Ratio de reservas','Estado','Fecha de inicio','Fecha de fin','Duración (días)','Días restantes','Importe diario','Presupuesto total x campaña','Gasto x Campaña','Saldo x anuncio','Saldo por campaña','Proyección real de gasto mesual'];
@@ -34,6 +35,16 @@
   }
   function saveGoals() {
     try { localStorage.setItem(GOALS_KEY, JSON.stringify(state.goals)); } catch {}
+  }
+  function syncEndpoint() {
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get('sheetSyncEndpoint');
+    if (fromUrl) {
+      try { localStorage.setItem(SHEET_SYNC_ENDPOINT_KEY, fromUrl); } catch {}
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return fromUrl.trim();
+    }
+    return (window.AMADOR_SHEET_SYNC_ENDPOINT || localStorage.getItem(SHEET_SYNC_ENDPOINT_KEY) || '').trim();
   }
 
   // ── Custom campaigns / ads (stored in localStorage) ──────────────────────
@@ -312,11 +323,45 @@
   }
   function renderGoalInputCampaign(campaign) {
     const value = effectiveGoalCampaign(campaign);
-    return `<input class="reservation-goal-input" type="number" min="0" step="1" value="${value ?? ''}" data-campaign="${campaign.name}" data-ad="__campaign__" aria-label="Objetivo Reservas ${campaign.name}">`;
+    return `<input class="reservation-goal-input" type="number" min="0" step="1" value="${value ?? ''}" data-campaign="${campaign.name}" data-ad="__campaign__" data-sheet-row="campaign" aria-label="Objetivo Reservas ${campaign.name}">`;
   }
-  function renderGoalValueCampaign(campaign) {
-    const value = sheetGoalCampaign(campaign);
-    return `<span class="sheet-goal-value">${value ?? '—'}</span>`;
+  function updateCampaignGoal(campaignName, value) {
+    const month = sourceMonth(state.month);
+    const campaign = month?.campaigns?.find(item => item.name === campaignName);
+    if (!campaign) return;
+    const numberValue = value === '' ? null : Number(value);
+    campaign.reservationGoal = Number.isFinite(numberValue) ? numberValue : null;
+    const firstGoalAd = campaign.ads?.find(ad => ad?.reservationGoal != null) || campaign.ads?.[0];
+    if (firstGoalAd) firstGoalAd.reservationGoal = campaign.reservationGoal;
+    month.reservationGoalTotal = (month.campaigns || []).reduce((sum, item) => sum + Number(item.reservationGoal || 0), 0);
+  }
+  async function pushGoalToSheet(input) {
+    const endpoint = syncEndpoint();
+    if (!endpoint) {
+      updateSyncLabel('Objetivo actualizado localmente; falta endpoint de escritura a Sheets');
+      return;
+    }
+    const payload = {
+      action: 'updateReservationGoal',
+      spreadsheetId: SHEET_ID,
+      sheetName: SHEET_MONTH,
+      campaign: input.dataset.campaign,
+      value: input.value === '' ? '' : Number(input.value)
+    };
+    updateSyncLabel('Enviando objetivo a Google Sheets...');
+    try {
+      await fetch(endpoint, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      updateSyncLabel('Objetivo enviado a Google Sheets');
+      setTimeout(() => syncLiveSheet({ silent: true }), 1800);
+    } catch (error) {
+      console.warn('[amador] No se pudo enviar el objetivo a Google Sheets:', error);
+      updateSyncLabel('Cambio local; error al enviar a Google Sheets');
+    }
   }
   function renderCampaigns() {
     const month = sourceMonth(state.month);
@@ -336,6 +381,7 @@
     if (!campaigns.length) { body.innerHTML = '<tr><td colspan="23" class="table-empty">Sin campanas registradas para este mes.</td></tr>'; return; }
     const rows = [];
     let totalReservas = 0;
+    let totalGoals = 0;
     let totalMessages = 0;
     for (const c of campaigns) {
       const isCustomC = !!(c._id);
@@ -382,8 +428,9 @@
         }
         tr += `<td class="resultados-col">${reservas}</td>`;
         if (i === 0) {
-          const goal = isCustomC ? effectiveGoalCampaign(c) : sheetGoalCampaign(c);
-          tr += `<td class="goal-col"${rs}>${isCustomC ? renderGoalInputCampaign(c) : renderGoalValueCampaign(c)}${renderTrend(campaignTotalReservas, goal)}</td>`;
+          const goal = effectiveGoalCampaign(c);
+          totalGoals += Number(goal || 0);
+          tr += `<td class="goal-col"${rs}>${renderGoalInputCampaign(c)}${renderTrend(campaignTotalReservas, goal)}</td>`;
         }
         tr += `<td class="num">${fmtCount(messages)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerMessage)}</td>`;
@@ -409,7 +456,7 @@
       rows.push(`<tr class="campaign-sep"><td colspan="23"><button class="add-ad-btn add-ad-line-btn" data-cname="${c.name}">＋ Agregar anuncio</button></td></tr>`);
     }
     rows.push(`<tr class="add-campaign-row"><td colspan="23"><button class="add-campaign-btn">＋ Agregar campaña</button></td></tr>`);
-    rows.push(`<tr class="reservations-total-row"><td></td><td></td><td></td><td class="total-label">Total actualizado ${month.name.toLowerCase()}</td><td class="resultados-col">${totalReservas}</td><td class="goal-col">${month.reservationGoalTotal ?? ''}</td><td class="num">${totalMessages}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="num">${fmtMoney(month.adSpendTotal)}</td><td class="num">${fmtMoney(month.budgetTotal)}</td><td class="num">${fmtMoney(month.spend)}</td><td class="num">${fmtMoney(month.balanceTotal)}</td><td></td><td></td><td></td></tr>`);
+    rows.push(`<tr class="reservations-total-row"><td></td><td></td><td></td><td class="total-label">Total actualizado ${month.name.toLowerCase()}</td><td class="resultados-col">${totalReservas}</td><td class="goal-col">${totalGoals || ''}</td><td class="num">${totalMessages}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="num">${fmtMoney(month.adSpendTotal)}</td><td class="num">${fmtMoney(month.budgetTotal)}</td><td class="num">${fmtMoney(month.spend)}</td><td class="num">${fmtMoney(month.balanceTotal)}</td><td></td><td></td><td></td></tr>`);
     body.innerHTML = rows.join('');
   }
   function chartOptions(series) {
@@ -439,8 +486,10 @@
       const input = event.target.closest('.reservation-goal-input');
       if (input) {
         state.goals[goalKey(input.dataset.campaign, input.dataset.ad)] = input.value;
+        updateCampaignGoal(input.dataset.campaign, input.value);
         saveGoals();
         renderCampaigns();
+        pushGoalToSheet(input);
         return;
       }
       const edit = event.target.closest('.inline-edit');
