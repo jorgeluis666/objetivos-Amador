@@ -289,6 +289,10 @@
     if (normalized === 'finalizada' || normalized === 'finalizado' || normalized === 'off') return 'red';
     return 'muted';
   }
+  function isFinishedStatus(status) {
+    const normalized = String(status || '').toLowerCase();
+    return normalized === 'off' || normalized.includes('finaliz') || normalized.includes('desactiva');
+  }
   function renderReservationProgress(value, goal) {
     if (goal == null || Number(goal) <= 0) return `${value}`;
     const reached = Number(value) >= Number(goal);
@@ -459,6 +463,61 @@
     rows.push(`<tr class="reservations-total-row"><td></td><td></td><td></td><td class="total-label">Total actualizado ${month.name.toLowerCase()}</td><td class="resultados-col">${totalReservas}</td><td class="goal-col">${totalGoals || ''}</td><td class="num">${totalMessages}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="num">${fmtMoney(month.adSpendTotal)}</td><td class="num">${fmtMoney(month.budgetTotal)}</td><td class="num">${fmtMoney(month.spend)}</td><td class="num">${fmtMoney(month.balanceTotal)}</td><td></td><td></td><td></td></tr>`);
     body.innerHTML = rows.join('');
   }
+  function finishedCampaigns() {
+    return (state.data?.months || []).flatMap(month => (month.campaigns || [])
+      .filter(campaign => isFinishedStatus(campaign.status))
+      .map(campaign => {
+        const ads = campaign.ads || [];
+        const reservas = Number(campaign.reservas ?? ads.reduce((sum, ad) => sum + Number(ad.reservas || 0), 0));
+        const messages = Number(campaign.messages ?? ads.reduce((sum, ad) => sum + Number(ad.messages || 0), 0));
+        const spent = Number(campaign.spent ?? ads.reduce((sum, ad) => sum + Number(ad.spent || 0), 0));
+        const budget = Number(campaign.budget ?? ads.reduce((sum, ad) => sum + Number(ad.budget || 0), 0));
+        const balance = Number(campaign.balance ?? (Number.isFinite(budget) && Number.isFinite(spent) ? budget - spent : 0));
+        return { month: month.name, campaign, ads, reservas, messages, spent, budget, balance };
+      }));
+  }
+  function renderHistory() {
+    const body = document.getElementById('history-body');
+    if (!body || !state.data) return;
+    const rows = finishedCampaigns();
+    const kpis = document.getElementById('history-kpis');
+    const sub = document.getElementById('history-sub');
+    const totals = rows.reduce((acc, row) => {
+      acc.spend += Number(row.spent || 0);
+      acc.budget += Number(row.budget || 0);
+      acc.reservas += Number(row.reservas || 0);
+      acc.messages += Number(row.messages || 0);
+      return acc;
+    }, { spend: 0, budget: 0, reservas: 0, messages: 0 });
+    if (kpis) {
+      kpis.innerHTML = [
+        ['Campañas', fmtCount(rows.length), 'Finalizadas'],
+        ['Inversión', fmtMoney(totals.spend), 'Gasto acumulado'],
+        ['Reservas', fmtCount(totals.reservas), 'Total historico'],
+        ['Mensajes', fmtCount(totals.messages), 'Conversaciones'],
+        ['Saldo', fmtMoney(totals.budget - totals.spend), 'Presupuesto no usado']
+      ].map(([label, value, meta]) => `<div class="kpi-pill"><span>${label}</span><strong>${value}</strong><small>${meta}</small></div>`).join('');
+    }
+    if (sub) sub.textContent = rows.length ? `${rows.length} campanas finalizadas encontradas en los meses disponibles.` : 'Sin campanas finalizadas registradas.';
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="10" class="table-empty">Sin campanas finalizadas en los meses cargados.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(({ month, campaign, ads, reservas, messages, spent, budget, balance }) => `
+      <tr>
+        <td class="date-col">${month}</td>
+        <td>${campaign.type || '-'}</td>
+        <td class="campaign-name">${campaign.name}</td>
+        <td><span class="status-pill ${statusClass(campaign.status)}">${campaign.status || '-'}</span></td>
+        <td class="num">${fmtCount(reservas)}</td>
+        <td class="num">${fmtCount(messages)}</td>
+        <td class="num">${fmtMoney(budget)}</td>
+        <td class="num">${fmtMoney(spent)}</td>
+        <td class="num">${fmtMoney(balance)}</td>
+        <td>${ads.length ? ads.map(ad => ad.adUrl ? `<a class="history-ad-link" href="${ad.adUrl}" target="_blank" rel="noopener">${ad.name}</a>` : `<span class="history-ad-muted">${ad.name}</span>`).join('') : '-'}</td>
+      </tr>
+    `).join('');
+  }
   function chartOptions(series) {
     const isMoney = series.unit === 'money';
     return { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, layout: { padding: { top: 24, right: 12, left: 4 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => ` ${series.label}: ${formatSeriesValue(context.raw, series)}` } } }, scales: { x: { grid: { display: false }, border: { color: '#cbd5e1' }, ticks: { color: '#7890b5', font: { size: 10 } } }, y: { beginAtZero: true, suggestedMax: isMoney ? 3500 : undefined, border: { display: false }, grid: { color: 'rgba(148,163,184,.20)' }, ticks: { precision: 0, color: '#7890b5', font: { size: 10 }, callback: value => isMoney ? (value === 0 ? 'S/. 0' : `S/. ${(value / 1000).toFixed(1)}k`) : Number(value).toLocaleString('es-PE') } } } };
@@ -479,6 +538,7 @@
     renderChart();
     if (withTabs) renderTabs();
     renderCampaigns();
+    renderHistory();
   }
   function wireEvents() {
     document.getElementById('spend-type-select').addEventListener('change', event => { state.type = event.target.value; renderChart(); });
@@ -557,5 +617,6 @@
       state.syncTimer = setInterval(() => syncLiveSheet({ silent: true }), SYNC_INTERVAL_MS);
     } catch (error) { document.getElementById('view-obj').innerHTML = '<div class="data-notice error"><strong>No se pudo cargar la informacion de Amador.</strong></div>'; console.error(error); }
   }
+  window.AmadorObjectives = { renderHistory };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

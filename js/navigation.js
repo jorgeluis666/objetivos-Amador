@@ -4,7 +4,7 @@
     'view-obj': {
       title: 'Gasto publicitario 2026',
       caption: 'Agencia Lima Retail',
-      status: 'Datos al 6 de julio',
+      status: 'Datos al 13 de julio',
       source: 'Fuente: Distribucion-amador / Julio actualizado',
       footer: 'Sincronizado por Agencia Lima Retail',
     },
@@ -14,6 +14,13 @@
       status: 'Guardado automático',
       source: 'Cálculo local de inversión para campañas de Mensajes',
       footer: 'Datos guardados en este navegador',
+    },
+    'view-history': {
+      title: 'Histórico de Campañas',
+      caption: 'Campañas finalizadas',
+      status: 'Datos al 13 de julio',
+      source: 'Fuente: Distribucion-amador / Histórico consolidado',
+      footer: 'Solo campañas finalizadas',
     },
   };
 
@@ -54,6 +61,7 @@
 
     if (viewId === 'view-messages') window.MessagesCalculator?.init();
     if (viewId === 'view-obj') window.setTimeout(() => window.dispatchEvent(new Event('resize')), 0);
+    if (viewId === 'view-history') window.AmadorObjectives?.renderHistory?.();
   }
 
   function initNavigation() {

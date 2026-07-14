@@ -76,6 +76,46 @@
   color: var(--ink);
 }
 
+.history-kpis {
+  margin-top: 20px;
+}
+
+.history-panel {
+  margin-top: 18px;
+}
+
+.history-table {
+  min-width: 980px;
+}
+
+.history-ad-link,
+.history-ad-muted {
+  display: inline-flex;
+  margin: 2px 4px 2px 0;
+  padding: 4px 7px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.history-ad-link {
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
+  background: #eff6ff;
+  text-decoration: none;
+}
+
+.history-ad-link:hover {
+  border-color: #2563eb;
+  background: #dbeafe;
+}
+
+.history-ad-muted {
+  color: #64748b;
+  background: #f1f5f9;
+}
+
 @media (max-width: 1180px) {
   .kpi-strip {
     grid-template-columns: repeat(3, minmax(150px, 1fr));
