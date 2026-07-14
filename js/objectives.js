@@ -394,6 +394,7 @@
       const ads = [...baseAds, ...extraAds];
       const span = ads.length;
       const campaignTotalReservas = ads.reduce((s, ad) => s + Number((ad || {}).reservas ?? (ads.length === 1 ? c.reservas : 0) ?? 0), 0);
+      totalReservas += campaignTotalReservas;
       ads.forEach((ad, i) => {
         const currentAd = ad || {};
         const isExtraAd = extraAds.includes(ad);
@@ -410,7 +411,6 @@
         const ratio = currentAd.reservationRatio ?? (messages > 0 ? reservas / messages * 100 : null);
         const adBalance = currentAd.balance ?? (budget != null && spent != null ? budget - spent : null);
         const observation = currentAd.observation ?? (i === 0 ? c.observation : null);
-        totalReservas += reservas;
         totalMessages += messages;
         const rs = span > 1 ? ` rowspan="${span}"` : '';
         let tr = '<tr>';
@@ -430,7 +430,7 @@
           tr += `<td class="ad-name-col">${currentAd.adUrl ? `<a href="${currentAd.adUrl}" target="_blank" rel="noopener" title="Ver vista previa del anuncio">${adName}</a>` : adName}</td>`;
           tr += `<td><span class="objective-pill">${obj || '—'}</span></td>`;
         }
-        tr += `<td class="resultados-col">${reservas}</td>`;
+        if (i === 0) tr += `<td class="resultados-col campaign-reservas"${rs}>${campaignTotalReservas}</td>`;
         if (i === 0) {
           const goal = effectiveGoalCampaign(c);
           totalGoals += Number(goal || 0);
