@@ -8,6 +8,7 @@
   const SYNC_INTERVAL_MS = 60 * 60 * 1000;
   const GOALS_KEY = 'amador-reservation-goals-v1';
   const SHEET_SYNC_ENDPOINT_KEY = 'amador-sheet-sync-endpoint-v1';
+  const CHART_COLLAPSED_KEY = 'amador-chart-collapsed-v1';
   const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const SHORT_MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const REQUIRED_HEADERS = ['Tipo','Campaña','Anuncio','Objetivo','Reservas','Objetivo Reservas','Mensajes','Costo por mensaje','Costo por reserva','Ratio de reservas','Estado','Fecha de inicio','Fecha de fin','Duración (días)','Días restantes','Importe diario','Presupuesto total x campaña','Gasto x Campaña','Saldo x anuncio','Saldo por campaña','Proyección real de gasto mesual'];
@@ -19,7 +20,7 @@
     messages: { label: 'Mensajes', unit: 'count', color: '#16a34a', fill: 'rgba(22,163,74,.10)' },
     reservations: { label: 'Reservas', unit: 'count', color: '#ea580c', fill: 'rgba(234,88,12,.10)' },
   };
-  const state = { data: null, type: 'investment', month: 'Julio', chart: null, syncTimer: null, goals: readGoals(), lastSync: null };
+  const state = { data: null, type: 'investment', month: 'Julio', chart: null, syncTimer: null, goals: readGoals(), chartCollapsed: readChartCollapsed(), lastSync: null };
 
   const fmtMoney = value => Number.isFinite(Number(value)) ? `S/. ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
   const fmtCount = value => Number(value || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 });
@@ -32,6 +33,15 @@
 
   function readGoals() {
     try { return JSON.parse(localStorage.getItem(GOALS_KEY) || '{}'); } catch { return {}; }
+  }
+  function readChartCollapsed() {
+    try {
+      const saved = localStorage.getItem(CHART_COLLAPSED_KEY);
+      return saved == null ? true : saved === 'true';
+    } catch { return true; }
+  }
+  function saveChartCollapsed() {
+    try { localStorage.setItem(CHART_COLLAPSED_KEY, String(state.chartCollapsed)); } catch {}
   }
   function saveGoals() {
     try { localStorage.setItem(GOALS_KEY, JSON.stringify(state.goals)); } catch {}
@@ -508,12 +518,22 @@
     const isMoney = series.unit === 'money';
     return { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, layout: { padding: { top: 24, right: 12, left: 4 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => ` ${series.label}: ${formatSeriesValue(context.raw, series)}` } } }, scales: { x: { grid: { display: false }, border: { color: '#cbd5e1' }, ticks: { color: '#7890b5', font: { size: 10 } } }, y: { beginAtZero: true, suggestedMax: isMoney ? 3500 : undefined, border: { display: false }, grid: { color: 'rgba(148,163,184,.20)' }, ticks: { precision: 0, color: '#7890b5', font: { size: 10 }, callback: value => isMoney ? (value === 0 ? 'S/. 0' : `S/. ${(value / 1000).toFixed(1)}k`) : Number(value).toLocaleString('es-PE') } } } };
   }
+  function applyChartCollapsed() {
+    const panel = document.getElementById('chart-panel');
+    const button = document.getElementById('chart-toggle-btn');
+    if (!panel || !button) return;
+    panel.classList.toggle('is-collapsed', state.chartCollapsed);
+    button.textContent = state.chartCollapsed ? '+' : '-';
+    button.setAttribute('aria-expanded', String(!state.chartCollapsed));
+    button.setAttribute('title', state.chartCollapsed ? 'Expandir grafico' : 'Minimizar grafico');
+  }
   function renderChart() {
     const series = SERIES[state.type];
     const values = MONTHS.map(name => valueFor(name, state.type));
     document.getElementById('chart-title').textContent = `Evolucion mensual | ${series.label} | 2026`;
     document.getElementById('legend-label').textContent = series.label;
     document.querySelector('.legend-line').className = `legend-line ${state.type}`;
+    if (state.chartCollapsed) return;
     const canvas = document.getElementById('chart-monthly');
     if (typeof Chart === 'undefined') { canvas.parentElement.innerHTML = '<div class="empty-state"><strong>Grafico no disponible sin conexion.</strong><span>Los totales mensuales siguen visibles debajo.</span></div>'; return; }
     if (state.chart) state.chart.destroy();
@@ -521,6 +541,7 @@
   }
   function renderAll(withTabs = true) {
     renderKpis();
+    applyChartCollapsed();
     renderChart();
     if (withTabs) renderTabs();
     renderCampaigns();
@@ -528,6 +549,12 @@
   }
   function wireEvents() {
     document.getElementById('spend-type-select').addEventListener('change', event => { state.type = event.target.value; renderChart(); });
+    document.getElementById('chart-toggle-btn').addEventListener('click', () => {
+      state.chartCollapsed = !state.chartCollapsed;
+      saveChartCollapsed();
+      applyChartCollapsed();
+      if (!state.chartCollapsed) renderChart();
+    });
     document.getElementById('campaigns-body').addEventListener('change', event => {
       const input = event.target.closest('.reservation-goal-input');
       if (input) {
