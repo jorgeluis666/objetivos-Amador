@@ -244,16 +244,30 @@
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return sheetToMonthData(parseCsv(await response.text()));
   }
-  async function syncLiveSheet({ silent = false } = {}) {
+  function setRefreshButtonState(isLoading) {
+    const button = document.getElementById('campaigns-refresh-btn');
+    if (!button) return;
+    button.disabled = Boolean(isLoading);
+    button.textContent = isLoading ? 'Actualizando...' : 'Actualizar';
+  }
+  async function syncLiveSheet({ silent = false, manual = false } = {}) {
+    if (manual) {
+      setRefreshButtonState(true);
+      updateSyncLabel('Actualizando datos desde Google Sheets...');
+    }
     try {
       const monthData = await fetchLiveSheet();
       mergeSheetMonth(monthData);
       state.lastSync = new Date();
       renderAll();
       updateSyncLabel('Datos sincronizados desde Google Sheets');
+      return true;
     } catch (error) {
       if (!silent) console.warn('[amador] No se pudo sincronizar Google Sheets:', error);
-      updateSyncLabel('Datos locales, esperando sincronizacion');
+      updateSyncLabel(manual ? 'No se pudo actualizar desde Google Sheets' : 'Datos locales, esperando sincronizacion');
+      return false;
+    } finally {
+      if (manual) setRefreshButtonState(false);
     }
   }
   function updateSyncLabel(text) {
@@ -576,6 +590,7 @@
   }
   function wireEvents() {
     document.getElementById('spend-type-select').addEventListener('change', event => { state.type = event.target.value; renderChart(); });
+    document.getElementById('campaigns-refresh-btn').addEventListener('click', () => syncLiveSheet({ manual: true }));
     document.getElementById('chart-toggle-btn').addEventListener('click', () => {
       state.chartCollapsed = !state.chartCollapsed;
       saveChartCollapsed();
