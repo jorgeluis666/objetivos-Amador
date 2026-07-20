@@ -32,19 +32,29 @@ function updateReservationGoal_(payload) {
 
   const campaign = String(payload.campaign || '').trim();
   const ad = String(payload.ad || '').trim();
+  const campaignRows = [];
   let currentCampaign = '';
-  const rowIndex = values.findIndex((row, index) => {
-    if (index <= headerRow) return false;
-    if (normalize_(row[typeCol]).startsWith('total')) return false;
+  values.forEach((row, index) => {
+    if (index <= headerRow) return;
+    if (normalize_(row[typeCol]).startsWith('total')) return;
     const rowCampaign = String(row[campaignCol] || '').trim();
     if (rowCampaign) currentCampaign = rowCampaign;
-    const rowAd = String(row[adCol] || '').trim();
-    return currentCampaign === campaign && rowAd === ad;
+    if (currentCampaign === campaign) campaignRows.push({ row, index });
   });
-  if (rowIndex < 0) throw new Error('No se encontro la fila de campana/anuncio en el sheet.');
+  if (!campaignRows.length) throw new Error('No se encontro la campana en el sheet.');
 
   const cleanValue = payload.value === '' || payload.value == null ? '' : Number(payload.value);
-  sheet.getRange(rowIndex + 1, goalCol + 1).setValue(cleanValue);
+  let rowIndex;
+  if (payload.campaignLevel || ad === '__campaign__') {
+    rowIndex = campaignRows[0].index;
+    sheet.getRange(rowIndex + 1, goalCol + 1).setValue(cleanValue);
+    campaignRows.slice(1).forEach(item => sheet.getRange(item.index + 1, goalCol + 1).setValue(''));
+  } else {
+    const match = campaignRows.find(item => String(item.row[adCol] || '').trim() === ad);
+    if (!match) throw new Error('No se encontro la fila de campana/anuncio en el sheet.');
+    rowIndex = match.index;
+    sheet.getRange(rowIndex + 1, goalCol + 1).setValue(cleanValue);
+  }
 
   const totalRow = values.findIndex((row, index) => index > headerRow && normalize_(row[typeCol]).startsWith('total'));
   if (totalRow >= 0) {

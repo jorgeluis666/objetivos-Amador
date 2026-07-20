@@ -328,15 +328,37 @@
     const value = effectiveGoal(campaign, ad);
     return `<input class="reservation-goal-input" type="number" min="0" step="1" value="${value ?? ''}" data-campaign="${campaign.name}" data-ad="${ad.name}" aria-label="Objetivo Reservas ${campaign.name} ${ad.name}">`;
   }
+  function goalValue(campaign, ad) {
+    return Number(effectiveGoal(campaign, ad || {}) || 0);
+  }
+  function campaignGoal(campaign, ads) {
+    const saved = state.goals[goalKey(campaign.name, '__campaign__')];
+    if (saved !== '' && saved != null) return Number(saved);
+    const rows = ads && ads.length ? ads : (campaign.ads || []);
+    return rows.reduce((sum, ad) => sum + goalValue(campaign, ad), 0);
+  }
+  function renderCampaignGoalInput(campaign, ads) {
+    const value = campaignGoal(campaign, ads);
+    return `<input class="reservation-goal-input" type="number" min="0" step="1" value="${value || ''}" data-campaign="${campaign.name}" data-ad="__campaign__" aria-label="Objetivo Reservas ${campaign.name}">`;
+  }
   function updateAdGoal(campaignName, adName, value) {
     const month = sourceMonth(state.month);
     const campaign = month?.campaigns?.find(item => item.name === campaignName);
-    const ad = campaign?.ads?.find(item => item.name === adName);
-    if (!campaign || !ad) return;
+    if (!campaign) return;
     const numberValue = value === '' ? null : Number(value);
-    ad.reservationGoal = Number.isFinite(numberValue) ? numberValue : null;
-    campaign.reservationGoal = campaign.ads?.find(item => item?.reservationGoal != null)?.reservationGoal ?? null;
-    month.reservationGoalTotal = (month.campaigns || []).flatMap(item => item.ads || []).reduce((sum, item) => sum + Number(item.reservationGoal || 0), 0);
+    if (adName === '__campaign__') {
+      const firstAd = campaign.ads?.[0];
+      if (firstAd) firstAd.reservationGoal = Number.isFinite(numberValue) ? numberValue : null;
+      (campaign.ads || []).slice(1).forEach(item => { item.reservationGoal = null; });
+      campaign.reservationGoal = firstAd?.reservationGoal ?? null;
+      Object.keys(state.goals).forEach(key => { if (key.startsWith(`${campaignName}::`) && key !== goalKey(campaignName, '__campaign__')) delete state.goals[key]; });
+    } else {
+      const ad = campaign.ads?.find(item => item.name === adName);
+      if (!ad) return;
+      ad.reservationGoal = Number.isFinite(numberValue) ? numberValue : null;
+      campaign.reservationGoal = campaign.ads?.find(item => item?.reservationGoal != null)?.reservationGoal ?? null;
+    }
+    month.reservationGoalTotal = (month.campaigns || []).reduce((sum, item) => sum + campaignGoal(item, item.ads || []), 0);
   }
   async function pushGoalToSheet(input) {
     const endpoint = syncEndpoint();
@@ -350,6 +372,7 @@
       sheetName: SHEET_MONTH,
       campaign: input.dataset.campaign,
       ad: input.dataset.ad,
+      campaignLevel: input.dataset.ad === '__campaign__',
       value: input.value === '' ? '' : Number(input.value)
     };
     updateSyncLabel('Enviando objetivo a Google Sheets...');
@@ -394,7 +417,7 @@
       const ads = [...baseAds, ...extraAds];
       const span = ads.length;
       const campaignTotalReservas = ads.reduce((s, ad) => s + Number((ad || {}).reservas ?? (ads.length === 1 ? c.reservas : 0) ?? 0), 0);
-      const campaignTotalGoal = ads.reduce((sum, ad) => sum + Number(effectiveGoal(c, ad || {}) || 0), 0);
+      const campaignTotalGoal = campaignGoal(c, ads);
       totalGoals += campaignTotalGoal;
       ads.forEach((ad, i) => {
         const currentAd = ad || {};
@@ -433,8 +456,9 @@
           tr += `<td><span class="objective-pill">${obj || '—'}</span></td>`;
         }
         tr += `<td class="resultados-col">${reservas}</td>`;
-        const goal = effectiveGoal(c, currentAd);
-        tr += `<td class="goal-col">${renderGoalInput(c, currentAd)}${renderTrend(campaignTotalReservas, campaignTotalGoal)}</td>`;
+        if (i === 0) {
+          tr += `<td class="goal-col"${rs}>${renderCampaignGoalInput(c, ads)}${renderTrend(campaignTotalReservas, campaignTotalGoal)}</td>`;
+        }
         tr += `<td class="num">${fmtCount(messages)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerMessage)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerReservation)}</td>`;
@@ -561,6 +585,9 @@
     document.getElementById('campaigns-body').addEventListener('change', event => {
       const input = event.target.closest('.reservation-goal-input');
       if (input) {
+        if (input.dataset.ad === '__campaign__') {
+          Object.keys(state.goals).forEach(key => { if (key.startsWith(`${input.dataset.campaign}::`)) delete state.goals[key]; });
+        }
         state.goals[goalKey(input.dataset.campaign, input.dataset.ad)] = input.value;
         updateAdGoal(input.dataset.campaign, input.dataset.ad, input.value);
         saveGoals();
