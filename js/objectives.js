@@ -311,9 +311,11 @@
   }
   function renderTrend(reservas, goal) {
     if (goal == null || Number(goal) <= 0) return '';
-    const reached = Number(reservas) >= Number(goal);
+    const diff = Number(reservas) - Number(goal);
+    const reached = diff >= 0;
     const label = reached ? 'Sobre el objetivo' : 'Debajo del objetivo';
-    return `<span class="reservation-trend ${reached ? 'up' : 'down'}" title="${label}: ${reservas}/${goal}" aria-label="${label}: ${reservas} de ${goal}">${reached ? '▲' : '▼'} Objetivo: ${goal}</span>`;
+    const detail = reached ? `Sobre: ${diff}` : `Faltan: ${Math.abs(diff)}`;
+    return `<span class="reservation-trend ${reached ? 'up' : 'down'}" title="${label}: ${reservas}/${goal}" aria-label="${label}: ${reservas} de ${goal}">${reached ? '&#9650;' : '&#9660;'} ${detail} | Objetivo: ${goal}</span>`;
   }
   function renderDeadline(endDate, days) {
     if (!endDate) return '-';
@@ -392,6 +394,8 @@
       const ads = [...baseAds, ...extraAds];
       const span = ads.length;
       const campaignTotalReservas = ads.reduce((s, ad) => s + Number((ad || {}).reservas ?? (ads.length === 1 ? c.reservas : 0) ?? 0), 0);
+      const campaignTotalGoal = ads.reduce((sum, ad) => sum + Number(effectiveGoal(c, ad || {}) || 0), 0);
+      totalGoals += campaignTotalGoal;
       ads.forEach((ad, i) => {
         const currentAd = ad || {};
         const isExtraAd = extraAds.includes(ad);
@@ -430,8 +434,7 @@
         }
         tr += `<td class="resultados-col">${reservas}</td>`;
         const goal = effectiveGoal(c, currentAd);
-        totalGoals += Number(goal || 0);
-        tr += `<td class="goal-col">${renderGoalInput(c, currentAd)}${renderTrend(reservas, goal)}</td>`;
+        tr += `<td class="goal-col">${renderGoalInput(c, currentAd)}${renderTrend(campaignTotalReservas, campaignTotalGoal)}</td>`;
         tr += `<td class="num">${fmtCount(messages)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerMessage)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerReservation)}</td>`;
