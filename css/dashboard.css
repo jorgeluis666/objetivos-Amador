@@ -116,12 +116,6 @@
   background: #f1f5f9;
 }
 
-.campaign-reservas {
-  color: var(--ink) !important;
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-}
 
 @media (max-width: 1180px) {
   .kpi-strip {
