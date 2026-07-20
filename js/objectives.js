@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   const DATA_URL = 'data/amador-ads-2026.json';
   const JUNE_DATA_URL = 'data/amador-june-sheet-2026.json';
   const JULY_DATA_URL = 'data/amador-july-sheet-2026.json';
@@ -316,28 +316,15 @@
     const value = effectiveGoal(campaign, ad);
     return `<input class="reservation-goal-input" type="number" min="0" step="1" value="${value ?? ''}" data-campaign="${campaign.name}" data-ad="${ad.name}" aria-label="Objetivo Reservas ${campaign.name} ${ad.name}">`;
   }
-  function effectiveGoalCampaign(campaign) {
-    const key = goalKey(campaign.name, '__campaign__');
-    const saved = state.goals[key];
-    if (saved !== '' && saved != null) return Number(saved);
-    return campaign.reservationGoal ?? campaign.ads?.[0]?.reservationGoal ?? null;
-  }
-  function sheetGoalCampaign(campaign) {
-    return campaign.reservationGoal ?? campaign.ads?.find(ad => ad?.reservationGoal != null)?.reservationGoal ?? null;
-  }
-  function renderGoalInputCampaign(campaign) {
-    const value = effectiveGoalCampaign(campaign);
-    return `<input class="reservation-goal-input" type="number" min="0" step="1" value="${value ?? ''}" data-campaign="${campaign.name}" data-ad="__campaign__" data-sheet-row="campaign" aria-label="Objetivo Reservas ${campaign.name}">`;
-  }
-  function updateCampaignGoal(campaignName, value) {
+  function updateAdGoal(campaignName, adName, value) {
     const month = sourceMonth(state.month);
     const campaign = month?.campaigns?.find(item => item.name === campaignName);
-    if (!campaign) return;
+    const ad = campaign?.ads?.find(item => item.name === adName);
+    if (!campaign || !ad) return;
     const numberValue = value === '' ? null : Number(value);
-    campaign.reservationGoal = Number.isFinite(numberValue) ? numberValue : null;
-    const firstGoalAd = campaign.ads?.find(ad => ad?.reservationGoal != null) || campaign.ads?.[0];
-    if (firstGoalAd) firstGoalAd.reservationGoal = campaign.reservationGoal;
-    month.reservationGoalTotal = (month.campaigns || []).reduce((sum, item) => sum + Number(item.reservationGoal || 0), 0);
+    ad.reservationGoal = Number.isFinite(numberValue) ? numberValue : null;
+    campaign.reservationGoal = campaign.ads?.find(item => item?.reservationGoal != null)?.reservationGoal ?? null;
+    month.reservationGoalTotal = (month.campaigns || []).flatMap(item => item.ads || []).reduce((sum, item) => sum + Number(item.reservationGoal || 0), 0);
   }
   async function pushGoalToSheet(input) {
     const endpoint = syncEndpoint();
@@ -350,6 +337,7 @@
       spreadsheetId: SHEET_ID,
       sheetName: SHEET_MONTH,
       campaign: input.dataset.campaign,
+      ad: input.dataset.ad,
       value: input.value === '' ? '' : Number(input.value)
     };
     updateSyncLabel('Enviando objetivo a Google Sheets...');
@@ -431,11 +419,9 @@
           tr += `<td><span class="objective-pill">${obj || '—'}</span></td>`;
         }
         tr += `<td class="resultados-col">${reservas}</td>`;
-        if (i === 0) {
-          const goal = effectiveGoalCampaign(c);
-          totalGoals += Number(goal || 0);
-          tr += `<td class="goal-col"${rs}>${renderGoalInputCampaign(c)}${renderTrend(campaignTotalReservas, goal)}</td>`;
-        }
+        const goal = effectiveGoal(c, currentAd);
+        totalGoals += Number(goal || 0);
+        tr += `<td class="goal-col">${renderGoalInput(c, currentAd)}${renderTrend(reservas, goal)}</td>`;
         tr += `<td class="num">${fmtCount(messages)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerMessage)}</td>`;
         tr += `<td class="num">${fmtMoney(costPerReservation)}</td>`;
@@ -546,7 +532,7 @@
       const input = event.target.closest('.reservation-goal-input');
       if (input) {
         state.goals[goalKey(input.dataset.campaign, input.dataset.ad)] = input.value;
-        updateCampaignGoal(input.dataset.campaign, input.value);
+        updateAdGoal(input.dataset.campaign, input.dataset.ad, input.value);
         saveGoals();
         renderCampaigns();
         pushGoalToSheet(input);

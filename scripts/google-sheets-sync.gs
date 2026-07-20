@@ -25,13 +25,23 @@ function updateReservationGoal_(payload) {
 
   const headers = values[headerRow].map(normalize_);
   const campaignCol = headers.indexOf('campana');
+  const adCol = headers.indexOf('anuncio');
   const goalCol = headers.indexOf('objetivo reservas');
   const typeCol = headers.indexOf('tipo');
-  if (campaignCol < 0 || goalCol < 0 || typeCol < 0) throw new Error('Cabeceras requeridas incompletas.');
+  if (campaignCol < 0 || adCol < 0 || goalCol < 0 || typeCol < 0) throw new Error('Cabeceras requeridas incompletas.');
 
   const campaign = String(payload.campaign || '').trim();
-  const rowIndex = values.findIndex((row, index) => index > headerRow && String(row[campaignCol] || '').trim() === campaign);
-  if (rowIndex < 0) throw new Error('No se encontro la campana en el sheet.');
+  const ad = String(payload.ad || '').trim();
+  let currentCampaign = '';
+  const rowIndex = values.findIndex((row, index) => {
+    if (index <= headerRow) return false;
+    if (normalize_(row[typeCol]).startsWith('total')) return false;
+    const rowCampaign = String(row[campaignCol] || '').trim();
+    if (rowCampaign) currentCampaign = rowCampaign;
+    const rowAd = String(row[adCol] || '').trim();
+    return currentCampaign === campaign && rowAd === ad;
+  });
+  if (rowIndex < 0) throw new Error('No se encontro la fila de campana/anuncio en el sheet.');
 
   const cleanValue = payload.value === '' || payload.value == null ? '' : Number(payload.value);
   sheet.getRange(rowIndex + 1, goalCol + 1).setValue(cleanValue);
@@ -41,7 +51,6 @@ function updateReservationGoal_(payload) {
     const freshValues = sheet.getDataRange().getDisplayValues();
     const total = freshValues.reduce((sum, row, index) => {
       if (index <= headerRow || index === totalRow) return sum;
-      if (!String(row[campaignCol] || '').trim()) return sum;
       const number = Number(String(row[goalCol] || '').replace(/,/g, '').trim());
       return Number.isFinite(number) ? sum + number : sum;
     }, 0);
@@ -49,7 +58,7 @@ function updateReservationGoal_(payload) {
   }
 
   SpreadsheetApp.flush();
-  return { campaign, value: cleanValue };
+  return { campaign, ad, value: cleanValue };
 }
 
 function normalize_(value) {
