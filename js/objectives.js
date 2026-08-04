@@ -15,6 +15,7 @@
   const OPTIONAL_HEADERS = ['Nuevo ppto diario','Observaciones','Vista previa'];
   const AD_BUDGET_HEADERS = ['Presupuesto total x anuncio','Presupuesto total x conjunto'];
   const AD_SPENT_HEADERS = ['Gasto x Anuncio','Gasto x conjunto'];
+  const AD_BALANCE_HEADERS = ['Saldo x anuncio','Saldo x conjunto'];
   const SERIES = {
     investment: { label: 'Inversion', unit: 'money', color: '#2563eb', fill: 'rgba(37,99,235,.11)' },
     messages: { label: 'Mensajes', unit: 'count', color: '#16a34a', fill: 'rgba(22,163,74,.10)' },
@@ -73,7 +74,7 @@
   }
   function parseNumber(value) {
     const text = String(value ?? '').trim();
-    if (!text || text === '-') return null;
+    if (!text || text === '-' || text === '\u2013') return null;
     const normalized = text.replace(/S\/?\.?/gi, '').replace(/%/g, '').replace(/,/g, '').trim();
     const number = Number(normalized);
     return Number.isFinite(number) ? number : null;
@@ -109,7 +110,7 @@
   function validateHeaders(headers) {
     const map = headerMap(headers);
     const missing = REQUIRED_HEADERS.filter(name => map[normalizeHeader(name)] == null);
-    [AD_BUDGET_HEADERS, AD_SPENT_HEADERS].forEach(group => { if (!group.some(name => map[normalizeHeader(name)] != null)) missing.push(group.join(' / ')); });
+    [AD_BUDGET_HEADERS, AD_SPENT_HEADERS, AD_BALANCE_HEADERS].forEach(group => { if (!group.some(name => map[normalizeHeader(name)] != null)) missing.push(group.join(' / ')); });
     if (missing.length) throw new Error(`Cabeceras faltantes: ${missing.join(', ')}`);
     return map;
   }
@@ -193,7 +194,7 @@
         dailyAmount: parseNumber(get(row, map, 'Importe diario')),
         budget: parseNumber(getAny(row, map, AD_BUDGET_HEADERS)),
         spent: parseNumber(getAny(row, map, AD_SPENT_HEADERS)),
-        balance: parseNumber(get(row, map, 'Saldo x anuncio')),
+        balance: parseNumber(getAny(row, map, AD_BALANCE_HEADERS)),
         newDailyAmount: parseNumber(get(row, map, 'Nuevo ppto diario')),
         observation: String(get(row, map, 'Observaciones')).trim() || null,
         adUrl: String(get(row, map, 'Vista previa')).trim() || null
