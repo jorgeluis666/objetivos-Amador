@@ -4,8 +4,8 @@
     'view-obj': {
       title: 'Gasto publicitario 2026',
       caption: 'Agencia Lima Retail',
-      status: 'Datos al 13 de julio',
-      source: 'Fuente: Distribucion-amador / Julio actualizado',
+      status: 'Datos al 12 de agosto',
+      source: 'Fuente: Distribucion-amador / Agosto actualizado',
       footer: 'Sincronizado por Agencia Lima Retail',
     },
     'view-messages': {
@@ -18,7 +18,7 @@
     'view-history': {
       title: 'Histórico de Campañas',
       caption: 'Campañas finalizadas',
-      status: 'Datos al 13 de julio',
+      status: 'Datos al 12 de agosto',
       source: 'Fuente: Distribucion-amador / Histórico consolidado',
       footer: 'Solo campañas finalizadas',
     },

@@ -2,8 +2,9 @@
   const DATA_URL = 'data/amador-ads-2026.json';
   const JUNE_DATA_URL = 'data/amador-june-sheet-2026.json';
   const JULY_DATA_URL = 'data/amador-july-sheet-2026.json';
+  const AUGUST_DATA_URL = 'data/amador-august-sheet-2026.json';
   const SHEET_ID = '1Lj5rEepYZhHlf-VyGJwRYVMqnpWLu9lg3oL6wes3o-s';
-  const SHEET_MONTH = 'Julio';
+  const SHEET_MONTH = 'Agosto';
   const LIVE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_MONTH)}`;
   const SYNC_INTERVAL_MS = 60 * 60 * 1000;
   const GOALS_KEY = 'amador-reservation-goals-v1';
@@ -21,7 +22,7 @@
     messages: { label: 'Mensajes', unit: 'count', color: '#16a34a', fill: 'rgba(22,163,74,.10)' },
     reservations: { label: 'Reservas', unit: 'count', color: '#ea580c', fill: 'rgba(234,88,12,.10)' },
   };
-  const state = { data: null, type: 'investment', month: 'Julio', chart: null, syncTimer: null, goals: readGoals(), chartCollapsed: readChartCollapsed(), lastSync: null };
+  const state = { data: null, type: 'investment', month: 'Agosto', chart: null, syncTimer: null, goals: readGoals(), chartCollapsed: readChartCollapsed(), lastSync: null };
 
   const fmtMoney = value => Number.isFinite(Number(value)) ? `S/. ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
   const fmtCount = value => Number(value || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 });
@@ -298,7 +299,7 @@
     host.innerHTML = MONTHS.map(name => {
       const available = !!sourceMonth(name);
       const selected = name === state.month;
-      return `<button type="button" class="month-tab ${selected ? 'active' : ''}" data-month="${name}" ${available ? '' : 'disabled'}>${name}${name === 'Julio' ? '<span class="current-dot"></span>' : ''}</button>`;
+      return `<button type="button" class="month-tab ${selected ? 'active' : ''}" data-month="${name}" ${available ? '' : 'disabled'}>${name}${name === SHEET_MONTH ? '<span class="current-dot"></span>' : ''}</button>`;
     }).join('');
     host.querySelectorAll('.month-tab:not(:disabled)').forEach(button => {
       button.addEventListener('click', () => {
@@ -670,6 +671,8 @@
       mergeSheetMonth(juneData, state.data.source || 'Datos locales');
       const julyData = window.AMADOR_JULY_DATA || await fetch(JULY_DATA_URL, { cache: 'no-store' }).then(response => response.json());
       mergeSheetMonth(julyData, state.data.source || 'Datos locales');
+      const augustData = window.AMADOR_AUGUST_DATA || await fetch(AUGUST_DATA_URL, { cache: 'no-store' }).then(response => response.json());
+      mergeSheetMonth(augustData, state.data.source || 'Datos locales');
       wireEvents();
       renderAll();
       syncLiveSheet({ silent: true });

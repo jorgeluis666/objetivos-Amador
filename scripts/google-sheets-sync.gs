@@ -1,5 +1,5 @@
 const SPREADSHEET_ID = '1Lj5rEepYZhHlf-VyGJwRYVMqnpWLu9lg3oL6wes3o-s';
-const DEFAULT_SHEET_NAME = 'Julio';
+const DEFAULT_SHEET_NAME = 'Agosto';
 
 function doPost(event) {
   try {
