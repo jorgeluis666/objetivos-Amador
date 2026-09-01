@@ -12,8 +12,8 @@
   const CHART_COLLAPSED_KEY = 'amador-chart-collapsed-v1';
   const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const SHORT_MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const REQUIRED_HEADERS = ['Tipo','Campaña','Anuncio','Objetivo','Reservas','Objetivo Reservas','Mensajes','Costo por mensaje','Costo por reserva','Ratio de reservas','Estado','Fecha de inicio','Fecha de fin','Duración (días)','Días restantes','Importe diario','Presupuesto total x campaña','Gasto x Campaña','Saldo x anuncio','Saldo por campaña','Proyección real de gasto mesual'];
-  const OPTIONAL_HEADERS = ['Nuevo ppto diario','Observaciones','Vista previa'];
+  const REQUIRED_HEADERS = ['Tipo','Campaña','Anuncio','Objetivo','Reservas','Objetivo Reservas','Mensajes','Costo por mensaje','Costo por reserva','Ratio de reservas','Estado','Fecha de inicio','Fecha de fin','Duración (días)','Días restantes','Importe diario','Presupuesto total x campaña','Gasto x Campaña','Saldo por campaña','Proyección real de gasto mesual'];
+  const OPTIONAL_HEADERS = ['Nuevo ppto diario','Observaciones','Vista previa','Conjunto de anuncios'];
   const AD_BUDGET_HEADERS = ['Presupuesto total x anuncio','Presupuesto total x conjunto'];
   const AD_SPENT_HEADERS = ['Gasto x Anuncio','Gasto x conjunto'];
   const AD_BALANCE_HEADERS = ['Saldo x anuncio','Saldo x conjunto'];
@@ -151,12 +151,14 @@
     const map = validateHeaders(headers);
     const campaigns = [];
     let current = null;
+    let currentAdSet = null;
     let totals = null;
     rows.slice(headerIndex + 1).forEach(row => {
       const first = String(get(row, map, 'Tipo')).trim();
       const campaignName = String(get(row, map, 'Campaña')).trim();
+      const adSetName = String(get(row, map, 'Conjunto de anuncios')).trim();
       const adName = String(get(row, map, 'Anuncio')).trim();
-      if (!first && !campaignName && !adName) return;
+      if (!first && !campaignName && !adSetName && !adName) return;
       if (first.toLowerCase().startsWith('total')) {
         totals = row;
         return;
@@ -166,6 +168,7 @@
           name: campaignName,
           type: first,
           status: String(get(row, map, 'Estado')).trim(),
+          objective: String(get(row, map, 'Objetivo')).trim() || null,
           budget: parseNumber(get(row, map, 'Presupuesto total x campaña')),
           spent: parseNumber(get(row, map, 'Gasto x Campaña')),
           balance: parseNumber(get(row, map, 'Saldo por campaña')),
@@ -176,11 +179,14 @@
           ads: []
         };
         campaigns.push(current);
+        currentAdSet = null;
       }
+      if (adSetName) currentAdSet = adSetName;
       if (!current || !adName) return;
       const ad = {
-        name: adName,
-        objective: String(get(row, map, 'Objetivo')).trim(),
+        name: currentAdSet ? `${currentAdSet} · ${adName}` : adName,
+        adSet: currentAdSet,
+        objective: String(get(row, map, 'Objetivo')).trim() || null,
         status: String(get(row, map, 'Estado')).trim(),
         reservas: parseNumber(get(row, map, 'Reservas')) || 0,
         reservationGoal: parseNumber(get(row, map, 'Objetivo Reservas')),
