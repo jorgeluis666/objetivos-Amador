@@ -40,7 +40,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar" id="amador-sidebar">
-    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.5.1</span></div></div>
+    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.6.0</span></div></div>
     <div class="s-group-lbl">Modulos activos</div>
     <button class="s-item active" type="button" data-view-target="view-obj">
       <div class="s-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
@@ -81,7 +81,7 @@
         <p class="section-desc">Evolucion mensual de la inversion publicitaria, los mensajes y las reservas registradas.</p>
         <div class="kpi-strip" id="kpi-strip" aria-label="KPIs generales"></div>
         <div class="panel chart-panel is-collapsed" id="chart-panel">
-          <div class="panel-head chart-panel-head"><div><div class="panel-title" id="chart-title">Evolucion mensual | Inversion | 2026</div><div class="panel-sub">Indicadores reales registrados de enero a agosto</div></div><div class="chart-controls"><button type="button" class="chart-toggle" id="chart-toggle-btn" aria-expanded="false" aria-controls="monthly-chart-body" title="Expandir grafico">+</button><select id="spend-type-select" class="ch-select"><option value="investment">Inversion</option><option value="messages">Mensajes</option><option value="reservations">Reservas</option></select><div class="chart-legend"><span><i class="legend-line investment"></i><b id="legend-label">Inversion</b></span></div></div></div>
+          <div class="panel-head chart-panel-head"><div><div class="panel-title" id="chart-title">Evolucion mensual | Inversion | 2026</div><div class="panel-sub">Indicadores reales registrados de enero a agosto</div></div><div class="chart-controls"><button type="button" class="chart-toggle" id="chart-toggle-btn" aria-expanded="false" aria-controls="monthly-chart-body" title="Expandir grafico">+</button><div class="chart-series-toggles" id="chart-series-toggles" role="group" aria-label="Indicadores del grafico"><label class="series-toggle active" data-series="investment"><input type="checkbox" value="investment" checked>Inversion</label><label class="series-toggle" data-series="messages"><input type="checkbox" value="messages">Mensajes</label><label class="series-toggle" data-series="reservations"><input type="checkbox" value="reservations">Reservas</label></div><div class="chart-legend" id="chart-legend"></div></div></div>
           <div class="chart-wrap h-360" id="monthly-chart-body"><canvas id="chart-monthly"></canvas></div>
         </div>
         <div class="month-tabs" id="month-tabs"></div>

@@ -22,7 +22,8 @@
     messages: { label: 'Mensajes', unit: 'count', color: '#16a34a', fill: 'rgba(22,163,74,.10)' },
     reservations: { label: 'Reservas', unit: 'count', color: '#ea580c', fill: 'rgba(234,88,12,.10)' },
   };
-  const state = { data: null, type: 'investment', month: 'Agosto', chart: null, syncTimer: null, goals: readGoals(), chartCollapsed: readChartCollapsed(), lastSync: null };
+  const CHART_SERIES_KEY = 'amador-chart-series-v1';
+  const state = { data: null, types: readChartSeries(), month: 'Agosto', chart: null, syncTimer: null, goals: readGoals(), chartCollapsed: readChartCollapsed(), lastSync: null };
 
   const fmtMoney = value => Number.isFinite(Number(value)) ? `S/. ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
   const fmtCount = value => Number(value || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 });
@@ -47,6 +48,16 @@
   }
   function saveGoals() {
     try { localStorage.setItem(GOALS_KEY, JSON.stringify(state.goals)); } catch {}
+  }
+  function readChartSeries() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CHART_SERIES_KEY) || '[]');
+      const valid = Array.isArray(saved) ? saved.filter(key => SERIES[key]) : [];
+      return valid.length ? valid : ['investment'];
+    } catch { return ['investment']; }
+  }
+  function saveChartSeries() {
+    try { localStorage.setItem(CHART_SERIES_KEY, JSON.stringify(state.types)); } catch {}
   }
   function syncEndpoint() {
     const params = new URLSearchParams(window.location.search);
@@ -574,9 +585,18 @@
       </tr>
     `).join('');
   }
-  function chartOptions(series) {
-    const isMoney = series.unit === 'money';
-    return { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, layout: { padding: { top: 24, right: 12, left: 4 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => ` ${series.label}: ${formatSeriesValue(context.raw, series)}` } } }, scales: { x: { grid: { display: false }, border: { color: '#cbd5e1' }, ticks: { color: '#7890b5', font: { size: 10 } } }, y: { beginAtZero: true, suggestedMax: isMoney ? 3500 : undefined, border: { display: false }, grid: { color: 'rgba(148,163,184,.20)' }, ticks: { precision: 0, color: '#7890b5', font: { size: 10 }, callback: value => isMoney ? (value === 0 ? 'S/. 0' : `S/. ${(value / 1000).toFixed(1)}k`) : Number(value).toLocaleString('es-PE') } } } };
+  function chartOptions(selectedKeys) {
+    const hasMoney = selectedKeys.includes('investment');
+    const hasCount = selectedKeys.some(key => key !== 'investment');
+    const mixed = hasMoney && hasCount;
+    const moneyTicks = value => value === 0 ? 'S/. 0' : `S/. ${(value / 1000).toFixed(1)}k`;
+    const countTicks = value => Number(value).toLocaleString('es-PE');
+    const scales = {
+      x: { grid: { display: false }, border: { color: '#cbd5e1' }, ticks: { color: '#7890b5', font: { size: 10 } } },
+      y: { beginAtZero: true, suggestedMax: hasMoney ? 3500 : undefined, border: { display: false }, grid: { color: 'rgba(148,163,184,.20)' }, ticks: { precision: 0, color: '#7890b5', font: { size: 10 }, callback: value => hasMoney ? moneyTicks(value) : countTicks(value) } }
+    };
+    if (mixed) scales.y1 = { beginAtZero: true, position: 'right', border: { display: false }, grid: { drawOnChartArea: false }, ticks: { precision: 0, color: '#7890b5', font: { size: 10 }, callback: countTicks } };
+    return { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, layout: { padding: { top: 24, right: 12, left: 4 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => ` ${context.dataset.label}: ${formatSeriesValue(context.raw, SERIES[context.dataset.seriesKey] || SERIES.investment)}` } } }, scales };
   }
   function applyChartCollapsed() {
     const panel = document.getElementById('chart-panel');
@@ -588,16 +608,25 @@
     button.setAttribute('title', state.chartCollapsed ? 'Expandir grafico' : 'Minimizar grafico');
   }
   function renderChart() {
-    const series = SERIES[state.type];
-    const values = MONTHS.map(name => valueFor(name, state.type));
-    document.getElementById('chart-title').textContent = `Evolucion mensual | ${series.label} | 2026`;
-    document.getElementById('legend-label').textContent = series.label;
-    document.querySelector('.legend-line').className = `legend-line ${state.type}`;
+    const selectedKeys = Object.keys(SERIES).filter(key => state.types.includes(key));
+    document.getElementById('chart-title').textContent = `Evolucion mensual | ${selectedKeys.map(key => SERIES[key].label).join(' + ')} | 2026`;
+    const legend = document.getElementById('chart-legend');
+    if (legend) legend.innerHTML = selectedKeys.map(key => `<span><i class="legend-line ${key}"></i><b>${SERIES[key].label}</b></span>`).join('');
+    document.querySelectorAll('#chart-series-toggles input').forEach(input => {
+      input.checked = selectedKeys.includes(input.value);
+      input.closest('.series-toggle')?.classList.toggle('active', input.checked);
+    });
     if (state.chartCollapsed) return;
     const canvas = document.getElementById('chart-monthly');
+    if (!canvas) return;
     if (typeof Chart === 'undefined') { canvas.parentElement.innerHTML = '<div class="empty-state"><strong>Grafico no disponible sin conexion.</strong><span>Los totales mensuales siguen visibles debajo.</span></div>'; return; }
+    const mixed = selectedKeys.includes('investment') && selectedKeys.some(key => key !== 'investment');
+    const datasets = selectedKeys.map(key => {
+      const series = SERIES[key];
+      return { label: series.label, seriesKey: key, data: MONTHS.map(name => valueFor(name, key)), borderColor: series.color, backgroundColor: series.fill, borderWidth: 2.5, pointRadius: 5, pointHoverRadius: 7, pointBackgroundColor: series.color, pointBorderColor: series.color, tension: .25, fill: selectedKeys.length === 1, spanGaps: false, yAxisID: mixed && key !== 'investment' ? 'y1' : 'y' };
+    });
     if (state.chart) state.chart.destroy();
-    state.chart = new Chart(canvas, { type: 'line', data: { labels: SHORT_MONTHS, datasets: [{ label: series.label, data: values, borderColor: series.color, backgroundColor: series.fill, borderWidth: 2.5, pointRadius: 5, pointHoverRadius: 7, pointBackgroundColor: series.color, pointBorderColor: series.color, tension: .25, fill: true, spanGaps: false }] }, options: chartOptions(series), plugins: [{ id: 'valueLabels', afterDatasetsDraw(chart) { const ctx = chart.ctx; const meta = chart.getDatasetMeta(0); ctx.save(); ctx.fillStyle = series.color; ctx.font = '600 10px Inter, sans-serif'; ctx.textAlign = 'center'; meta.data.forEach((point,index) => { const value = values[index]; if (value == null) return; ctx.fillText(formatSeriesValue(value, series, true), point.x, point.y - 13); }); ctx.restore(); } }] });
+    state.chart = new Chart(canvas, { type: 'line', data: { labels: SHORT_MONTHS, datasets }, options: chartOptions(selectedKeys), plugins: [{ id: 'valueLabels', afterDatasetsDraw(chart) { const ctx = chart.ctx; ctx.save(); ctx.font = '600 10px Inter, sans-serif'; ctx.textAlign = 'center'; chart.data.datasets.forEach((dataset, datasetIndex) => { const meta = chart.getDatasetMeta(datasetIndex); ctx.fillStyle = dataset.borderColor; meta.data.forEach((point, index) => { const value = dataset.data[index]; if (value == null) return; ctx.fillText(formatSeriesValue(value, SERIES[dataset.seriesKey], true), point.x, point.y - 13); }); }); ctx.restore(); } }] });
   }
   function renderAll(withTabs = true) {
     renderKpis();
@@ -608,7 +637,15 @@
     renderHistory();
   }
   function wireEvents() {
-    document.getElementById('spend-type-select').addEventListener('change', event => { state.type = event.target.value; renderChart(); });
+    document.getElementById('chart-series-toggles').addEventListener('change', event => {
+      const input = event.target.closest('input[type="checkbox"]');
+      if (!input) return;
+      const selected = [...document.querySelectorAll('#chart-series-toggles input:checked')].map(item => item.value);
+      if (!selected.length) { input.checked = true; return; }
+      state.types = Object.keys(SERIES).filter(key => selected.includes(key));
+      saveChartSeries();
+      renderChart();
+    });
     document.getElementById('campaigns-refresh-btn').addEventListener('click', () => syncLiveSheet({ manual: true }));
     document.getElementById('chart-toggle-btn').addEventListener('click', () => {
       state.chartCollapsed = !state.chartCollapsed;
