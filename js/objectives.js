@@ -508,6 +508,13 @@
     rows.push(`<tr class="reservations-total-row"><td></td><td></td><td></td><td class="total-label">Total actualizado ${month.name.toLowerCase()}</td><td class="resultados-col">${totalReservas}</td><td class="goal-col">${totalGoals || ''}</td><td class="num">${totalMessages}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="num">${fmtMoney(month.adSpendTotal)}</td><td class="num">${fmtMoney(month.budgetTotal)}</td><td class="num">${fmtMoney(month.spend)}</td><td class="num">${fmtMoney(month.balanceTotal)}</td><td></td><td></td><td></td></tr>`);
     body.innerHTML = rows.join('');
   }
+  function dateOrderValue(label) {
+    const match = String(label || '').match(/^(\d{1,2})-([A-Za-zÁ-ú]{3})/);
+    if (!match) return null;
+    const index = SHORT_MONTHS.findIndex(name => name.toLowerCase() === match[2].toLowerCase());
+    if (index < 0) return null;
+    return index * 100 + Number(match[1]);
+  }
   function finishedCampaigns() {
     return (state.data?.months || []).flatMap(month => (month.campaigns || [])
       .filter(campaign => isFinishedStatus(campaign.status))
@@ -518,7 +525,11 @@
         const spent = Number(campaign.spent ?? ads.reduce((sum, ad) => sum + Number(ad.spent || 0), 0));
         const budget = Number(campaign.budget ?? ads.reduce((sum, ad) => sum + Number(ad.budget || 0), 0));
         const balance = Number(campaign.balance ?? (Number.isFinite(budget) && Number.isFinite(spent) ? budget - spent : 0));
-        return { month: month.name, campaign, ads, reservas, messages, spent, budget, balance };
+        const startDates = ads.map(ad => ad.startDate).filter(date => dateOrderValue(date) != null);
+        const endDates = ads.map(ad => ad.endDate).filter(date => dateOrderValue(date) != null);
+        const startDate = startDates.sort((a, b) => dateOrderValue(a) - dateOrderValue(b))[0] || null;
+        const endDate = endDates.sort((a, b) => dateOrderValue(b) - dateOrderValue(a))[0] || null;
+        return { month: month.name, campaign, ads, reservas, messages, spent, budget, balance, startDate, endDate };
       }));
   }
   function renderHistory() {
@@ -548,18 +559,18 @@
       body.innerHTML = '<tr><td colspan="10" class="table-empty">Sin campanas finalizadas en los meses cargados.</td></tr>';
       return;
     }
-    body.innerHTML = rows.map(({ month, campaign, ads, reservas, messages, spent, budget, balance }) => `
+    body.innerHTML = rows.map(({ month, campaign, ads, reservas, messages, spent, budget, balance, startDate, endDate }) => `
       <tr>
         <td class="date-col">${month}</td>
-        <td>${campaign.type || '-'}</td>
         <td class="campaign-name">${campaign.name}</td>
-        <td><span class="status-pill ${statusClass(campaign.status)}">${campaign.status || '-'}</span></td>
         <td class="num">${fmtCount(reservas)}</td>
         <td class="num">${fmtCount(messages)}</td>
         <td class="num">${fmtMoney(budget)}</td>
         <td class="num">${fmtMoney(spent)}</td>
         <td class="num">${fmtMoney(balance)}</td>
         <td>${ads.length ? ads.map(ad => ad.adUrl ? `<a class="history-ad-link" href="${ad.adUrl}" target="_blank" rel="noopener">${ad.name}</a>` : `<span class="history-ad-muted">${ad.name}</span>`).join('') : '-'}</td>
+        <td class="date-col">${startDate || '-'}</td>
+        <td class="date-col">${endDate || '-'}</td>
       </tr>
     `).join('');
   }

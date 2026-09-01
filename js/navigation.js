@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   const VIEW_KEY = 'amador-active-view';
   const VIEW_META = {
     'view-obj': {
@@ -10,17 +10,17 @@
     },
     'view-messages': {
       title: 'Calculadora de Mensajes',
-      caption: 'PlanificaciÃ³n WhatsApp por CPL',
-      status: 'Guardado automÃ¡tico',
-      source: 'CÃ¡lculo local de inversiÃ³n para campaÃ±as de Mensajes',
+      caption: 'Planificación WhatsApp por CPL',
+      status: 'Guardado automático',
+      source: 'Cálculo local de inversión para campañas de Mensajes',
       footer: 'Datos guardados en este navegador',
     },
     'view-history': {
-      title: 'HistÃ³rico de CampaÃ±as',
-      caption: 'CampaÃ±as finalizadas',
+      title: 'Histórico de Campañas',
+      caption: 'Campañas finalizadas',
       status: 'Datos al 31 de agosto',
-      source: 'Fuente: Distribucion-amador / HistÃ³rico consolidado',
-      footer: 'Solo campaÃ±as finalizadas',
+      source: 'Fuente: Distribucion-amador / Histórico consolidado',
+      footer: 'Solo campañas finalizadas',
     },
   };
 
@@ -37,7 +37,7 @@
     try {
       window.localStorage.setItem(VIEW_KEY, viewId);
     } catch {
-      // La navegaciÃ³n sigue funcionando aunque localStorage no estÃ© disponible.
+      // La navegación sigue funcionando aunque localStorage no esté disponible.
     }
   }
 
