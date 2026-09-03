@@ -3,8 +3,9 @@
   const JUNE_DATA_URL = 'data/amador-june-sheet-2026.json';
   const JULY_DATA_URL = 'data/amador-july-sheet-2026.json';
   const AUGUST_DATA_URL = 'data/amador-august-sheet-2026.json';
+  const SEPTEMBER_DATA_URL = 'data/amador-september-sheet-2026.json';
   const SHEET_ID = '1Lj5rEepYZhHlf-VyGJwRYVMqnpWLu9lg3oL6wes3o-s';
-  const SHEET_MONTH = 'Agosto';
+  const SHEET_MONTH = 'Septiembre';
   const LIVE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_MONTH)}`;
   const SYNC_INTERVAL_MS = 60 * 60 * 1000;
   const GOALS_KEY = 'amador-reservation-goals-v1';
@@ -23,7 +24,7 @@
     reservations: { label: 'Reservas', unit: 'count', color: '#ea580c', fill: 'rgba(234,88,12,.10)' },
   };
   const CHART_SERIES_KEY = 'amador-chart-series-v1';
-  const state = { data: null, types: readChartSeries(), month: 'Agosto', chart: null, syncTimer: null, goals: readGoals(), chartCollapsed: readChartCollapsed(), lastSync: null };
+  const state = { data: null, types: readChartSeries(), month: 'Septiembre', chart: null, syncTimer: null, goals: readGoals(), chartCollapsed: readChartCollapsed(), lastSync: null };
 
   const fmtMoney = value => Number.isFinite(Number(value)) ? `S/. ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
   const fmtCount = value => Number(value || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 });
@@ -87,7 +88,9 @@
   function parseNumber(value) {
     const text = String(value ?? '').trim();
     if (!text || text === '-' || text === '\u2013') return null;
-    const normalized = text.replace(/S\/?\.?/gi, '').replace(/%/g, '').replace(/,/g, '').trim();
+    let normalized = text.replace(/S\/?\.?/gi, '').replace(/%/g, '').trim();
+    if (/^-?\d+,\d{1,2}$/.test(normalized)) normalized = normalized.replace(',', '.');
+    else normalized = normalized.replace(/,/g, '');
     const number = Number(normalized);
     return Number.isFinite(number) ? number : null;
   }
@@ -727,6 +730,8 @@
       mergeSheetMonth(julyData, state.data.source || 'Datos locales');
       const augustData = window.AMADOR_AUGUST_DATA || await fetch(AUGUST_DATA_URL, { cache: 'no-store' }).then(response => response.json());
       mergeSheetMonth(augustData, state.data.source || 'Datos locales');
+      const septemberData = window.AMADOR_SEPTEMBER_DATA || await fetch(SEPTEMBER_DATA_URL, { cache: 'no-store' }).then(response => response.json());
+      mergeSheetMonth(septemberData, state.data.source || 'Datos locales');
       wireEvents();
       renderAll();
       syncLiveSheet({ silent: true });

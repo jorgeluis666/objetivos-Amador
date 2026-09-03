@@ -22,6 +22,7 @@ function main() {
   const data = readFile('data/amador-ads-2026.json').replace(/</g, '\\u003c');
   const juneData = readFile('data/amador-june-sheet-2026.json').replace(/</g, '\\u003c');
   const julyData = readFile('data/amador-july-sheet-2026.json').replace(/</g, '\\u003c');
+  const septemberData = readFile('data/amador-september-sheet-2026.json').replace(/</g, '\\u003c');
   const augustData = readFile('data/amador-august-sheet-2026.json').replace(/</g, '\\u003c');
 
   html = html.replace(
@@ -50,7 +51,7 @@ function main() {
   );
   html = html.replace(
     '</head>',
-    `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_JUNE_DATA = ${juneData};window.AMADOR_JULY_DATA = ${julyData};window.AMADOR_AUGUST_DATA = ${augustData};</script></head>`
+    `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_JUNE_DATA = ${juneData};window.AMADOR_JULY_DATA = ${julyData};window.AMADOR_AUGUST_DATA = ${augustData};window.AMADOR_SEPTEMBER_DATA = ${septemberData};</script></head>`
   );
 
   fs.rmSync(DIST_DIR, { recursive: true, force: true });
