@@ -1,15 +1,15 @@
 {
   "name": "Septiembre",
-  "spend": 99.44,
-  "messages": 14,
-  "reservations": 1,
-  "adSpendTotal": 99.44,
+  "spend": 734.49,
+  "messages": 130,
+  "reservations": 8,
+  "adSpendTotal": 734.49,
   "budgetTotal": 7260,
-  "balanceTotal": 2080,
+  "balanceTotal": 6525.51,
   "reservationGoalTotal": null,
   "newDailyTotal": null,
   "totalObservation": "",
-  "spendBreakdown": { "sales": 99.44, "branding": 0 },
+  "spendBreakdown": { "sales": 734.49, "branding": 0 },
   "headers": [
     "Tipo",
     "Campaña",
@@ -46,16 +46,16 @@
       "status": "Activo",
       "objective": "Reservas",
       "budget": 6180,
-      "spent": 97.28,
-      "balance": 2080,
+      "spent": 467.35,
+      "balance": 5712.65,
       "realBalance": null,
-      "reservationGoal": null,
-      "reservas": 1,
-      "messages": 12,
+      "reservationGoal": 26,
+      "reservas": 7,
+      "messages": 56,
       "ads": [
-        { "name": "P. Caliente · Video 1", "adSet": "P. Caliente", "objective": "Reservas", "status": "Activo", "reservas": 1, "reservationGoal": null, "messages": 8, "costPerMessage": 6.55, "costPerReservation": 97.28, "reservationRatio": 8.33, "startDate": "01-Sep", "endDate": "30-Sep", "duration": 30, "daysRemaining": 27, "dailyAmount": null, "budget": null, "spent": 57.2, "balance": null, "newDailyAmount": null, "observation": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120248710492290145&h=AQL7KJWvLopQ-TotMpMOnEQ35Z4" },
-        { "name": "P. Caliente · Video 2", "adSet": "P. Caliente", "objective": null, "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 1, "costPerMessage": 4.81, "costPerReservation": null, "reservationRatio": null, "startDate": null, "endDate": null, "duration": null, "daysRemaining": null, "dailyAmount": null, "budget": null, "spent": null, "balance": null, "newDailyAmount": null, "observation": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120247302367410145&h=AQIz5elIrpAch7jfh6MGOMiFLBI" },
-        { "name": "P. Frío · Video 1", "adSet": "P. Frío", "objective": null, "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 3, "costPerMessage": 13.36, "costPerReservation": null, "reservationRatio": null, "startDate": null, "endDate": null, "duration": null, "daysRemaining": null, "dailyAmount": null, "budget": null, "spent": 40.08, "balance": null, "newDailyAmount": null, "observation": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120248710667840145&h=AQLSE7NXvJqSoAVEYTtjgiknl8A" }
+        { "name": "P. Caliente · Video 1", "adSet": "P. Caliente", "objective": "Reservas", "status": "Activo", "reservas": 7, "reservationGoal": 26, "messages": 31, "costPerMessage": 8.54, "costPerReservation": 66.76, "reservationRatio": 12.5, "startDate": "01-Sep", "endDate": "30-Sep", "duration": 30, "daysRemaining": 22, "dailyAmount": null, "budget": null, "spent": 355.42, "balance": null, "newDailyAmount": null, "observation": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120248710492290145&h=AQL7KJWvLopQ-TotMpMOnEQ3yVQ" },
+        { "name": "P. Caliente · Video 2", "adSet": "P. Caliente", "objective": null, "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 12, "costPerMessage": 7.56, "costPerReservation": null, "reservationRatio": null, "startDate": null, "endDate": null, "duration": null, "daysRemaining": null, "dailyAmount": null, "budget": null, "spent": null, "balance": null, "newDailyAmount": null, "observation": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120247302367410145&h=AQIz5elIrpAch7jfh6MGOMiFh6M" },
+        { "name": "P. Frío · Video 1", "adSet": "P. Frío", "objective": null, "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 13, "costPerMessage": 8.61, "costPerReservation": null, "reservationRatio": null, "startDate": null, "endDate": null, "duration": null, "daysRemaining": null, "dailyAmount": null, "budget": null, "spent": 111.93, "balance": null, "newDailyAmount": null, "observation": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120248710667840145&h=AQLSE7NXvJqSoAVEYTtjgiknkmk" }
       ]
     },
     {
@@ -64,17 +64,17 @@
       "status": "Activo",
       "objective": "Mensajes",
       "budget": 1080,
-      "spent": 2.16,
-      "balance": 798.2,
+      "spent": 267.14,
+      "balance": 812.86,
       "realBalance": null,
-      "reservationGoal": null,
-      "reservas": 0,
-      "messages": 2,
+      "reservationGoal": 10,
+      "reservas": 1,
+      "messages": 74,
       "ads": [
-        { "name": "RTGT - 2 · Video 1", "adSet": "RTGT - 2", "objective": "Mensajes", "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 1, "costPerMessage": 1.32, "costPerReservation": null, "reservationRatio": 0, "startDate": "03-Sep", "endDate": "18-Sep", "duration": 16, "daysRemaining": 15, "dailyAmount": null, "budget": null, "spent": 1.98, "balance": null, "newDailyAmount": null, "observation": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120248877813020145&h=AQLunoK5AFbnOt4grIhg_F7uRs0" },
-        { "name": "RTGT - 2 · Imagen 1", "adSet": "RTGT - 2", "objective": null, "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 1, "costPerMessage": 0.66, "costPerReservation": null, "reservationRatio": null, "startDate": null, "endDate": null, "duration": null, "daysRemaining": null, "dailyAmount": null, "budget": null, "spent": null, "balance": null, "newDailyAmount": null, "observation": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878368000145&h=AQLjC3v12pCeZXYtO9oFexMtzF0" },
-        { "name": "P. Frío - 2 · Video 1", "adSet": "P. Frío - 2", "objective": null, "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 0, "costPerMessage": null, "costPerReservation": null, "reservationRatio": null, "startDate": null, "endDate": null, "duration": null, "daysRemaining": null, "dailyAmount": null, "budget": null, "spent": 0.18, "balance": null, "newDailyAmount": null, "observation": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878343220145&h=AQKPI8wZqUzz2ZjmbhJMlEjJ65k" },
-        { "name": "P. Frío - 2 · Imagen 1", "adSet": "P. Frío - 2", "objective": null, "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 0, "costPerMessage": null, "costPerReservation": null, "reservationRatio": null, "startDate": null, "endDate": null, "duration": null, "daysRemaining": null, "dailyAmount": null, "budget": null, "spent": null, "balance": null, "newDailyAmount": null, "observation": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878044560145&h=AQLhGxuR84oHtETQJ-f7YtKXea8" }
+        { "name": "RTGT - 2 · Video 1", "adSet": "RTGT - 2", "objective": "Mensajes", "status": "Activo", "reservas": 1, "reservationGoal": 10, "messages": 45, "costPerMessage": 3, "costPerReservation": 267.14, "reservationRatio": 1.35, "startDate": "03-Sep", "endDate": "18-Sep", "duration": 16, "daysRemaining": 10, "dailyAmount": null, "budget": null, "spent": 259.81, "balance": null, "newDailyAmount": null, "observation": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120248877813020145&h=AQLunoK5AFbnOt4grIhg_F7upM0" },
+        { "name": "RTGT - 2 · Imagen 1", "adSet": "RTGT - 2", "objective": null, "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 27, "costPerMessage": 4.62, "costPerReservation": null, "reservationRatio": null, "startDate": null, "endDate": null, "duration": null, "daysRemaining": null, "dailyAmount": null, "budget": null, "spent": null, "balance": null, "newDailyAmount": null, "observation": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878368000145&h=AQLjC3v12pCeZXYtO9oFexMtLzE" },
+        { "name": "P. Frío - 2 · Video 1", "adSet": "P. Frío - 2", "objective": null, "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 2, "costPerMessage": 3.26, "costPerReservation": null, "reservationRatio": null, "startDate": null, "endDate": null, "duration": null, "daysRemaining": null, "dailyAmount": null, "budget": null, "spent": 7.33, "balance": null, "newDailyAmount": null, "observation": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878343220145&h=AQKPI8wZqUzz2ZjmbhJMlEjJPts" },
+        { "name": "P. Frío - 2 · Imagen 1", "adSet": "P. Frío - 2", "objective": null, "status": "Activo", "reservas": 0, "reservationGoal": null, "messages": 0, "costPerMessage": null, "costPerReservation": null, "reservationRatio": null, "startDate": null, "endDate": null, "duration": null, "daysRemaining": null, "dailyAmount": null, "budget": null, "spent": null, "balance": null, "newDailyAmount": null, "observation": null, "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878044560145&h=AQLhGxuR84oHtETQJ-f7YtKX3bg" }
       ]
     }
   ],

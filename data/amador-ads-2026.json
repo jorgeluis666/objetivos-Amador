@@ -1,7 +1,7 @@
 {
   "account": "Amador",
   "year": 2026,
-  "cutoff": "2026-09-03",
+  "cutoff": "2026-09-08",
   "source": "Distribucion-amador / Agosto (sincronizacion Google Sheets)",
   "months": [
     {
@@ -1243,17 +1243,17 @@
     },
     {
       "name": "Septiembre",
-      "spend": 99.44,
-      "messages": 14,
-      "reservations": 1,
-      "adSpendTotal": 99.44,
+      "spend": 734.49,
+      "messages": 130,
+      "reservations": 8,
+      "adSpendTotal": 734.49,
       "budgetTotal": 7260,
-      "balanceTotal": 2080,
+      "balanceTotal": 6525.51,
       "reservationGoalTotal": null,
       "newDailyTotal": null,
       "totalObservation": "",
       "spendBreakdown": {
-        "sales": 99.44,
+        "sales": 734.49,
         "branding": 0
       },
       "campaigns": [
@@ -1263,35 +1263,35 @@
           "status": "Activo",
           "objective": "Reservas",
           "budget": 6180,
-          "spent": 97.28,
-          "balance": 2080,
+          "spent": 467.35,
+          "balance": 5712.65,
           "realBalance": null,
-          "reservationGoal": null,
-          "reservas": 1,
-          "messages": 12,
+          "reservationGoal": 26,
+          "reservas": 7,
+          "messages": 56,
           "ads": [
             {
               "name": "P. Caliente · Video 1",
               "adSet": "P. Caliente",
               "objective": "Reservas",
               "status": "Activo",
-              "reservas": 1,
-              "reservationGoal": null,
-              "messages": 8,
-              "costPerMessage": 6.55,
-              "costPerReservation": 97.28,
-              "reservationRatio": 8.33,
+              "reservas": 7,
+              "reservationGoal": 26,
+              "messages": 31,
+              "costPerMessage": 8.54,
+              "costPerReservation": 66.76,
+              "reservationRatio": 12.5,
               "startDate": "01-Sep",
               "endDate": "30-Sep",
               "duration": 30,
-              "daysRemaining": 27,
+              "daysRemaining": 22,
               "dailyAmount": null,
               "budget": null,
-              "spent": 57.2,
+              "spent": 355.42,
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248710492290145&h=AQL7KJWvLopQ-TotMpMOnEQ35Z4"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248710492290145&h=AQL7KJWvLopQ-TotMpMOnEQ3yVQ"
             },
             {
               "name": "P. Caliente · Video 2",
@@ -1300,8 +1300,8 @@
               "status": "Activo",
               "reservas": 0,
               "reservationGoal": null,
-              "messages": 1,
-              "costPerMessage": 4.81,
+              "messages": 12,
+              "costPerMessage": 7.56,
               "costPerReservation": null,
               "reservationRatio": null,
               "startDate": null,
@@ -1314,7 +1314,7 @@
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120247302367410145&h=AQIz5elIrpAch7jfh6MGOMiFLBI"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120247302367410145&h=AQIz5elIrpAch7jfh6MGOMiFh6M"
             },
             {
               "name": "P. Frío · Video 1",
@@ -1323,8 +1323,8 @@
               "status": "Activo",
               "reservas": 0,
               "reservationGoal": null,
-              "messages": 3,
-              "costPerMessage": 13.36,
+              "messages": 13,
+              "costPerMessage": 8.61,
               "costPerReservation": null,
               "reservationRatio": null,
               "startDate": null,
@@ -1333,11 +1333,11 @@
               "daysRemaining": null,
               "dailyAmount": null,
               "budget": null,
-              "spent": 40.08,
+              "spent": 111.93,
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248710667840145&h=AQLSE7NXvJqSoAVEYTtjgiknl8A"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248710667840145&h=AQLSE7NXvJqSoAVEYTtjgiknkmk"
             }
           ]
         },
@@ -1347,35 +1347,35 @@
           "status": "Activo",
           "objective": "Mensajes",
           "budget": 1080,
-          "spent": 2.16,
-          "balance": 798.2,
+          "spent": 267.14,
+          "balance": 812.86,
           "realBalance": null,
-          "reservationGoal": null,
-          "reservas": 0,
-          "messages": 2,
+          "reservationGoal": 10,
+          "reservas": 1,
+          "messages": 74,
           "ads": [
             {
               "name": "RTGT - 2 · Video 1",
               "adSet": "RTGT - 2",
               "objective": "Mensajes",
               "status": "Activo",
-              "reservas": 0,
-              "reservationGoal": null,
-              "messages": 1,
-              "costPerMessage": 1.32,
-              "costPerReservation": null,
-              "reservationRatio": 0,
+              "reservas": 1,
+              "reservationGoal": 10,
+              "messages": 45,
+              "costPerMessage": 3,
+              "costPerReservation": 267.14,
+              "reservationRatio": 1.35,
               "startDate": "03-Sep",
               "endDate": "18-Sep",
               "duration": 16,
-              "daysRemaining": 15,
+              "daysRemaining": 10,
               "dailyAmount": null,
               "budget": null,
-              "spent": 1.98,
+              "spent": 259.81,
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248877813020145&h=AQLunoK5AFbnOt4grIhg_F7uRs0"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248877813020145&h=AQLunoK5AFbnOt4grIhg_F7upM0"
             },
             {
               "name": "RTGT - 2 · Imagen 1",
@@ -1384,8 +1384,8 @@
               "status": "Activo",
               "reservas": 0,
               "reservationGoal": null,
-              "messages": 1,
-              "costPerMessage": 0.66,
+              "messages": 27,
+              "costPerMessage": 4.62,
               "costPerReservation": null,
               "reservationRatio": null,
               "startDate": null,
@@ -1398,7 +1398,7 @@
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878368000145&h=AQLjC3v12pCeZXYtO9oFexMtzF0"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878368000145&h=AQLjC3v12pCeZXYtO9oFexMtLzE"
             },
             {
               "name": "P. Frío - 2 · Video 1",
@@ -1407,8 +1407,8 @@
               "status": "Activo",
               "reservas": 0,
               "reservationGoal": null,
-              "messages": 0,
-              "costPerMessage": null,
+              "messages": 2,
+              "costPerMessage": 3.26,
               "costPerReservation": null,
               "reservationRatio": null,
               "startDate": null,
@@ -1417,11 +1417,11 @@
               "daysRemaining": null,
               "dailyAmount": null,
               "budget": null,
-              "spent": 0.18,
+              "spent": 7.33,
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878343220145&h=AQKPI8wZqUzz2ZjmbhJMlEjJ65k"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878343220145&h=AQKPI8wZqUzz2ZjmbhJMlEjJPts"
             },
             {
               "name": "P. Frío - 2 · Imagen 1",
@@ -1444,7 +1444,7 @@
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878044560145&h=AQLhGxuR84oHtETQJ-f7YtKXea8"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878044560145&h=AQLhGxuR84oHtETQJ-f7YtKX3bg"
             }
           ]
         }
