@@ -6,6 +6,7 @@
   const SEPTEMBER_DATA_URL = 'data/amador-september-sheet-2026.json';
   const SHEET_ID = '1Lj5rEepYZhHlf-VyGJwRYVMqnpWLu9lg3oL6wes3o-s';
   const SHEET_MONTH = 'Septiembre';
+  const REFRESH_BUTTON_IDS = ['campaigns-refresh-btn', 'projection-refresh-btn'];
   const LIVE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_MONTH)}`;
   const SYNC_INTERVAL_MS = 60 * 60 * 1000;
   const GOALS_KEY = 'amador-reservation-goals-v1';
@@ -271,10 +272,12 @@
     return sheetToMonthData(parseCsv(await response.text()));
   }
   function setRefreshButtonState(isLoading) {
-    const button = document.getElementById('campaigns-refresh-btn');
-    if (!button) return;
-    button.disabled = Boolean(isLoading);
-    button.textContent = isLoading ? 'Actualizando...' : 'Actualizar';
+    REFRESH_BUTTON_IDS.forEach(id => {
+      const button = document.getElementById(id);
+      if (!button) return;
+      button.disabled = Boolean(isLoading);
+      button.textContent = isLoading ? 'Actualizando...' : 'Actualizar';
+    });
   }
   async function syncLiveSheet({ silent = false, manual = false } = {}) {
     if (manual) {
@@ -654,7 +657,9 @@
       saveChartSeries();
       renderChart();
     });
-    document.getElementById('campaigns-refresh-btn').addEventListener('click', () => syncLiveSheet({ manual: true }));
+    REFRESH_BUTTON_IDS.forEach(id => {
+      document.getElementById(id)?.addEventListener('click', () => syncLiveSheet({ manual: true }));
+    });
     document.getElementById('chart-toggle-btn').addEventListener('click', () => {
       state.chartCollapsed = !state.chartCollapsed;
       saveChartCollapsed();

@@ -1229,6 +1229,10 @@ body.modal-open {
   margin-bottom: 20px;
 }
 
+.projection-table-head {
+  align-items: center;
+}
+
 .projection-table .projection-value {
   color: var(--ink);
   font-weight: 700;
