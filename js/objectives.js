@@ -642,6 +642,7 @@
     if (withTabs) renderTabs();
     renderCampaigns();
     renderHistory();
+    window.dispatchEvent(new CustomEvent('amador:data-updated'));
   }
   function wireEvents() {
     document.getElementById('chart-series-toggles').addEventListener('change', event => {
@@ -742,6 +743,17 @@
       state.syncTimer = setInterval(() => syncLiveSheet({ silent: true }), SYNC_INTERVAL_MS);
     } catch (error) { document.getElementById('view-obj').innerHTML = '<div class="data-notice error"><strong>No se pudo cargar la informacion de Amador.</strong></div>'; console.error(error); }
   }
-  window.AmadorObjectives = { renderHistory };
+  // Snapshot de solo lectura para los modulos que dependen de estos datos (Proyecciones).
+  function snapshot() {
+    if (!state.data) return null;
+    return {
+      cutoff: state.data.cutoff,
+      source: state.data.source,
+      year: state.data.year,
+      lastSync: state.lastSync,
+      months: cloneData(state.data).months,
+    };
+  }
+  window.AmadorObjectives = { renderHistory, snapshot };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

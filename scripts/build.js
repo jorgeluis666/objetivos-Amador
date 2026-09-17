@@ -20,6 +20,7 @@ function main() {
   const navigation = readFile('js/navigation.js');
   const sidebar = readFile('js/sidebar.js');
   const reportsArchive = readFile('js/reports-archive.js');
+  const projections = readFile('js/projections.js');
   const data = readFile('data/amador-ads-2026.json').replace(/</g, '\\u003c');
   const juneData = readFile('data/amador-june-sheet-2026.json').replace(/</g, '\\u003c');
   const julyData = readFile('data/amador-july-sheet-2026.json').replace(/</g, '\\u003c');
@@ -50,6 +51,10 @@ function main() {
   html = html.replace(
     '<script src="js/sidebar.js"></script>',
     `<script>${sidebar}</script>`
+  );
+  html = html.replace(
+    '<script src="js/projections.js"></script>',
+    `<script>${projections}</script>`
   );
   html = html.replace(
     '<script src="js/reports-archive.js"></script>',

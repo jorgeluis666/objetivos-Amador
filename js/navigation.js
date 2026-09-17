@@ -9,11 +9,11 @@
       footer: 'Sincronizado por Agencia Lima Retail',
     },
     'view-messages': {
-      title: 'Calculadora de Mensajes',
-      caption: 'Planificación WhatsApp por CPL',
-      status: 'Guardado automático',
-      source: 'Cálculo local de inversión para campañas de Mensajes',
-      footer: 'Datos guardados en este navegador',
+      title: 'Proyecciones',
+      caption: 'Cierre de mes y planificación por CPL',
+      status: 'Proyección sobre datos reales',
+      source: 'Fuente: Gasto publicitario / Distribucion-amador',
+      footer: 'Proyección lineal según el ritmo del mes',
     },
     'view-history': {
       title: 'Histórico de Campañas',
@@ -66,7 +66,11 @@
     document.getElementById('footer-status').textContent = meta.footer;
     saveView(viewId);
 
-    if (viewId === 'view-messages') window.MessagesCalculator?.init();
+    if (viewId === 'view-messages') {
+      window.MessagesCalculator?.init();
+      window.AmadorProjections?.init();
+      window.setTimeout(() => window.dispatchEvent(new Event('resize')), 0);
+    }
     if (viewId === 'view-obj') window.setTimeout(() => window.dispatchEvent(new Event('resize')), 0);
     if (viewId === 'view-history') window.AmadorObjectives?.renderHistory?.();
     if (viewId === 'view-reports') window.ReportsArchive?.init();

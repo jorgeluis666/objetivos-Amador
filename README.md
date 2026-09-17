@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.8.2`.
+Version actual: `v1.9.0`.
 
 ## Versionado
 
@@ -18,7 +18,7 @@ El proyecto usa la nomenclatura `vMAJOR.MINOR.PATCH`:
 - Distribucion entre Branding y Ventas.
 - Campanas por mes.
 - Estado, objetivo, presupuesto, gasto, importe diario y URL de anuncios.
-- Calculadora de Mensajes (inversion por CPL).
+- Proyecciones: cierre de mes estimado con los datos reales y calculadora de inversion por CPL.
 - Historico de Campanas finalizadas.
 - Archivo de Reportes: catalogo de los documentos guardados en la carpeta de Google Drive.
 
@@ -27,6 +27,16 @@ Los modulos Comparativo YoY, Distribucion, Productos Web y Usuarios y Claves se 
 ## Datos
 
 La fuente normalizada del dashboard esta en `data/amador-ads-2026.json`. Junio se cerro el 1 de julio de 2026 con los datos finales de `Distribucion-amador / Junio`; el CSV de respaldo esta en `data/csv-backups/`. Julio se cerro el 1 de septiembre de 2026 con los datos finales de `Distribucion-amador / Julio` (`data/amador-july-sheet-2026.json`). Agosto se cerro el 1 de septiembre de 2026 desde `Distribucion-amador / Agosto` (`data/amador-august-sheet-2026.json`). Septiembre se inicio el 3 de septiembre de 2026 desde `Distribucion-amador / Septiembre` (`data/amador-september-sheet-2026.json`) y se actualizo el 17 de septiembre de 2026 con el acumulado del mes (gasto S/1,778.94; 308 mensajes; 16 reservas); la sincronizacion en vivo apunta a esa pestana por nombre de hoja. El spreadsheet esta compartido como "cualquier persona con el enlace / lector", que es lo que necesita la lectura del CSV publicado; si vuelve a restringirse, el boton Actualizar deja de funcionar y hay que refrescar el JSON a mano. Las pestanas de julio en adelante agrupan anuncios por `Conjunto de anuncios` (RTGT, P. Frio, P. Caliente, etc.), reflejado en el campo `adSet`.
+
+## Proyecciones
+
+El modulo Proyecciones (antes Calculadora de Mensajes) lee los datos del modulo Gasto publicitario
+a traves de `window.AmadorObjectives.snapshot()` y proyecta el cierre del mes en curso.
+
+- El mes proyectado es el que corresponde a la fecha de corte (`cutoff`); si no tiene gasto, se usa el ultimo mes con datos.
+- Ritmo diario = acumulado real / dias con datos; la proyeccion mantiene ese ritmo hasta el ultimo dia del mes.
+- La linea de tiempo marca el dia de la ultima actualizacion y compara contra el presupuesto (inversion) o el objetivo de reservas.
+- Cada sincronizacion con Google Sheets emite el evento `amador:data-updated` y el modulo se recalcula solo.
 
 ## Archivo de Reportes (Google Drive)
 
