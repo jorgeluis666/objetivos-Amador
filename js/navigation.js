@@ -22,6 +22,13 @@
       source: 'Fuente: Distribucion-amador / Histórico consolidado',
       footer: 'Solo campañas finalizadas',
     },
+    'view-reports': {
+      title: 'Archivo de Reportes',
+      caption: 'Documentos en Google Drive',
+      status: 'Catalogo al 17 de septiembre',
+      source: 'Fuente: Carpeta compartida Reportes Amador / Google Drive',
+      footer: 'Vista previa y descarga directa desde Drive',
+    },
   };
 
   function storedView() {
@@ -62,6 +69,7 @@
     if (viewId === 'view-messages') window.MessagesCalculator?.init();
     if (viewId === 'view-obj') window.setTimeout(() => window.dispatchEvent(new Event('resize')), 0);
     if (viewId === 'view-history') window.AmadorObjectives?.renderHistory?.();
+    if (viewId === 'view-reports') window.ReportsArchive?.init();
   }
 
   function initNavigation() {

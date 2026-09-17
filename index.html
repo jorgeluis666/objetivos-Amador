@@ -40,7 +40,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar" id="amador-sidebar">
-    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.7.1</span></div></div>
+    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.8.0</span></div></div>
     <div class="s-group-lbl">Modulos activos</div>
     <button class="s-item active" type="button" data-view-target="view-obj">
       <div class="s-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
@@ -53,6 +53,10 @@
     <button class="s-item" type="button" data-view-target="view-history">
       <div class="s-icon"><svg viewBox="0 0 24 24"><path d="M3 4h18"/><path d="M3 10h18"/><path d="M3 16h18"/><path d="M7 4v16"/><path d="M17 4v16"/></svg></div>
       <div class="s-text"><div class="s-title-nav">Histórico de Campañas</div><div class="s-desc-nav">Campañas finalizadas</div></div>
+    </button>
+    <button class="s-item" type="button" data-view-target="view-reports">
+      <div class="s-icon"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="16" x2="13" y2="16"/></svg></div>
+      <div class="s-text"><div class="s-title-nav">Archivo de Reportes</div><div class="s-desc-nav">Documentos en Drive</div></div>
     </button>
     <div class="s-group-lbl paused-label">Modulos pausados</div>
     <button class="s-item disabled" type="button" disabled aria-disabled="true"><div class="s-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div class="s-text"><div class="s-title-nav">Comparativo YoY</div><div class="s-desc-nav">Evolucion interanual</div></div><span class="module-status">Proximamente</span></button>
@@ -186,12 +190,79 @@
         </div>
       </section>
 
+      <section class="view" id="view-reports">
+        <div class="sec-lbl">04 - Archivo documental</div>
+        <h1 class="section-title">Archivo de Reportes</h1>
+        <p class="section-desc">Repositorio de los reportes, propuestas y materiales de Amador almacenados en la carpeta compartida de Google Drive. Cada documento se puede previsualizar sin salir del tablero, abrir en Drive o descargar.</p>
+        <div class="kpi-strip reports-kpis" id="reports-kpis" aria-label="KPIs del archivo de reportes"></div>
+        <div class="panel reports-panel">
+          <div class="panel-head reports-panel-head">
+            <div>
+              <div class="panel-title">Documentos de la carpeta</div>
+              <div class="panel-sub" id="reports-count">Cargando documentos...</div>
+            </div>
+            <a class="refresh-sheet-btn" id="reports-folder-link" href="https://drive.google.com/drive/folders/1zqSfc2MlfsWYd3rfYgFWBgQwbrz6-R2b" target="_blank" rel="noopener">Abrir carpeta en Drive</a>
+          </div>
+          <div class="reports-filters">
+            <label class="reports-field search" for="reports-search">
+              <span class="sr-only">Buscar documento</span>
+              <input id="reports-search" type="search" placeholder="Buscar por nombre, tipo o periodo">
+            </label>
+            <label class="reports-field" for="reports-type">
+              <span class="sr-only">Filtrar por tipo</span>
+              <select id="reports-type"><option value="all">Todos los tipos</option></select>
+            </label>
+            <label class="reports-field" for="reports-period">
+              <span class="sr-only">Filtrar por periodo</span>
+              <select id="reports-period"><option value="all">Todos los periodos</option></select>
+            </label>
+            <label class="reports-field" for="reports-sort">
+              <span class="sr-only">Ordenar</span>
+              <select id="reports-sort">
+                <option value="recent">Mas recientes</option>
+                <option value="oldest">Mas antiguos</option>
+                <option value="name">Nombre (A-Z)</option>
+                <option value="size">Peso del archivo</option>
+              </select>
+            </label>
+            <label class="reports-check" for="reports-latest-only">
+              <input id="reports-latest-only" type="checkbox">
+              Solo versiones vigentes
+            </label>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table reports-table">
+              <thead><tr><th>Documento</th><th>Tipo</th><th>Periodo</th><th>Formato</th><th class="num">Peso</th><th>Actualizado</th><th>Acciones</th></tr></thead>
+              <tbody id="reports-body"><tr><td class="table-empty" colspan="7">Cargando documentos...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <div class="site-footer"><span id="footer-source">Fuente: Distribucion-amador + Registro de reservas x DM</span><span id="footer-status">Sincronizado por Agencia Lima Retail</span></div>
     </div>
   </main>
 </div>
+<div class="reports-modal" id="reports-modal" role="dialog" aria-modal="true" aria-labelledby="reports-modal-title">
+  <div class="reports-modal-card">
+    <div class="reports-modal-head">
+      <div>
+        <div class="reports-modal-title" id="reports-modal-title"></div>
+        <div class="reports-modal-sub" id="reports-modal-sub"></div>
+      </div>
+      <div class="reports-modal-actions">
+        <a class="report-btn" id="reports-modal-link" href="#" target="_blank" rel="noopener">Abrir en Drive</a>
+        <a class="report-btn" id="reports-modal-download" href="#" target="_blank" rel="noopener">Descargar</a>
+        <button class="report-btn close" type="button" data-close-preview aria-label="Cerrar vista previa">&times;</button>
+      </div>
+    </div>
+    <div class="reports-modal-body"><iframe id="reports-modal-frame" title="Vista previa del documento" allow="autoplay"></iframe></div>
+    <div class="reports-modal-foot">La vista previa usa el visor de Google Drive: necesitas iniciar sesion con una cuenta que tenga acceso a la carpeta compartida.</div>
+  </div>
+</div>
 <script src="js/objectives.js?v=20260812-1"></script>
 <script src="js/messages-calculator.js"></script>
+<script src="js/reports-archive.js"></script>
 <script src="js/navigation.js"></script>
 <script src="js/sidebar.js"></script>
 <script src="auth-login.js"></script>

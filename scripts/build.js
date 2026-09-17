@@ -19,11 +19,13 @@ function main() {
   const messagesCalculator = readFile('js/messages-calculator.js');
   const navigation = readFile('js/navigation.js');
   const sidebar = readFile('js/sidebar.js');
+  const reportsArchive = readFile('js/reports-archive.js');
   const data = readFile('data/amador-ads-2026.json').replace(/</g, '\\u003c');
   const juneData = readFile('data/amador-june-sheet-2026.json').replace(/</g, '\\u003c');
   const julyData = readFile('data/amador-july-sheet-2026.json').replace(/</g, '\\u003c');
   const septemberData = readFile('data/amador-september-sheet-2026.json').replace(/</g, '\\u003c');
   const augustData = readFile('data/amador-august-sheet-2026.json').replace(/</g, '\\u003c');
+  const driveReports = readFile('data/amador-drive-reports.json').replace(/</g, '\\u003c');
 
   html = html.replace(
     new RegExp('<link rel=\"stylesheet\" href=\"css/dashboard\\.css(?:\\?v=[^\"]+)?\">'),
@@ -50,8 +52,12 @@ function main() {
     `<script>${sidebar}</script>`
   );
   html = html.replace(
+    '<script src="js/reports-archive.js"></script>',
+    `<script>${reportsArchive}</script>`
+  );
+  html = html.replace(
     '</head>',
-    `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_JUNE_DATA = ${juneData};window.AMADOR_JULY_DATA = ${julyData};window.AMADOR_AUGUST_DATA = ${augustData};window.AMADOR_SEPTEMBER_DATA = ${septemberData};</script></head>`
+    `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_JUNE_DATA = ${juneData};window.AMADOR_JULY_DATA = ${julyData};window.AMADOR_AUGUST_DATA = ${augustData};window.AMADOR_SEPTEMBER_DATA = ${septemberData};window.AMADOR_DRIVE_REPORTS = ${driveReports};</script></head>`
   );
 
   fs.rmSync(DIST_DIR, { recursive: true, force: true });
@@ -60,6 +66,11 @@ function main() {
   fs.copyFileSync(
     path.join(ROOT, 'data', 'amador-ads-2026.json'),
     path.join(DIST_DIR, 'data', 'amador-ads-2026.json')
+  );
+
+  fs.copyFileSync(
+    path.join(ROOT, 'data', 'amador-drive-reports.json'),
+    path.join(DIST_DIR, 'data', 'amador-drive-reports.json')
   );
 
   console.log(`[build] escrito dist/index.html (${(fs.statSync(DIST_HTML).size / 1024).toFixed(1)} KB)`);

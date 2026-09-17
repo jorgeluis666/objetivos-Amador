@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.7.1`.
+Version actual: `v1.8.0`.
 
 ## Versionado
 
@@ -18,12 +18,25 @@ El proyecto usa la nomenclatura `vMAJOR.MINOR.PATCH`:
 - Distribucion entre Branding y Ventas.
 - Campanas por mes.
 - Estado, objetivo, presupuesto, gasto, importe diario y URL de anuncios.
+- Calculadora de Mensajes (inversion por CPL).
+- Historico de Campanas finalizadas.
+- Archivo de Reportes: catalogo de los documentos guardados en la carpeta de Google Drive.
 
 Los modulos Comparativo YoY, Distribucion, Productos Web y Usuarios y Claves se muestran deshabilitados hasta su futura implementacion.
 
 ## Datos
 
 La fuente normalizada del dashboard esta en `data/amador-ads-2026.json`. Junio se cerro el 1 de julio de 2026 con los datos finales de `Distribucion-amador / Junio`; el CSV de respaldo esta en `data/csv-backups/`. Julio se cerro el 1 de septiembre de 2026 con los datos finales de `Distribucion-amador / Julio` (`data/amador-july-sheet-2026.json`). Agosto se cerro el 1 de septiembre de 2026 desde `Distribucion-amador / Agosto` (`data/amador-august-sheet-2026.json`). Septiembre se inicio el 3 de septiembre de 2026 desde `Distribucion-amador / Septiembre` (`data/amador-september-sheet-2026.json`); la sincronizacion en vivo apunta a esa pestana por nombre de hoja. Las pestanas de julio en adelante agrupan anuncios por `Conjunto de anuncios` (RTGT, P. Frio, P. Caliente, etc.), reflejado en el campo `adSet`.
+
+## Archivo de Reportes (Google Drive)
+
+El modulo lee `data/amador-drive-reports.json`, un catalogo de la carpeta compartida
+`Reportes Amador` (https://drive.google.com/drive/folders/1zqSfc2MlfsWYd3rfYgFWBgQwbrz6-R2b).
+Cada entrada guarda `id`, `title`, `mimeType`, `sizeBytes`, `createdTime` y `modifiedTime` tal como los devuelve Drive;
+el tipo de documento, el periodo y la version vigente se deducen en el navegador a partir del nombre del archivo.
+
+Para incorporar nuevos documentos basta con agregar su bloque al arreglo `files` y actualizar `syncedAt`.
+La vista previa usa el visor de Drive (`/preview`), por lo que el usuario debe tener acceso a la carpeta.
 
 ## Sincronizacion de escritura con Google Sheets
 
