@@ -158,10 +158,14 @@
     if (series.unit === 'money') return short ? fmtShort(value) : fmtMoney(value);
     return fmtCount(value);
   }
+  function isTypeHeader(cell) {
+    // Al exportar, el titulo del mes queda fusionado con la cabecera "Tipo".
+    return /(^|\s)tipo$/.test(normalizeHeader(cell));
+  }
   function sheetToMonthData(rows) {
-    const headerIndex = rows.findIndex(row => row.some(cell => normalizeHeader(cell) === 'tipo') && row.some(cell => normalizeHeader(cell) === 'estado'));
+    const headerIndex = rows.findIndex(row => row.some(isTypeHeader) && row.some(cell => normalizeHeader(cell) === 'estado'));
     if (headerIndex < 0) throw new Error('No se encontro la fila de cabeceras del sheet.' );
-    const headers = rows[headerIndex];
+    const headers = rows[headerIndex].map(cell => (isTypeHeader(cell) ? 'Tipo' : cell));
     const map = validateHeaders(headers);
     const campaigns = [];
     let current = null;
