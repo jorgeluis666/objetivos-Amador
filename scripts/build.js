@@ -37,27 +37,27 @@ function main() {
     `<script>${app}</script>`
   );
   html = html.replace(
-    '<script src="js/reservation-goals.js"></script>',
+    new RegExp('<script src="js\\/reservation-goals\\.js(?:\\?v=[^"]+)?"><\\/script>'),
     `<script>${reservationGoals}</script>`
   );
   html = html.replace(
-    '<script src="js/messages-calculator.js"></script>',
+    new RegExp('<script src="js\\/messages-calculator\\.js(?:\\?v=[^"]+)?"><\\/script>'),
     `<script>${messagesCalculator}</script>`
   );
   html = html.replace(
-    '<script src="js/navigation.js"></script>',
+    new RegExp('<script src="js\\/navigation\\.js(?:\\?v=[^"]+)?"><\\/script>'),
     `<script>${navigation}</script>`
   );
   html = html.replace(
-    '<script src="js/sidebar.js"></script>',
+    new RegExp('<script src="js\\/sidebar\\.js(?:\\?v=[^"]+)?"><\\/script>'),
     `<script>${sidebar}</script>`
   );
   html = html.replace(
-    '<script src="js/projections.js"></script>',
+    new RegExp('<script src="js\\/projections\\.js(?:\\?v=[^"]+)?"><\\/script>'),
     `<script>${projections}</script>`
   );
   html = html.replace(
-    '<script src="js/reports-archive.js"></script>',
+    new RegExp('<script src="js\\/reports-archive\\.js(?:\\?v=[^"]+)?"><\\/script>'),
     `<script>${reportsArchive}</script>`
   );
   html = html.replace(

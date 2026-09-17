@@ -287,9 +287,20 @@
     if (body) body.innerHTML = '<tr><td class="table-empty" colspan="6">Sin datos para proyectar.</td></tr>';
   }
 
+  function renderWaiting() {
+    const sub = document.getElementById('projection-sub');
+    if (sub) sub.textContent = 'Esperando los datos del modulo Gasto publicitario...';
+    const body = document.getElementById('projection-body');
+    if (body) body.innerHTML = '<tr><td class="table-empty" colspan="6">Esperando los datos del modulo Gasto publicitario...</td></tr>';
+  }
+
   function render() {
+    // El modulo puede abrirse antes de que Gasto publicitario termine de cargar; el evento amador:data-updated lo reintenta.
     const snapshot = window.AmadorObjectives?.snapshot?.();
-    if (!snapshot) return;
+    if (!snapshot) {
+      renderWaiting();
+      return;
+    }
     const projection = buildProjection(snapshot);
     state.projection = projection;
     if (!projection) {
