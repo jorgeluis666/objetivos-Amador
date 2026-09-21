@@ -1,7 +1,12 @@
 (function () {
   const DATA_URL = 'data/amador-drive-reports.json';
-  // Mismo endpoint de Apps Script que usa el modulo de objetivos; su doGet lista la carpeta de Drive.
-  const SYNC_ENDPOINT_KEY = 'amador-sheet-sync-endpoint-v1';
+  // Web App de solo lectura (scripts/drive-reports-sync.gs). Va fija en el codigo a proposito:
+  // no se acepta desde la URL ni desde localStorage para que un enlace manipulado no la reemplace.
+  const DRIVE_SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyuFqs298dMyLVY6r4V_PiYbwAVYT0u7z9P7agM-8AT6T3crbXilGhkzp4C8OHYp9PF/exec';
+  const ENDPOINT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
+  const DRIVE_ID_RE = /^[A-Za-z0-9_-]{10,}$/;
+  // Apps Script puede tardar 10-20 s en un arranque en frio (p. ej. tras publicar una version).
+  const DRIVE_TIMEOUT_MS = 30000;
   const STALE_AFTER_DAYS = 3;
   const REQUIRED_FIELDS = ['id', 'title', 'mimeType', 'modifiedTime'];
   const MONTHS = [
@@ -292,12 +297,8 @@
     return '';
   }
 
-  function readStorage(key) {
-    try { return localStorage.getItem(key) || ''; } catch { return ''; }
-  }
-
   function syncEndpoint() {
-    return String(window.AMADOR_DRIVE_SYNC_ENDPOINT || window.AMADOR_SHEET_SYNC_ENDPOINT || readStorage(SYNC_ENDPOINT_KEY)).trim();
+    return ENDPOINT_RE.test(DRIVE_SYNC_ENDPOINT) ? DRIVE_SYNC_ENDPOINT : '';
   }
 
   function escapeHtml(value) {
@@ -332,15 +333,42 @@
     return response.json();
   }
 
+  // Solo se aceptan registros con la forma esperada; cualquier otro campo se descarta.
+  function sanitizeDriveFile(file) {
+    if (!file || typeof file !== 'object' || !DRIVE_ID_RE.test(String(file.id))) return null;
+    const modified = new Date(file.modifiedTime);
+    if (Number.isNaN(modified.getTime())) return null;
+    return {
+      id: String(file.id),
+      title: String(file.title || '').slice(0, 300),
+      sizeBytes: Number(file.sizeBytes) || 0,
+      modifiedTime: modified.toISOString(),
+    };
+  }
+
   async function fetchDriveListing(endpoint) {
-    const url = new URL(endpoint);
-    url.searchParams.set('action', 'listDriveFolder');
-    if (state.folder?.id) url.searchParams.set('folderId', state.folder.id);
-    const response = await fetch(url.toString(), { cache: 'no-store' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const payload = await response.json();
-    if (!payload.ok) throw new Error(payload.error || 'respuesta invalida del endpoint');
-    return payload.result;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DRIVE_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${endpoint}?action=listDriveFolder`, {
+        cache: 'no-store',
+        credentials: 'omit',
+        referrerPolicy: 'no-referrer',
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      if (!payload || payload.ok !== true) throw new Error(String(payload?.error || 'respuesta invalida').slice(0, 120));
+      const files = payload.result?.files;
+      if (!Array.isArray(files)) throw new Error('respuesta sin lista de archivos');
+      if (payload.result.folder?.id && payload.result.folder.id !== state.folder?.id) throw new Error('la carpeta no coincide');
+      return { files: files.map(sanitizeDriveFile).filter(Boolean) };
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('tiempo de espera agotado');
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   function sameInstant(a, b) {
@@ -432,7 +460,7 @@
       state.syncFlags = new Map();
       const endpoint = syncEndpoint();
       if (!endpoint) {
-        checks.push({ level: 'warn', label: 'Drive en vivo:', detail: 'no hay endpoint de Apps Script configurado; no se pudo comparar con la carpeta (ver README, Archivo de Reportes).' });
+        checks.push({ level: 'warn', label: 'Drive en vivo:', detail: 'no hay Web App de Apps Script configurada; no se pudo comparar con la carpeta (ver README, Archivo de Reportes).' });
       } else {
         try {
           const listing = await fetchDriveListing(endpoint);

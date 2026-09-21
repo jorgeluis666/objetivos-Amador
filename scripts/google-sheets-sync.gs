@@ -1,38 +1,5 @@
 const SPREADSHEET_ID = '1Lj5rEepYZhHlf-VyGJwRYVMqnpWLu9lg3oL6wes3o-s';
 const DEFAULT_SHEET_NAME = 'Agosto';
-const REPORTS_FOLDER_ID = '1zqSfc2MlfsWYd3rfYgFWBgQwbrz6-R2b';
-
-// Lectura usada por el boton "Validar sincronizacion" del Archivo de Reportes.
-function doGet(event) {
-  try {
-    const params = (event && event.parameter) || {};
-    if (params.action !== 'listDriveFolder') {
-      throw new Error('Accion no soportada.');
-    }
-    return json_({ ok: true, result: listDriveFolder_(params.folderId || REPORTS_FOLDER_ID) });
-  } catch (error) {
-    return json_({ ok: false, error: error.message });
-  }
-}
-
-function listDriveFolder_(folderId) {
-  const folder = DriveApp.getFolderById(folderId);
-  const files = [];
-  const iterator = folder.getFiles();
-  while (iterator.hasNext()) {
-    const file = iterator.next();
-    if (file.isTrashed()) continue;
-    files.push({
-      id: file.getId(),
-      title: file.getName(),
-      mimeType: file.getMimeType(),
-      sizeBytes: file.getSize(),
-      createdTime: file.getDateCreated().toISOString(),
-      modifiedTime: file.getLastUpdated().toISOString(),
-    });
-  }
-  return { folder: { id: folder.getId(), name: folder.getName() }, checkedAt: new Date().toISOString(), files };
-}
 
 function doPost(event) {
   try {

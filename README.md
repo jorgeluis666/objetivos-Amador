@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.10.0`.
+Version actual: `v1.10.1`.
 
 ## Versionado
 
@@ -58,10 +58,16 @@ El boton **Validar sincronizacion** del modulo revisa:
 4. En vivo contra la carpeta de Drive: documentos nuevos sin catalogar, eliminados que siguen en el catalogo y
    modificados (nombre, peso o fecha). Las filas afectadas se marcan en la tabla.
 
-La comparacion en vivo usa el `doGet` (`action=listDriveFolder`) de `scripts/google-sheets-sync.gs`, el mismo
-Web App del endpoint de escritura a Sheets (`window.AMADOR_SHEET_SYNC_ENDPOINT`, `?sheetSyncEndpoint=` o
-`window.AMADOR_DRIVE_SYNC_ENDPOINT` si se quiere uno distinto). Al redesplegar el script, Apps Script pedira
-autorizar el permiso de Drive. Sin endpoint, el boton hace las tres primeras validaciones y avisa que no pudo consultar Drive.
+La comparacion en vivo usa el Web App de solo lectura `scripts/drive-reports-sync.gs` (archivo `Validar Drive.gs`
+del proyecto de Apps Script "Distribucion Amador", implementado como Aplicacion web: ejecutar como el propietario,
+acceso "Cualquier usuario"). Su URL `/exec` va fija en `DRIVE_SYNC_ENDPOINT` (`js/reports-archive.js`); no se lee
+de la URL ni de localStorage. Sin ella, el boton hace las tres primeras validaciones y avisa que no pudo consultar Drive.
+
+Medidas de seguridad del Web App: carpeta fija en el script (la peticion no puede pedir otra), solo la accion
+`listDriveFolder`, sin escritura, respuesta limitada a id/nombre/tipo/peso/fechas, maximo 30 peticiones por minuto,
+cache de 60 s y errores genericos hacia el cliente. El tablero solo acepta URLs `https://script.google.com/macros/s/.../exec`,
+no envia cookies y descarta cualquier campo inesperado de la respuesta. Al cambiar el script hay que publicar una
+**nueva version** de la implementacion existente (Implementar > Gestionar implementaciones > editar) para conservar la URL.
 
 ## Sincronizacion de escritura con Google Sheets
 
