@@ -911,6 +911,105 @@
   text-decoration: none;
 }
 
+.reports-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.refresh-sheet-btn.outline {
+  color: var(--brand);
+  background: #fff;
+}
+
+.refresh-sheet-btn.outline:hover:not(:disabled) {
+  color: #fff;
+}
+
+.refresh-sheet-btn.outline:disabled {
+  border-color: #fecaca;
+  color: #fca5a5;
+  background: #fff;
+}
+
+.reports-sync-result {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 9px;
+  font-size: 11px;
+}
+
+.reports-sync-result[hidden] { display: none; }
+.reports-sync-result.ok { border-color: #bbf7d0; border-left-color: var(--green); background: var(--green-soft); }
+.reports-sync-result.warn { border-color: #fde68a; border-left-color: #d97706; background: #fffbeb; }
+.reports-sync-result.error { border-color: #fecaca; border-left-color: var(--red); background: #fef2f2; }
+
+.reports-sync-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.reports-sync-head strong { font-size: 12px; }
+.reports-sync-head span { color: var(--muted); font-size: 10px; }
+
+.reports-sync-close {
+  margin-left: auto;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.reports-sync-checks {
+  display: grid;
+  gap: 6px;
+}
+
+.reports-sync-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.reports-sync-check ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.reports-sync-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+}
+
+.reports-sync-check.ok .reports-sync-dot { background: var(--green); }
+.reports-sync-check.warn .reports-sync-dot { background: #d97706; }
+.reports-sync-check.error .reports-sync-dot { background: var(--red); }
+
+.sync-flag {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.sync-flag.missing { color: #b91c1c; background: #fee2e2; }
+.sync-flag.changed { color: #b45309; background: #fef3c7; }
+
 .reports-filters {
   display: flex;
   flex-wrap: wrap;

@@ -1,5 +1,9 @@
 (function () {
   const DATA_URL = 'data/amador-drive-reports.json';
+  // Mismo endpoint de Apps Script que usa el modulo de objetivos; su doGet lista la carpeta de Drive.
+  const SYNC_ENDPOINT_KEY = 'amador-sheet-sync-endpoint-v1';
+  const STALE_AFTER_DAYS = 3;
+  const REQUIRED_FIELDS = ['id', 'title', 'mimeType', 'modifiedTime'];
   const MONTHS = [
     'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
     'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
@@ -36,6 +40,8 @@
     reports: [],
     filters: { search: '', type: 'all', period: 'all', latestOnly: false },
     sort: 'recent',
+    validating: false,
+    syncFlags: new Map(),
   };
 
   const els = {};
@@ -261,6 +267,7 @@
         <td class="report-name-col">
           <span class="report-name">${report.name}</span>
           <span class="report-file">${report.title}</span>
+          ${syncFlagHtml(report.id)}
         </td>
         <td><span class="type-pill ${report.type.tone}">${report.type.label}</span></td>
         <td class="date-col">${report.period ? report.period.label : '<span class="no-data">Sin periodo</span>'}${report.range ? `<span class="report-range">${report.range}</span>` : ''}</td>
@@ -276,6 +283,181 @@
         </td>
       </tr>
     `).join('');
+  }
+
+  function syncFlagHtml(reportId) {
+    const flag = state.syncFlags.get(reportId);
+    if (flag === 'missing') return '<span class="sync-flag missing">Ya no esta en Drive</span>';
+    if (flag === 'changed') return '<span class="sync-flag changed">Modificado en Drive</span>';
+    return '';
+  }
+
+  function readStorage(key) {
+    try { return localStorage.getItem(key) || ''; } catch { return ''; }
+  }
+
+  function syncEndpoint() {
+    return String(window.AMADOR_DRIVE_SYNC_ENDPOINT || window.AMADOR_SHEET_SYNC_ENDPOINT || readStorage(SYNC_ENDPOINT_KEY)).trim();
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+  }
+
+  function daysSince(iso) {
+    const date = toDate(iso);
+    if (Number.isNaN(date.getTime())) return Infinity;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.max(0, Math.round((today - date) / 86400000));
+  }
+
+  function checkIntegrity(files) {
+    const issues = [];
+    const seen = new Set();
+    (files || []).forEach((file, index) => {
+      const label = file.title || `registro #${index + 1}`;
+      const missing = REQUIRED_FIELDS.filter(field => !file[field]);
+      if (missing.length) issues.push(`${label}: faltan ${missing.join(', ')}`);
+      if (file.id && seen.has(file.id)) issues.push(`${label}: ID duplicado`);
+      seen.add(file.id);
+      if (file.modifiedTime && Number.isNaN(new Date(file.modifiedTime).getTime())) issues.push(`${label}: fecha de modificacion invalida`);
+    });
+    return issues;
+  }
+
+  async function fetchPublishedCatalog() {
+    const response = await fetch(`${DATA_URL}?t=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  }
+
+  async function fetchDriveListing(endpoint) {
+    const url = new URL(endpoint);
+    url.searchParams.set('action', 'listDriveFolder');
+    if (state.folder?.id) url.searchParams.set('folderId', state.folder.id);
+    const response = await fetch(url.toString(), { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    if (!payload.ok) throw new Error(payload.error || 'respuesta invalida del endpoint');
+    return payload.result;
+  }
+
+  function sameInstant(a, b) {
+    // Drive devuelve "...:27Z" o "...:27.000Z" segun la API: se compara con tolerancia de 1 s.
+    return Math.abs(new Date(a).getTime() - new Date(b).getTime()) < 1000;
+  }
+
+  function diffWithDrive(driveFiles) {
+    const catalog = new Map(state.reports.map(report => [report.id, report]));
+    const drive = new Map((driveFiles || []).map(file => [file.id, file]));
+    const added = [...drive.values()].filter(file => !catalog.has(file.id));
+    const removed = state.reports.filter(report => !drive.has(report.id));
+    const changed = state.reports.filter(report => {
+      const file = drive.get(report.id);
+      if (!file) return false;
+      return file.title !== report.title
+        || Number(file.sizeBytes) !== report.sizeBytes
+        || !sameInstant(file.modifiedTime, report.modifiedTime);
+    });
+    return { added, removed, changed };
+  }
+
+  function applyCatalog(data) {
+    state.folder = data.folder || state.folder;
+    state.syncedAt = data.syncedAt || '';
+    state.reports = buildReports(data.files);
+    if (els.typeFilter) delete els.typeFilter.dataset.ready;
+    if (els.periodFilter) delete els.periodFilter.dataset.ready;
+  }
+
+  function renderValidation(result) {
+    if (!els.syncResult) return;
+    const titles = { ok: 'Sincronizacion correcta', warn: 'Sincronizacion con observaciones', error: 'Catalogo desincronizado' };
+    const list = items => (items.length ? `<ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '');
+    const now = new Date();
+    els.syncResult.className = `reports-sync-result ${result.level}`;
+    els.syncResult.innerHTML = `
+      <div class="reports-sync-head">
+        <strong>${titles[result.level]}</strong>
+        <span>Validado el ${formatLongDate(now.toISOString())}, ${now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span>
+        <button type="button" class="reports-sync-close" data-close-sync aria-label="Cerrar resultado">&times;</button>
+      </div>
+      <div class="reports-sync-checks">
+        ${result.checks.map(check => `
+          <div class="reports-sync-check ${check.level}">
+            <span class="reports-sync-dot"></span>
+            <div><b>${escapeHtml(check.label)}</b> ${escapeHtml(check.detail)}${list(check.items || [])}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    els.syncResult.hidden = false;
+  }
+
+  async function validateSync() {
+    if (state.validating) return;
+    state.validating = true;
+    els.validateBtn.disabled = true;
+    els.validateBtn.textContent = 'Validando...';
+
+    const checks = [];
+    try {
+      // 1. Catalogo publicado: si el servidor tiene una version mas nueva que la cargada, se aplica.
+      try {
+        const published = await fetchPublishedCatalog();
+        const loadedIds = state.reports.map(report => report.id).sort().join('|');
+        const publishedIds = (published.files || []).map(file => file.id).sort().join('|');
+        if (published.syncedAt !== state.syncedAt || loadedIds !== publishedIds) {
+          applyCatalog(published);
+          checks.push({ level: 'warn', label: 'Catalogo publicado:', detail: `habia una version mas reciente (${formatLongDate(published.syncedAt)}); se recargo en pantalla.` });
+        } else {
+          checks.push({ level: 'ok', label: 'Catalogo publicado:', detail: 'coincide con el que se esta mostrando.' });
+        }
+        const integrity = checkIntegrity(published.files);
+        checks.push(integrity.length
+          ? { level: 'error', label: 'Integridad:', detail: `${integrity.length} registros con problemas.`, items: integrity }
+          : { level: 'ok', label: 'Integridad:', detail: `${(published.files || []).length} registros completos, sin IDs duplicados.` });
+      } catch (error) {
+        checks.push({ level: 'warn', label: 'Catalogo publicado:', detail: `no se pudo releer ${DATA_URL} (${error.message}); se valida la copia cargada.` });
+      }
+
+      // 2. Antiguedad del ultimo corte.
+      const age = daysSince(state.syncedAt);
+      checks.push(age > STALE_AFTER_DAYS
+        ? { level: 'warn', label: 'Antiguedad:', detail: `el catalogo se sincronizo hace ${age} dias (${formatLongDate(state.syncedAt)}).` }
+        : { level: 'ok', label: 'Antiguedad:', detail: `sincronizado el ${formatLongDate(state.syncedAt)}${age === 0 ? ' (hoy)' : ` (hace ${age} ${age === 1 ? 'dia' : 'dias'})`}.` });
+
+      // 3. Comparacion en vivo contra la carpeta de Drive.
+      state.syncFlags = new Map();
+      const endpoint = syncEndpoint();
+      if (!endpoint) {
+        checks.push({ level: 'warn', label: 'Drive en vivo:', detail: 'no hay endpoint de Apps Script configurado; no se pudo comparar con la carpeta (ver README, Archivo de Reportes).' });
+      } else {
+        try {
+          const listing = await fetchDriveListing(endpoint);
+          const { added, removed, changed } = diffWithDrive(listing.files);
+          removed.forEach(report => state.syncFlags.set(report.id, 'missing'));
+          changed.forEach(report => state.syncFlags.set(report.id, 'changed'));
+          if (!added.length && !removed.length && !changed.length) {
+            checks.push({ level: 'ok', label: 'Drive en vivo:', detail: `los ${state.reports.length} documentos coinciden con la carpeta.` });
+          }
+          if (added.length) checks.push({ level: 'error', label: 'Nuevos en Drive:', detail: `${added.length} sin catalogar.`, items: added.map(file => file.title) });
+          if (removed.length) checks.push({ level: 'error', label: 'Eliminados de Drive:', detail: `${removed.length} siguen en el catalogo.`, items: removed.map(report => report.title) });
+          if (changed.length) checks.push({ level: 'warn', label: 'Modificados:', detail: `${changed.length} cambiaron de nombre, peso o fecha.`, items: changed.map(report => report.title) });
+        } catch (error) {
+          checks.push({ level: 'error', label: 'Drive en vivo:', detail: `el endpoint no respondio (${error.message}).` });
+        }
+      }
+    } finally {
+      const level = checks.some(check => check.level === 'error') ? 'error'
+        : checks.some(check => check.level === 'warn') ? 'warn' : 'ok';
+      render();
+      renderValidation({ level, checks });
+      state.validating = false;
+      els.validateBtn.disabled = false;
+      els.validateBtn.textContent = 'Validar sincronizacion';
+    }
   }
 
   function render() {
@@ -328,6 +510,10 @@
       const button = event.target.closest('[data-preview]');
       if (button) openPreview(button.dataset.preview);
     });
+    els.validateBtn?.addEventListener('click', validateSync);
+    els.syncResult?.addEventListener('click', event => {
+      if (event.target.closest('[data-close-sync]')) els.syncResult.hidden = true;
+    });
     els.modal?.addEventListener('click', event => {
       if (event.target === els.modal || event.target.closest('[data-close-preview]')) closePreview();
     });
@@ -356,6 +542,8 @@
     els.sortFilter = document.getElementById('reports-sort');
     els.latestOnly = document.getElementById('reports-latest-only');
     els.folderLink = document.getElementById('reports-folder-link');
+    els.validateBtn = document.getElementById('reports-validate-btn');
+    els.syncResult = document.getElementById('reports-sync-result');
     els.modal = document.getElementById('reports-modal');
     els.modalTitle = document.getElementById('reports-modal-title');
     els.modalSub = document.getElementById('reports-modal-sub');
@@ -365,9 +553,7 @@
 
     try {
       const data = await loadData();
-      state.folder = data.folder || null;
-      state.syncedAt = data.syncedAt || '';
-      state.reports = buildReports(data.files);
+      applyCatalog(data);
       if (els.folderLink && state.folder?.url) els.folderLink.href = state.folder.url;
       bindEvents();
       render();

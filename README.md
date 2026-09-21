@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.9.2`.
+Version actual: `v1.10.0`.
 
 ## Versionado
 
@@ -47,6 +47,21 @@ el tipo de documento, el periodo y la version vigente se deducen en el navegador
 
 Para incorporar nuevos documentos basta con agregar su bloque al arreglo `files` y actualizar `syncedAt`.
 La vista previa usa el visor de Drive (`/preview`), por lo que el usuario debe tener acceso a la carpeta.
+
+### Validar sincronizacion
+
+El boton **Validar sincronizacion** del modulo revisa:
+
+1. Que el catalogo publicado (`data/amador-drive-reports.json`) sea el mismo que se muestra; si hay uno mas nuevo lo recarga.
+2. La integridad de los registros (campos obligatorios, IDs duplicados, fechas validas).
+3. La antiguedad del ultimo corte (`syncedAt`): avisa si supera 3 dias.
+4. En vivo contra la carpeta de Drive: documentos nuevos sin catalogar, eliminados que siguen en el catalogo y
+   modificados (nombre, peso o fecha). Las filas afectadas se marcan en la tabla.
+
+La comparacion en vivo usa el `doGet` (`action=listDriveFolder`) de `scripts/google-sheets-sync.gs`, el mismo
+Web App del endpoint de escritura a Sheets (`window.AMADOR_SHEET_SYNC_ENDPOINT`, `?sheetSyncEndpoint=` o
+`window.AMADOR_DRIVE_SYNC_ENDPOINT` si se quiere uno distinto). Al redesplegar el script, Apps Script pedira
+autorizar el permiso de Drive. Sin endpoint, el boton hace las tres primeras validaciones y avisa que no pudo consultar Drive.
 
 ## Sincronizacion de escritura con Google Sheets
 

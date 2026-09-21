@@ -11,6 +11,19 @@ function readFile(relativePath) {
   return fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
 }
 
+// La pantalla de acceso vive fuera del HTML inlineado, asi que dist/ necesita
+// una copia del script y de la imagen de fondo o el build sale sin login.
+function copyLoginAssets() {
+  for (const asset of ['auth-login.js', 'login-bg.jpg']) {
+    const source = path.join(ROOT, asset);
+    if (!fs.existsSync(source)) {
+      console.warn(`[build] falta ${asset}; dist quedara sin ese archivo`);
+      continue;
+    }
+    fs.copyFileSync(source, path.join(DIST_DIR, asset));
+  }
+}
+
 function main() {
   let html = readFile('index.html');
   const css = readFile('css/dashboard.css');
@@ -77,6 +90,8 @@ function main() {
     path.join(ROOT, 'data', 'amador-drive-reports.json'),
     path.join(DIST_DIR, 'data', 'amador-drive-reports.json')
   );
+
+  copyLoginAssets();
 
   console.log(`[build] escrito dist/index.html (${(fs.statSync(DIST_HTML).size / 1024).toFixed(1)} KB)`);
 }

@@ -5,8 +5,16 @@
     "url": "https://drive.google.com/drive/folders/1zqSfc2MlfsWYd3rfYgFWBgQwbrz6-R2b",
     "owner": "diegomachuca@limaretail.com"
   },
-  "syncedAt": "2026-09-17",
+  "syncedAt": "2026-09-21",
   "files": [
+    {
+      "id": "10vVmxVl6qCaSslCSdjRJw2Zf3PG6xCrC",
+      "title": "Reporte_Amador_1-20Sep2026.pdf",
+      "mimeType": "application/pdf",
+      "sizeBytes": 160762,
+      "createdTime": "2026-09-21T17:07:48.106Z",
+      "modifiedTime": "2026-09-21T16:44:22Z"
+    },
     {
       "id": "1Brn6veLHSHRXTp3TYu283J-0JU1GxpTF",
       "title": "Reporte_Amador_Julio2026 (3).pdf",
@@ -54,22 +62,6 @@
       "sizeBytes": 145800,
       "createdTime": "2026-09-17T15:26:59.219Z",
       "modifiedTime": "2026-09-08T00:02:21Z"
-    },
-    {
-      "id": "1WqI3tCVBmv448Y1SzHDtIAQhLYtOzYWR",
-      "title": "AMADOR DE DIA V2 11.08.mp4",
-      "mimeType": "video/mp4",
-      "sizeBytes": 45997894,
-      "createdTime": "2026-09-17T15:29:34.111Z",
-      "modifiedTime": "2026-08-26T01:21:57Z"
-    },
-    {
-      "id": "1fP67D4gdbAlRNSsQ27QiI84zpH4qQ9Se",
-      "title": "Amador de dia VF.mp4",
-      "mimeType": "video/mp4",
-      "sizeBytes": 36209397,
-      "createdTime": "2026-09-17T15:28:43.500Z",
-      "modifiedTime": "2026-08-26T01:20:45Z"
     },
     {
       "id": "151ruSR_OI7hYxZb-DkTArCzm1_n8oGKv",
@@ -120,36 +112,12 @@
       "modifiedTime": "2026-08-11T15:51:52Z"
     },
     {
-      "id": "1c-iOiyt6KRhtwJmS-d7s94Eq5qeOqjQ2",
-      "title": "Amador_-_Dashboard_Lima_Retail (1).pdf",
-      "mimeType": "application/pdf",
-      "sizeBytes": 1123752,
-      "createdTime": "2026-09-17T15:27:36.865Z",
-      "modifiedTime": "2026-08-11T15:45:52Z"
-    },
-    {
-      "id": "1Bb1uFXlDvTB_wEjJvWdNTR97hM4ustSf",
-      "title": "Reporte_Recomendaciones_Audiovisuales_Amador_Lima_Retail 1.pdf",
-      "mimeType": "application/pdf",
-      "sizeBytes": 7598,
-      "createdTime": "2026-09-17T15:27:30.462Z",
-      "modifiedTime": "2026-08-05T15:27:30Z"
-    },
-    {
       "id": "1k-IgO3H-xqqZ3I6rIgGOOycHeujQUeJd",
       "title": "Reporte_Recomendaciones_Audiovisuales_Amador_Lima_Retail (1).pdf",
       "mimeType": "application/pdf",
       "sizeBytes": 352635,
       "createdTime": "2026-09-17T15:27:33.569Z",
       "modifiedTime": "2026-08-05T15:22:58Z"
-    },
-    {
-      "id": "11-BJOS22_PdA_E2_2uOuLcrDg1gv8bzV",
-      "title": "Reporte_Recomendaciones_Audiovisuales_Amador_Lima_Retail.pdf",
-      "mimeType": "application/pdf",
-      "sizeBytes": 74927,
-      "createdTime": "2026-09-17T15:27:31.319Z",
-      "modifiedTime": "2026-08-04T23:40:50Z"
     },
     {
       "id": "1aEKxhS-rKFXY0gUxxRUKaB0CXNkRaOBf",
