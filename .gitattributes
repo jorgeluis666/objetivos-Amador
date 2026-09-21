@@ -1,0 +1,4 @@
+# El repositorio guarda LF; se fija aqui para que no dependa de core.autocrlf de cada equipo.
+* text=auto eol=lf
+*.jpg binary
+*.png binary
