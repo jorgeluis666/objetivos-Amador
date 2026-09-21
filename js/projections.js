@@ -7,7 +7,14 @@
     reservations: { key: 'reservations', label: 'Reservas', unit: 'count', color: '#ea580c', fill: 'rgba(234,88,12,.10)', field: 'reservations', reference: 'reservationGoal', referenceLabel: 'Objetivo' },
   };
 
-  const state = { ready: false, metric: 'investment', chart: null, projection: null };
+  const SCENARIO_COLOR = '#7c3aed';
+  const HANDLE_HIT_RADIUS = 16;
+  // Orden fijo de datasets para poder actualizar el escenario mientras se arrastra sin recrear la grafica.
+  const DS = { real: 0, forecast: 1, scenario: 2, handle: 3, reference: 4 };
+
+  // factor = cierre objetivo / cierre proyectado. Es comun a los tres indicadores porque el escenario
+  // mantiene el costo por mensaje y la tasa de reserva del mes; asi cambiar de indicador conserva el escenario.
+  const state = { ready: false, metric: 'investment', chart: null, projection: null, factor: 1, dragging: false };
 
   const money = value => Number.isFinite(Number(value))
     ? `S/. ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -94,6 +101,45 @@
     };
   }
 
+  function canSimulate(projection, metric) {
+    return !projection.closed && projection.daysLeft > 0 && metric.projected > 0;
+  }
+
+  // El cierre objetivo nunca puede quedar por debajo de lo ya realizado.
+  function clampFactor(projection, factor) {
+    const min = projection.daysWithData / projection.daysInMonth;
+    return Number.isFinite(factor) ? Math.max(min, factor) : 1;
+  }
+
+  function setTarget(projection, metric, value) {
+    if (!canSimulate(projection, metric)) return;
+    state.factor = clampFactor(projection, Number(value) / metric.projected);
+  }
+
+  function buildScenario(projection) {
+    const factor = clampFactor(projection, state.factor);
+    const metrics = projection.metrics.map(metric => {
+      const target = metric.projected * factor;
+      const pace = projection.daysLeft > 0 ? (target - metric.actual) / projection.daysLeft : null;
+      return {
+        ...metric,
+        target,
+        delta: target - metric.projected,
+        deltaPct: metric.projected ? (target / metric.projected - 1) * 100 : null,
+        scenarioPace: pace,
+        paceChangePct: pace != null && metric.pace ? (pace / metric.pace - 1) * 100 : null,
+        targetGap: metric.reference == null ? null : metric.reference - target,
+        referencePct: metric.reference ? (target / metric.reference) * 100 : null,
+      };
+    });
+    return { factor, active: Math.abs(factor - 1) > 0.0005, metrics, byKey: Object.fromEntries(metrics.map(metric => [metric.key, metric])) };
+  }
+
+  const signed = (value, unit) => `${value >= 0 ? '+' : '-'}${format(Math.abs(value), unit)}`;
+  // Los ritmos de conteo se muestran con un decimal: 0.8 reservas por dia no debe verse como 1.
+  const formatPace = (value, unit) => (unit === 'money' ? money(value) : Number(value || 0).toLocaleString('es-PE', { maximumFractionDigits: 1 }));
+  const signedPct = value => (value == null ? '' : `${value >= 0 ? '+' : '-'}${Math.abs(value).toFixed(1)}%`);
+
   function renderKpis(projection) {
     const host = document.getElementById('projection-kpis');
     if (!host) return;
@@ -160,17 +206,35 @@
     if (closeHead) closeHead.textContent = `Proyeccion al ${projection.daysInMonth}-${projection.shortMonth}`;
   }
 
-  function renderLegend(projection, metric) {
+  function renderLegend(projection, metric, scenario) {
     const host = document.getElementById('projection-legend');
     if (!host) return;
     const items = [
       `<span><i class="legend-line" style="background:${metric.color}"></i><b>Acumulado real</b></span>`,
       `<span><i class="legend-line dashed" style="background:${metric.color}"></i><b>Proyeccion al cierre</b></span>`,
     ];
+    if (scenario.active) {
+      items.push(`<span><i class="legend-line dashed" style="background:${SCENARIO_COLOR}"></i><b>Escenario objetivo</b></span>`);
+    }
     if (metric.reference != null) {
       items.push(`<span><i class="legend-line dashed" style="background:#94a3b8"></i><b>${metric.referenceLabel}</b></span>`);
     }
+    if (canSimulate(projection, metric)) {
+      items.push(`<span style="color:${scenario.active ? SCENARIO_COLOR : metric.color}"><i class="legend-dot"></i><b>Nodo arrastrable (cierre objetivo)</b></span>`);
+    }
     host.innerHTML = items.join('');
+  }
+
+  function scenarioSeries(projection, metric, scenarioMetric) {
+    const last = projection.daysInMonth - 1;
+    const simulable = canSimulate(projection, metric);
+    const lineData = Array.from({ length: projection.daysInMonth }, (_, index) => (
+      index + 1 >= projection.daysWithData
+        ? metric.actual + scenarioMetric.scenarioPace * (index + 1 - projection.daysWithData)
+        : null
+    ));
+    const handleData = Array.from({ length: projection.daysInMonth }, (_, index) => (index === last && simulable ? scenarioMetric.target : null));
+    return { lineData, handleData };
   }
 
   const cutoffMarker = {
@@ -206,13 +270,21 @@
     const real = labels.map((_, index) => (index + 1 <= projection.daysWithData ? metric.pace * (index + 1) : null));
     const forecast = labels.map((_, index) => (index + 1 >= projection.daysWithData ? metric.pace * (index + 1) : null));
 
+    const scenario = buildScenario(projection);
+    const scenarioMetric = scenario.byKey[metric.key];
+    const series = scenarioSeries(projection, metric, scenarioMetric);
+    const handleColor = scenario.active ? SCENARIO_COLOR : metric.color;
+
     const datasets = [
       { label: 'Acumulado real', data: real, borderColor: metric.color, backgroundColor: metric.fill, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: .15, fill: true, unit: metric.unit },
-      { label: 'Proyeccion al cierre', data: projection.closed ? [] : forecast, borderColor: metric.color, borderDash: [6, 5], borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: .15, fill: false, unit: metric.unit },
+      { label: 'Proyeccion al cierre', data: projection.closed ? [] : forecast, borderColor: scenario.active ? `${metric.color}66` : metric.color, borderDash: [6, 5], borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: .15, fill: false, unit: metric.unit },
+      { label: 'Escenario objetivo', data: scenario.active ? series.lineData : [], borderColor: SCENARIO_COLOR, borderDash: [2, 4], borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, tension: 0, fill: false, unit: metric.unit },
+      { label: 'Cierre objetivo', data: series.handleData, showLine: false, pointRadius: 7, pointHoverRadius: 9, pointBorderWidth: 3, pointBackgroundColor: '#fff', pointBorderColor: handleColor, pointHoverBackgroundColor: '#fff', pointHoverBorderColor: handleColor, borderColor: handleColor, unit: metric.unit },
     ];
     if (metric.reference != null) {
       datasets.push({ label: metric.referenceLabel, data: labels.map(() => metric.reference), borderColor: '#94a3b8', borderDash: [3, 4], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0, fill: false, unit: metric.unit });
     }
+    const suggestedMax = Math.max(metric.projected * 1.3, (metric.reference || 0) * 1.1, scenarioMetric.target * 1.15);
 
     const ticks = metric.unit === 'money'
       ? value => (value === 0 ? 'S/. 0' : `S/. ${(value / 1000).toFixed(1)}k`)
@@ -238,13 +310,132 @@
         },
         scales: {
           x: { grid: { display: false }, border: { color: '#cbd5e1' }, ticks: { color: '#7890b5', font: { size: 10 }, maxTicksLimit: 10, autoSkip: true } },
-          y: { beginAtZero: true, border: { display: false }, grid: { color: 'rgba(148,163,184,.20)' }, ticks: { color: '#7890b5', font: { size: 10 }, callback: ticks } },
+          y: { beginAtZero: true, suggestedMax, border: { display: false }, grid: { color: 'rgba(148,163,184,.20)' }, ticks: { color: '#7890b5', font: { size: 10 }, callback: ticks } },
         },
       },
       plugins: [cutoffMarker],
     });
 
-    renderLegend(projection, metric);
+    renderLegend(projection, metric, scenario);
+  }
+
+  // Actualizacion liviana durante el arrastre: solo cambian el escenario y el nodo.
+  function updateScenario(projection) {
+    const chart = state.chart;
+    const metric = projection.byKey[state.metric] || projection.byKey.investment;
+    const scenario = buildScenario(projection);
+    if (chart) {
+      const series = scenarioSeries(projection, metric, scenario.byKey[metric.key]);
+      const handleColor = scenario.active ? SCENARIO_COLOR : metric.color;
+      const handle = chart.data.datasets[DS.handle];
+      chart.data.datasets[DS.forecast].borderColor = scenario.active ? `${metric.color}66` : metric.color;
+      chart.data.datasets[DS.scenario].data = scenario.active ? series.lineData : [];
+      handle.data = series.handleData;
+      handle.pointBorderColor = handle.pointHoverBorderColor = handle.borderColor = handleColor;
+      chart.update('none');
+      renderLegend(projection, metric, scenario);
+    }
+    renderSimulator(projection);
+  }
+
+  function renderSimulator(projection) {
+    const grid = document.getElementById('projection-sim-grid');
+    if (!grid) return;
+    const metric = projection.byKey[state.metric] || projection.byKey.investment;
+    const scenario = buildScenario(projection);
+    const selected = scenario.byKey[metric.key];
+    const simulable = canSimulate(projection, metric);
+
+    const input = document.getElementById('projection-sim-value');
+    const goalButton = document.getElementById('projection-sim-goal');
+    const resetButton = document.getElementById('projection-sim-reset');
+    const sub = document.getElementById('projection-sim-sub');
+    const note = document.getElementById('projection-sim-note');
+    const label = document.getElementById('projection-sim-label');
+    const prefix = document.getElementById('projection-sim-prefix');
+
+    if (label) label.textContent = `${metric.label} al cierre`;
+    if (prefix) prefix.textContent = metric.unit === 'money' ? 'S/' : '#';
+    if (input) {
+      input.disabled = !simulable;
+      input.step = metric.unit === 'money' ? '10' : '1';
+      input.min = simulable ? String(Math.ceil(metric.actual)) : '0';
+      // No se pisa lo que el usuario esta escribiendo.
+      if (document.activeElement !== input) {
+        input.value = simulable ? (metric.unit === 'money' ? selected.target.toFixed(2) : String(Math.round(selected.target))) : '';
+      }
+    }
+    if (resetButton) resetButton.disabled = !scenario.active;
+    if (goalButton) {
+      const hasGoal = simulable && metric.reference != null && metric.reference > 0;
+      goalButton.hidden = !hasGoal;
+      if (hasGoal) goalButton.textContent = `Llevar al ${metric.referenceLabel.toLowerCase()} (${format(metric.reference, metric.unit)})`;
+    }
+
+    if (!simulable) {
+      const reason = projection.closed || projection.daysLeft <= 0
+        ? 'El mes ya cerro: el simulador aplica al mes en curso.'
+        : `Todavia no hay ${metric.label.toLowerCase()} registrados para simular.`;
+      if (sub) sub.textContent = reason;
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;min-height:120px"><strong>Simulador no disponible</strong>${reason}</div>`;
+      if (note) note.textContent = '';
+      return;
+    }
+
+    if (sub) {
+      sub.textContent = scenario.active
+        ? `Escenario: cerrar ${projection.monthLabel} con ${format(selected.target, metric.unit)} de ${metric.label.toLowerCase()} (${signedPct(selected.deltaPct)} vs la proyeccion).`
+        : 'Arrastra el nodo del ultimo dia de la grafica (o escribe el valor) hacia el cierre que quieres alcanzar.';
+    }
+
+    const referenceRow = item => {
+      if (item.reference == null) return '';
+      const isBudget = item.key === 'investment';
+      const ok = isBudget ? item.targetGap >= 0 : item.targetGap <= 0;
+      const text = isBudget
+        ? (item.targetGap >= 0 ? `Quedan ${format(item.targetGap, item.unit)}` : `Excede ${format(-item.targetGap, item.unit)}`)
+        : (item.targetGap > 0 ? `Faltan ${format(item.targetGap, item.unit)}` : `Cumple (+${format(-item.targetGap, item.unit)})`);
+      return `<div><dt>vs ${item.referenceLabel.toLowerCase()} (${item.referencePct.toFixed(0)}%)</dt><dd class="${ok ? 'ok' : 'over'}">${text}</dd></div>`;
+    };
+
+    const cards = scenario.metrics.map(item => {
+      const trend = !scenario.active ? '' : item.delta >= 0 ? 'up' : 'down';
+      const perDay = item.unit === 'money' ? '/ dia' : 'por dia';
+      return `
+        <div class="sim-card ${item.key === metric.key ? 'selected' : ''}">
+          <span>${item.label} al cierre</span>
+          <strong>${format(item.target, item.unit)}</strong>
+          <small class="sim-delta ${trend}">${scenario.active ? `${signed(item.delta, item.unit)} vs proyeccion (${signedPct(item.deltaPct)})` : 'Igual a la proyeccion'}</small>
+          <dl>
+            <div><dt>${item.key === 'investment' ? 'Presupuesto diario requerido' : 'Ritmo requerido'}</dt><dd>${formatPace(item.scenarioPace, item.unit)} ${perDay}</dd></div>
+            <div><dt>Ritmo actual</dt><dd>${formatPace(item.pace, item.unit)} ${perDay}${scenario.active && item.paceChangePct != null ? ` (${signedPct(item.paceChangePct)})` : ''}</dd></div>
+            <div><dt>Falta realizar</dt><dd>${format(Math.max(0, item.target - item.actual), item.unit)} en ${projection.daysLeft} dias</dd></div>
+            ${referenceRow(item)}
+          </dl>
+        </div>`;
+    });
+
+    const spend = scenario.byKey.investment;
+    const messages = scenario.byKey.messages;
+    const reservations = scenario.byKey.reservations;
+    const conversion = messages.actual ? (reservations.actual / messages.actual) * 100 : null;
+    cards.push(`
+      <div class="sim-card efficiency">
+        <span>Eficiencia del escenario</span>
+        <strong>${money(spend.delta)}</strong>
+        <small class="sim-delta ${!scenario.active ? '' : spend.delta >= 0 ? 'up' : 'down'}">Inversion ${spend.delta >= 0 ? 'adicional' : 'menor'} vs el ritmo actual</small>
+        <dl>
+          <div><dt>Costo por mensaje</dt><dd>${money(projection.costPerMessage)}</dd></div>
+          <div><dt>Costo por reserva</dt><dd>${money(projection.costPerReservation)}</dd></div>
+          <div><dt>Tasa de reserva</dt><dd>${conversion == null ? '-' : `${conversion.toFixed(1)}%`}</dd></div>
+        </dl>
+      </div>`);
+
+    grid.innerHTML = cards.join('');
+
+    if (note) {
+      note.textContent = `El escenario conserva la eficiencia real del mes (costo por mensaje, costo por reserva y tasa de reserva): mover un indicador recalcula los otros dos en la misma proporcion. El cierre objetivo no puede quedar por debajo de lo ya realizado al ${projection.daysWithData}-${projection.shortMonth}.`;
+    }
   }
 
   function renderHeader(projection) {
@@ -312,6 +503,120 @@
     renderChart(projection);
     renderTable(projection);
     renderCplLink(projection);
+    renderSimulator(projection);
+  }
+
+  function handlePosition(chart, projection, metric) {
+    const target = buildScenario(projection).byKey[metric.key].target;
+    return { x: chart.scales.x.getPixelForValue(projection.daysInMonth - 1), y: chart.scales.y.getPixelForValue(target) };
+  }
+
+  // Misma conversion que usa Chart.js internamente; offsetX falla con zoom o transformaciones CSS.
+  function pointerPosition(event, chart) {
+    if (Chart.helpers?.getRelativePosition) return Chart.helpers.getRelativePosition(event, chart);
+    const rect = chart.canvas.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  }
+
+  function nearHandle(event) {
+    const chart = state.chart;
+    const projection = state.projection;
+    if (!chart || !projection) return false;
+    const metric = projection.byKey[state.metric];
+    if (!metric || !canSimulate(projection, metric)) return false;
+    const point = handlePosition(chart, projection, metric);
+    const pointer = pointerPosition(event, chart);
+    return Math.hypot(pointer.x - point.x, pointer.y - point.y) <= HANDLE_HIT_RADIUS;
+  }
+
+  function wireDrag() {
+    const canvas = document.getElementById('chart-projection');
+    if (!canvas) return;
+
+    canvas.addEventListener('pointerdown', event => {
+      if (!nearHandle(event)) return;
+      event.preventDefault();
+      state.dragging = true;
+      canvas.setPointerCapture(event.pointerId);
+      canvas.style.cursor = 'grabbing';
+      // Se congela la escala durante el arrastre para que el eje no salte bajo el cursor.
+      const metric = state.projection.byKey[state.metric];
+      const target = buildScenario(state.projection).byKey[metric.key].target;
+      state.chart.options.scales.y.max = Math.max(state.chart.scales.y.max, target * 1.6);
+      state.chart.update('none');
+    });
+
+    canvas.addEventListener('pointermove', event => {
+      if (!state.dragging) {
+        canvas.style.cursor = nearHandle(event) ? 'ns-resize' : '';
+        return;
+      }
+      const chart = state.chart;
+      const projection = state.projection;
+      const metric = projection.byKey[state.metric];
+      const { top, bottom } = chart.chartArea;
+      const y = Math.min(bottom, Math.max(top, pointerPosition(event, chart).y));
+      setTarget(projection, metric, chart.scales.y.getValueForPixel(y));
+      updateScenario(projection);
+    });
+
+    const endDrag = event => {
+      if (!state.dragging) return;
+      state.dragging = false;
+      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      canvas.style.cursor = '';
+      if (state.projection) renderChart(state.projection);
+    };
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointercancel', endDrag);
+
+    canvas.addEventListener('dblclick', event => {
+      if (!nearHandle(event) || !state.projection) return;
+      state.factor = 1;
+      renderChart(state.projection);
+      renderSimulator(state.projection);
+    });
+  }
+
+  function wireSimulator() {
+    const input = document.getElementById('projection-sim-value');
+    input?.addEventListener('input', () => {
+      const projection = state.projection;
+      if (!projection || input.value === '') return;
+      const metric = projection.byKey[state.metric];
+      const value = Number(input.value);
+      // Mientras se escribe, un valor por debajo de lo realizado se ignora en vez de corregirlo a mitad de tecleo.
+      if (!Number.isFinite(value) || value < metric.actual) return;
+      setTarget(projection, metric, value);
+      renderChart(projection);
+      renderSimulator(projection);
+    });
+    input?.addEventListener('change', () => {
+      const projection = state.projection;
+      if (!projection) return;
+      const metric = projection.byKey[state.metric];
+      if (input.value !== '') setTarget(projection, metric, Number(input.value));
+      input.blur();
+      renderChart(projection);
+      renderSimulator(projection);
+    });
+
+    document.getElementById('projection-sim-goal')?.addEventListener('click', () => {
+      const projection = state.projection;
+      if (!projection) return;
+      const metric = projection.byKey[state.metric];
+      if (metric.reference == null) return;
+      setTarget(projection, metric, metric.reference);
+      renderChart(projection);
+      renderSimulator(projection);
+    });
+
+    document.getElementById('projection-sim-reset')?.addEventListener('click', () => {
+      state.factor = 1;
+      if (!state.projection) return;
+      renderChart(state.projection);
+      renderSimulator(state.projection);
+    });
   }
 
   function wireEvents() {
@@ -322,8 +627,14 @@
       document.querySelectorAll('#projection-metrics .series-toggle').forEach(label => {
         label.classList.toggle('active', label.dataset.series === state.metric);
       });
-      if (state.projection) renderChart(state.projection);
+      if (state.projection) {
+        renderChart(state.projection);
+        renderSimulator(state.projection);
+      }
     });
+
+    wireDrag();
+    wireSimulator();
 
     document.getElementById('projection-use-cpl')?.addEventListener('click', event => {
       const cpl = event.currentTarget.dataset.cpl;

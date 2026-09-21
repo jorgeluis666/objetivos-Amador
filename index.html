@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="css/dashboard.css?v=1.10.1">
+<link rel="stylesheet" href="css/dashboard.css?v=1.11.0">
 <style>
   .reservations-total-row td { height: auto !important; padding: 10px 12px !important; border-top: 2px solid #cbd5e1 !important; color: #0f172a !important; background: #f8fafc; font-size: 13px; font-weight: 800; vertical-align: middle; }
   .reservations-total-row .total-label { text-align: right; }
@@ -40,7 +40,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar" id="amador-sidebar">
-    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.10.1</span></div></div>
+    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.11.0</span></div></div>
     <div class="s-group-lbl">Modulos activos</div>
     <button class="s-item active" type="button" data-view-target="view-obj">
       <div class="s-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
@@ -112,6 +112,25 @@
           <div class="chart-wrap h-360"><canvas id="chart-projection"></canvas></div>
           <div class="chart-legend projection-legend" id="projection-legend"></div>
           <p class="projection-note" id="projection-note"></p>
+
+          <div class="projection-sim" id="projection-sim">
+            <div class="projection-sim-head">
+              <div>
+                <div class="panel-title">Simulador de objetivo</div>
+                <div class="panel-sub" id="projection-sim-sub">Arrastra el nodo del ultimo dia de la grafica hacia el cierre que quieres alcanzar.</div>
+              </div>
+              <div class="projection-sim-actions">
+                <label class="messages-field projection-sim-field" for="projection-sim-value">
+                  <span id="projection-sim-label">Cierre objetivo</span>
+                  <span class="messages-input-wrap"><b id="projection-sim-prefix">S/</b><input id="projection-sim-value" type="number" min="0" step="1"></span>
+                </label>
+                <button class="messages-btn secondary" id="projection-sim-goal" type="button" hidden>Llevar al objetivo</button>
+                <button class="messages-btn secondary" id="projection-sim-reset" type="button">Restablecer</button>
+              </div>
+            </div>
+            <div class="projection-sim-grid" id="projection-sim-grid"></div>
+            <p class="projection-note" id="projection-sim-note"></p>
+          </div>
         </div>
 
         <div class="panel projection-table-panel">
@@ -300,12 +319,12 @@
     <div class="reports-modal-foot">La vista previa usa el visor de Google Drive: necesitas iniciar sesion con una cuenta que tenga acceso a la carpeta compartida.</div>
   </div>
 </div>
-<script src="js/objectives.js?v=1.10.1"></script>
-<script src="js/messages-calculator.js?v=1.10.1"></script>
-<script src="js/reports-archive.js?v=1.10.1"></script>
-<script src="js/projections.js?v=1.10.1"></script>
-<script src="js/navigation.js?v=1.10.1"></script>
-<script src="js/sidebar.js?v=1.10.1"></script>
+<script src="js/objectives.js?v=1.11.0"></script>
+<script src="js/messages-calculator.js?v=1.11.0"></script>
+<script src="js/reports-archive.js?v=1.11.0"></script>
+<script src="js/projections.js?v=1.11.0"></script>
+<script src="js/navigation.js?v=1.11.0"></script>
+<script src="js/sidebar.js?v=1.11.0"></script>
 <script src="auth-login.js?v=1.9.3"></script>
 <script>
   AuthLogin.init({ password: 'Amador2026' });

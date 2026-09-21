@@ -1367,10 +1367,158 @@ body.modal-open {
   gap: 8px;
 }
 
+/* Simulador: el nodo final de la grafica se arrastra hacia el cierre deseado */
+.projection-sim {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.projection-sim-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.projection-sim-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.projection-sim-field {
+  width: 170px;
+}
+
+.projection-sim-actions .messages-btn {
+  min-height: 40px;
+}
+
+.projection-sim-actions .messages-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.projection-sim-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sim-card {
+  padding: 14px 15px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.sim-card.selected {
+  border-color: #c4b5fd;
+  background: #faf5ff;
+}
+
+.sim-card.efficiency {
+  background: #f8fafc;
+}
+
+.sim-card > span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.sim-card > strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.sim-delta {
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 3px 7px;
+  border-radius: 99px;
+  color: #475569;
+  background: #f1f5f9;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.sim-delta.up {
+  color: #6d28d9;
+  background: #ede9fe;
+}
+
+.sim-delta.down {
+  color: var(--brand-text);
+  background: var(--brand-soft);
+}
+
+.sim-card dl {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+}
+
+.sim-card dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 10px;
+}
+
+.sim-card dt {
+  color: var(--muted);
+}
+
+.sim-card dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 700;
+  text-align: right;
+}
+
+.sim-card dd.ok {
+  color: var(--green-text);
+}
+
+.sim-card dd.over {
+  color: var(--brand-text);
+}
+
+.projection-legend .legend-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  background: #fff;
+}
+
+@media(max-width:1100px) {
+  .projection-sim-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media(max-width:760px) {
-  .projection-panel-head {
+  .projection-panel-head,
+  .projection-sim-head {
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;
+  }
+
+  .projection-sim-grid {
+    grid-template-columns: 1fr;
   }
 }

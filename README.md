@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.10.1`.
+Version actual: `v1.11.0`.
 
 ## Versionado
 
@@ -37,6 +37,11 @@ a traves de `window.AmadorObjectives.snapshot()` y proyecta el cierre del mes en
 - Ritmo diario = acumulado real / dias con datos; la proyeccion mantiene ese ritmo hasta el ultimo dia del mes.
 - La linea de tiempo marca el dia de la ultima actualizacion y compara contra el presupuesto (inversion) o el objetivo de reservas.
 - Cada sincronizacion con Google Sheets emite el evento `amador:data-updated` y el modulo se recalcula solo.
+- Simulador de objetivo: el ultimo punto de la linea de tiempo es un nodo arrastrable. Al moverlo hacia el cierre deseado
+  (o escribir el valor / usar "Llevar al objetivo") se recalcula el cierre de inversion, mensajes y reservas, el ritmo
+  diario requerido para los dias restantes, la brecha contra presupuesto u objetivo y la inversion adicional.
+  El escenario conserva la eficiencia real del mes (costo por mensaje, costo por reserva y tasa de reserva) y no permite
+  cerrar por debajo de lo ya realizado. Doble clic sobre el nodo o "Restablecer" vuelve a la proyeccion lineal.
 
 ## Archivo de Reportes (Google Drive)
 
