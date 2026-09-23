@@ -76,12 +76,14 @@ no envia cookies y descarta cualquier campo inesperado de la respuesta. Al cambi
 
 ## Sincronizacion de escritura con Google Sheets
 
-GitHub Pages puede leer el CSV publicado de Google Sheets, pero necesita un puente autorizado para escribir cambios de vuelta en el spreadsheet. Para activar la edicion sincronizada de `Objetivo Reservas`:
+El tablero puede leer el CSV publicado de Google Sheets, pero necesita un puente autorizado para escribir cambios de vuelta en el spreadsheet. Para activar la edicion sincronizada de `Objetivo Reservas`:
 
 1. Crear un proyecto de Apps Script vinculado al Google Sheet.
 2. Copiar el contenido de `scripts/google-sheets-sync.gs`.
 3. Publicarlo como Web App con ejecucion como propietario y acceso permitido a los usuarios que usaran el panel.
-4. Abrir el dashboard una vez con `?sheetSyncEndpoint=URL_DE_LA_WEB_APP`. El panel guardara ese endpoint en el navegador.
+   El script solo escribe en las pestañas mensuales del spreadsheet fijado en `SPREADSHEET_ID` y solo acepta enteros entre 0 y 100000.
+4. Pegar la URL `https://script.google.com/macros/s/.../exec` en `SHEET_SYNC_ENDPOINT` (`js/objectives.js`) y volver a publicar.
+   Ya no se acepta desde `?sheetSyncEndpoint=` ni desde localStorage: un enlace manipulado podia desviar los datos a un tercero.
 
 Desde ese momento, los cambios en `Objetivo Reservas` se actualizan localmente y se envian al Sheet.
 
@@ -98,4 +100,25 @@ npm run dev
 npm run build
 ```
 
-El resultado para GitHub Pages se genera en `dist/`.
+El resultado se genera en `dist/`: `index.html` (CSS, JS y datos incrustados), `assets/`, `data/amador-drive-reports.json` y `.htaccess`.
+Nada mas: `data/csv-backups`, `scripts/` y el resto del repo nunca se publican.
+
+## Publicacion en el hosting de Lima Retail
+
+El acceso lo controla Apache con HTTP Basic Auth (una cuenta por cliente). No hay contraseña en el HTML.
+`dist/.htaccess` se genera desde `deploy/.htaccess` con la ruta del archivo de claves y una CSP con el hash de cada script.
+
+Configuracion unica en cPanel:
+
+1. **Dominios** > activar **Forzar redireccion HTTPS** para el dominio o subdominio del cliente.
+2. **Privacidad de directorios** > carpeta del cliente > activar proteccion y crear el usuario del cliente
+   con una contraseña larga y aleatoria. cPanel crea el archivo de claves en
+   `/home/<usuario_cpanel>/.htpasswds/<ruta_de_la_carpeta>/passwd`.
+3. En GitHub > Settings > Secrets and variables > Actions, crear:
+   - `HTPASSWD_PATH`: la ruta absoluta del paso 2.
+   - `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`: una cuenta FTP limitada a la carpeta del cliente.
+   - `FTP_SERVER_DIR`: carpeta destino relativa a esa cuenta, terminada en `/` (por ejemplo `./`).
+4. Desactivar GitHub Pages (Settings > Pages) y dejar el repositorio en privado: los datos del cliente no deben quedar publicos.
+
+Cada push a `main` ejecuta `.github/workflows/deploy-hosting.yml`, que compila y sube `dist/` por FTPS.
+Si falta `HTPASSWD_PATH` el build falla; si la ruta es incorrecta Apache responde 500 en vez de mostrar el tablero sin clave.
