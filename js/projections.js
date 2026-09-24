@@ -457,20 +457,6 @@
     }
   }
 
-  // El CPL real del mes alimenta la calculadora de inversion.
-  function renderCplLink(projection) {
-    const button = document.getElementById('projection-use-cpl');
-    if (!button) return;
-    const cpl = projection.costPerMessage;
-    if (!cpl) {
-      button.hidden = true;
-      return;
-    }
-    button.hidden = false;
-    button.textContent = `Usar CPL real (${money(cpl)})`;
-    button.dataset.cpl = cpl.toFixed(2);
-  }
-
   function renderEmpty() {
     const panel = document.getElementById('projection-panel');
     if (panel) panel.innerHTML = '<div class="empty-state"><strong>Sin datos para proyectar</strong>Todavia no hay gasto registrado en el mes en curso.</div>';
@@ -502,7 +488,6 @@
     renderKpis(projection);
     renderChart(projection);
     renderTable(projection);
-    renderCplLink(projection);
     renderSimulator(projection);
   }
 
@@ -635,17 +620,6 @@
 
     wireDrag();
     wireSimulator();
-
-    document.getElementById('projection-use-cpl')?.addEventListener('click', event => {
-      const cpl = event.currentTarget.dataset.cpl;
-      if (!cpl) return;
-      window.MessagesCalculator?.init();
-      const input = document.getElementById('messages-cpl');
-      if (!input) return;
-      input.value = cpl;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.focus();
-    });
 
     window.addEventListener('amador:data-updated', () => {
       if (state.ready) render();

@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.11.0`.
+Version actual: `v1.12.0`.
 
 ## Versionado
 
@@ -18,11 +18,11 @@ El proyecto usa la nomenclatura `vMAJOR.MINOR.PATCH`:
 - Distribucion entre Branding y Ventas.
 - Campanas por mes.
 - Estado, objetivo, presupuesto, gasto, importe diario y URL de anuncios.
-- Proyecciones: cierre de mes estimado con los datos reales y calculadora de inversion por CPL.
+- Proyecciones: cierre de mes estimado con los datos reales y simulador de objetivo.
 - Historico de Campanas finalizadas.
 - Archivo de Reportes: catalogo de los documentos guardados en la carpeta de Google Drive.
 
-Los modulos Comparativo YoY, Distribucion, Productos Web y Usuarios y Claves se muestran deshabilitados hasta su futura implementacion.
+El tablero solo muestra los modulos activos: los modulos pendientes (Comparativo YoY, Distribucion, Productos Web, Usuarios y Claves) se retiraron del menu el 24 de septiembre de 2026 junto con la calculadora de inversion por CPL.
 
 ## Datos
 
@@ -30,7 +30,7 @@ La fuente normalizada del dashboard esta en `data/amador-ads-2026.json`. Junio s
 
 ## Proyecciones
 
-El modulo Proyecciones (antes Calculadora de Mensajes) lee los datos del modulo Gasto publicitario
+El modulo Proyecciones lee los datos del modulo Gasto publicitario
 a traves de `window.AmadorObjectives.snapshot()` y proyecta el cierre del mes en curso.
 
 - El mes proyectado es el que corresponde a la fecha de corte (`cutoff`); si no tiene gasto, se usa el ultimo mes con datos.

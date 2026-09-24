@@ -10,7 +10,7 @@
     },
     'view-messages': {
       title: 'Proyecciones',
-      caption: 'Cierre de mes y planificación por CPL',
+      caption: 'Cierre de mes y simulador de objetivo',
       status: 'Proyección sobre datos reales',
       source: 'Fuente: Gasto publicitario / Distribucion-amador',
       footer: 'Proyección lineal según el ritmo del mes',
@@ -67,7 +67,6 @@
     saveView(viewId);
 
     if (viewId === 'view-messages') {
-      window.MessagesCalculator?.init();
       window.AmadorProjections?.init();
       window.setTimeout(() => window.dispatchEvent(new Event('resize')), 0);
     }

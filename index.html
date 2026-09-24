@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="css/dashboard.css?v=1.11.0">
+<link rel="stylesheet" href="css/dashboard.css?v=1.12.0">
 <style>
   .reservations-total-row td { height: auto !important; padding: 10px 12px !important; border-top: 2px solid #cbd5e1 !important; color: #0f172a !important; background: #f8fafc; font-size: 13px; font-weight: 800; vertical-align: middle; }
   .reservations-total-row .total-label { text-align: right; }
@@ -40,7 +40,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar" id="amador-sidebar">
-    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.11.0</span></div></div>
+    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.12.0</span></div></div>
     <div class="s-group-lbl">Modulos activos</div>
     <button class="s-item active" type="button" data-view-target="view-obj">
       <div class="s-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
@@ -48,7 +48,7 @@
     </button>
     <button class="s-item" type="button" data-view-target="view-messages">
       <div class="s-icon"><svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/></svg></div>
-      <div class="s-text"><div class="s-title-nav">Proyecciones</div><div class="s-desc-nav">Cierre de mes y CPL</div></div>
+      <div class="s-text"><div class="s-title-nav">Proyecciones</div><div class="s-desc-nav">Cierre de mes y ritmo</div></div>
     </button>
     <button class="s-item" type="button" data-view-target="view-history">
       <div class="s-icon"><svg viewBox="0 0 24 24"><path d="M3 4h18"/><path d="M3 10h18"/><path d="M3 16h18"/><path d="M7 4v16"/><path d="M17 4v16"/></svg></div>
@@ -58,11 +58,6 @@
       <div class="s-icon"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="16" x2="13" y2="16"/></svg></div>
       <div class="s-text"><div class="s-title-nav">Archivo de Reportes</div><div class="s-desc-nav">Documentos en Drive</div></div>
     </button>
-    <div class="s-group-lbl paused-label">Modulos pausados</div>
-    <button class="s-item disabled" type="button" disabled aria-disabled="true"><div class="s-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div class="s-text"><div class="s-title-nav">Comparativo YoY</div><div class="s-desc-nav">Evolucion interanual</div></div><span class="module-status">Proximamente</span></button>
-    <button class="s-item disabled" type="button" disabled aria-disabled="true"><div class="s-icon"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><div class="s-text"><div class="s-title-nav">Distribucion</div><div class="s-desc-nav">Inversion por plataforma</div></div><span class="module-status">Proximamente</span></button>
-    <button class="s-item disabled" type="button" disabled aria-disabled="true"><div class="s-icon"><svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div><div class="s-text"><div class="s-title-nav">Productos Web</div><div class="s-desc-nav">Ranking y ventas</div></div><span class="module-status">Proximamente</span></button>
-    <button class="s-item disabled" type="button" disabled aria-disabled="true"><div class="s-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="s-text"><div class="s-title-nav">Usuarios y Claves</div><div class="s-desc-nav">Accesos y alertas</div></div><span class="module-status">Proximamente</span></button>
     <div class="s-modulo-activo"><div class="s-ma-label">CUENTA</div><div class="s-ma-name">Amador</div><div class="s-ma-desc">Control de pauta digital</div></div>
   </aside>
   <button
@@ -149,79 +144,6 @@
           </div>
         </div>
 
-        <div class="messages-layout">
-          <div class="panel messages-planner">
-            <div class="panel-head messages-panel-head">
-              <div>
-                <div class="messages-kicker">Calculadora de inversion / WhatsApp</div>
-                <div class="panel-title">Objetivo comercial e inversión por CPL</div>
-                <div class="panel-sub">Los resultados se actualizan y guardan automáticamente.</div>
-              </div>
-              <div class="messages-head-actions">
-                <button class="messages-btn secondary" id="projection-use-cpl" type="button" hidden>Usar CPL real</button>
-                <button class="messages-btn secondary" id="messages-reset" type="button">Restablecer valores</button>
-              </div>
-            </div>
-
-            <div class="messages-controls">
-              <label class="messages-field" for="messages-target">
-                <span>Facturación objetivo</span>
-                <span class="messages-input-wrap"><b>S/</b><input id="messages-target" type="number" min="0" step="100"></span>
-              </label>
-              <label class="messages-field" for="messages-actual">
-                <span>Facturación ya realizada</span>
-                <span class="messages-input-wrap"><b>S/</b><input id="messages-actual" type="number" min="0" step="100"></span>
-              </label>
-              <label class="messages-field" for="messages-ticket">
-                <span>Ticket promedio</span>
-                <span class="messages-input-wrap"><b>S/</b><input id="messages-ticket" type="number" min="0.01" step="10"></span>
-              </label>
-              <label class="messages-field" for="messages-cpl">
-                <span>CPL promedio</span>
-                <span class="messages-input-wrap"><b>S/</b><input id="messages-cpl" type="number" min="0" step="0.10"></span>
-              </label>
-            </div>
-
-            <div class="messages-kpis">
-              <div class="messages-kpi"><span>Facturación restante</span><strong id="messages-remaining">S/ 0.00</strong></div>
-              <div class="messages-kpi"><span>Ventas necesarias</span><strong id="messages-sales">0</strong></div>
-              <div class="messages-kpi investment"><span>Inversión total en Mensajes</span><strong id="messages-investment">S/ 0.00</strong></div>
-            </div>
-
-            <div class="messages-table-head">
-              <div><div class="panel-title">Conjuntos de anuncios</div><div class="panel-sub">Edita el nombre, los mensajes objetivo y el CPL de cada conjunto.</div></div>
-              <button class="messages-btn secondary" id="messages-add-set" type="button">+ Agregar conjunto</button>
-            </div>
-            <div class="messages-table-wrap">
-              <table class="messages-table">
-                <thead><tr><th>Conjunto</th><th class="num">Mensajes / Reservas Objetivo</th><th class="num">Costo por lead</th><th class="num">Inversión</th><th><span class="sr-only">Acciones</span></th></tr></thead>
-                <tbody id="messages-sets"></tbody>
-              </table>
-              <div class="messages-add-row">
-                <button class="messages-btn secondary" id="messages-add-row" type="button">+ Agregar fila</button>
-              </div>
-            </div>
-          </div>
-
-          <aside class="panel messages-summary">
-            <div>
-              <div class="messages-kicker">Resumen</div>
-              <div class="panel-title">Propuesta de inversión</div>
-              <div class="panel-sub">Lista para compartir o descargar.</div>
-            </div>
-            <div class="messages-summary-total"><span>Inversión total</span><strong id="messages-summary-total">S/ 0.00</strong></div>
-            <div class="messages-formula">
-              <span>Fórmulas aplicadas</span>
-              <p>Ventas necesarias = facturación restante ÷ ticket promedio</p>
-              <p>Inversión = mensajes objetivo × costo por lead</p>
-            </div>
-            <div class="messages-actions">
-              <button class="messages-btn secondary" id="messages-copy" type="button">Copiar resumen</button>
-              <button class="messages-btn primary" id="messages-export" type="button">Exportar a Excel</button>
-            </div>
-            <div class="messages-feedback" id="messages-feedback" aria-live="polite"></div>
-          </aside>
-        </div>
       </section>
 
       <section class="view" id="view-history">
@@ -319,12 +241,11 @@
     <div class="reports-modal-foot">La vista previa usa el visor de Google Drive: necesitas iniciar sesion con una cuenta que tenga acceso a la carpeta compartida.</div>
   </div>
 </div>
-<script src="js/objectives.js?v=1.11.0"></script>
-<script src="js/messages-calculator.js?v=1.11.0"></script>
-<script src="js/reports-archive.js?v=1.11.0"></script>
-<script src="js/projections.js?v=1.11.0"></script>
-<script src="js/navigation.js?v=1.11.0"></script>
-<script src="js/sidebar.js?v=1.11.0"></script>
+<script src="js/objectives.js?v=1.12.0"></script>
+<script src="js/reports-archive.js?v=1.12.0"></script>
+<script src="js/projections.js?v=1.12.0"></script>
+<script src="js/navigation.js?v=1.12.0"></script>
+<script src="js/sidebar.js?v=1.12.0"></script>
 <!-- El acceso lo controla el servidor (deploy/.htaccess + HTTP Basic Auth). -->
 </body>
 </html>

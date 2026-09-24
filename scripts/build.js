@@ -49,7 +49,6 @@ function main() {
   const css = readFile('css/dashboard.css');
   const app = readFile('js/objectives.js');
   const reservationGoals = readFile('js/reservation-goals.js');
-  const messagesCalculator = readFile('js/messages-calculator.js');
   const navigation = readFile('js/navigation.js');
   const sidebar = readFile('js/sidebar.js');
   const reportsArchive = readFile('js/reports-archive.js');
@@ -72,10 +71,6 @@ function main() {
   html = html.replace(
     new RegExp('<script src="js\\/reservation-goals\\.js(?:\\?v=[^"]+)?"><\\/script>'),
     `<script>${reservationGoals}</script>`
-  );
-  html = html.replace(
-    new RegExp('<script src="js\\/messages-calculator\\.js(?:\\?v=[^"]+)?"><\\/script>'),
-    `<script>${messagesCalculator}</script>`
   );
   html = html.replace(
     new RegExp('<script src="js\\/navigation\\.js(?:\\?v=[^"]+)?"><\\/script>'),
