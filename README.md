@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.13.0`.
+Version actual: `v1.14.0`.
 
 ## Versionado
 
@@ -55,20 +55,22 @@ el tipo de documento, el periodo y la version vigente se deducen en el navegador
 Para incorporar nuevos documentos basta con agregar su bloque al arreglo `files` y actualizar `syncedAt`.
 La vista previa usa el visor de Drive (`/preview`), por lo que el usuario debe tener acceso a la carpeta.
 
-### Validar sincronizacion
+### Sincronizar con Drive
 
-El boton **Validar sincronizacion** del modulo revisa:
+El boton **Sincronizar con Drive** trae el contenido real de la carpeta y reemplaza en pantalla el catalogo
+publicado: la tabla, los KPIs y los filtros se rearman con lo que hay en Drive en ese momento y el resultado
+queda guardado en el navegador (`localStorage`, clave `amador-drive-reports-snapshot-v1`), asi que al volver
+al modulo se ve ese listado y no el del ultimo build. El modulo tambien sincroniza solo al abrirse; en ese
+caso el aviso verde aparece unicamente si hubo altas o bajas. Si Drive no responde, se mantiene lo que ya
+estaba y se avisa en rojo.
 
-1. Que el catalogo publicado (`data/amador-drive-reports.json`) sea el mismo que se muestra; si hay uno mas nuevo lo recarga.
-2. La integridad de los registros (campos obligatorios, IDs duplicados, fechas validas).
-3. La antiguedad del ultimo corte (`syncedAt`): avisa si supera 3 dias.
-4. En vivo contra la carpeta de Drive: documentos nuevos sin catalogar, eliminados que siguen en el catalogo y
-   modificados (nombre, peso o fecha). Las filas afectadas se marcan en la tabla.
+`data/amador-drive-reports.json` sigue siendo el catalogo de respaldo: es lo que ve quien abre el tablero sin
+que la Web App responda, por lo que conviene refrescarlo de vez en cuando con el listado de la carpeta.
 
-La comparacion en vivo usa el Web App de solo lectura `scripts/drive-reports-sync.gs` (archivo `Validar Drive.gs`
+La consulta usa el Web App de solo lectura `scripts/drive-reports-sync.gs` (archivo `Validar Drive.gs`
 del proyecto de Apps Script "Distribucion Amador", implementado como Aplicacion web: ejecutar como el propietario,
 acceso "Cualquier usuario"). Su URL `/exec` va fija en `DRIVE_SYNC_ENDPOINT` (`js/reports-archive.js`); no se lee
-de la URL ni de localStorage. Sin ella, el boton hace las tres primeras validaciones y avisa que no pudo consultar Drive.
+de la URL ni de localStorage. Sin ella, el modulo muestra el catalogo publicado y el boton avisa que falta configurarla.
 
 Medidas de seguridad del Web App: carpeta fija en el script (la peticion no puede pedir otra), solo la accion
 `listDriveFolder`, sin escritura, respuesta limitada a id/nombre/tipo/peso/fechas, maximo 30 peticiones por minuto,
