@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.15.0`.
+Version actual: `v1.16.0`.
 
 ## Versionado
 
@@ -22,10 +22,11 @@ El proyecto usa la nomenclatura `vMAJOR.MINOR.PATCH`:
 - Historico de Campanas finalizadas.
 - Archivo de Reportes: catalogo de los documentos guardados en la carpeta de Google Drive.
 - Bitacora: checklist mensual de cambios, comentarios y decisiones de la cuenta.
+- Usuarios y Claves: directorio de las cuentas con acceso al tablero, sin contrasenas (ver "Usuarios y Claves").
 
 El panel lateral se puede minimizar con el boton de la barra superior: en escritorio queda una franja de iconos de 88px (con el nombre del modulo como tooltip) y en pantallas de 900px o menos se oculta por completo. El estado se recuerda en `localStorage` (`rb-sidebar-collapsed`).
 
-El tablero solo muestra los modulos activos: los modulos pendientes (Comparativo YoY, Distribucion, Productos Web, Usuarios y Claves) se retiraron del menu el 24 de septiembre de 2026 junto con la calculadora de inversion por CPL.
+El tablero solo muestra los modulos activos: los modulos pendientes (Comparativo YoY, Distribucion, Productos Web) se retiraron del menu el 24 de septiembre de 2026 junto con la calculadora de inversion por CPL. Usuarios y Claves volvio como modulo activo el 29 de septiembre de 2026.
 
 ## Datos
 
@@ -67,6 +68,25 @@ Flujo editar -> exportar -> publicar: lo que se agrega o edita en el tablero que
 (`localStorage`, clave `amador-bitacora-draft`). **Exportar** descarga `amador-bitacora-2026.json` con `updatedAt` de hoy;
 para publicarlo se reemplaza el archivo en `data/`, se hace commit y se despliega. El borrador guarda el `updatedAt`
 sobre el que se hizo y se ignora cuando se publica una version nueva del archivo.
+
+## Usuarios y Claves
+
+Directorio de quien tiene acceso al tablero (`js/usuarios.js`). Las claves las valida Apache (ver "Publicacion en el
+hosting de Lima Retail") y **nunca** se guardan en el repo ni en el HTML: esta vista solo lleva nombre, usuario de
+acceso, rol, fecha de alta y estado. La version publicada es `data/amador-usuarios-2026.json` (el build la incrusta
+como `window.AMADOR_USUARIOS`; dist/ no lleva ese archivo).
+
+```json
+{ "updatedAt": "2026-09-29", "users": [
+  { "id": "u01", "name": "Nombre Apellido", "user": "cliente-amador", "role": "cliente", "status": "activo", "since": "2026-09-29" }
+] }
+```
+
+- `role`: `cliente`, `equipo` o `admin` (otro valor se lee como `cliente`).
+- `status`: `activo` o `suspendido`. `user` se guarda en minusculas y sin espacios ni `:` (igual que un usuario de Basic Auth).
+- Se edita igual que la Bitacora: borrador en `localStorage` (clave `amador-usuarios-draft`), **Exportar** descarga
+  `amador-usuarios-2026.json`, se reemplaza el archivo en `data/`, commit y despliegue.
+- Dar, cambiar o quitar el acceso de verdad se hace en cPanel > Privacidad de directorios; la vista muestra los pasos.
 
 ## Archivo de Reportes (Google Drive)
 
