@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.14.0`.
+Version actual: `v1.15.0`.
 
 ## Versionado
 
@@ -21,6 +21,7 @@ El proyecto usa la nomenclatura `vMAJOR.MINOR.PATCH`:
 - Proyecciones: cierre de mes estimado con los datos reales y simulador de objetivo.
 - Historico de Campanas finalizadas.
 - Archivo de Reportes: catalogo de los documentos guardados en la carpeta de Google Drive.
+- Bitacora: checklist mensual de cambios, comentarios y decisiones de la cuenta.
 
 El panel lateral se puede minimizar con el boton de la barra superior: en escritorio queda una franja de iconos de 88px (con el nombre del modulo como tooltip) y en pantallas de 900px o menos se oculta por completo. El estado se recuerda en `localStorage` (`rb-sidebar-collapsed`).
 
@@ -44,6 +45,28 @@ a traves de `window.AmadorObjectives.snapshot()` y proyecta el cierre del mes en
   diario requerido para los dias restantes, la brecha contra presupuesto u objetivo y la inversion adicional.
   El escenario conserva la eficiencia real del mes (costo por mensaje, costo por reserva y tasa de reserva) y no permite
   cerrar por debajo de lo ya realizado. Doble clic sobre el nodo o "Restablecer" vuelve a la proyeccion lineal.
+
+## Bitacora
+
+Checklist mensual de cambios, comentarios y decisiones de la cuenta (`js/bitacora.js`). Lo publicado sale de
+`data/amador-bitacora-2026.json`, que el build incrusta en el HTML como `window.AMADOR_BITACORA` (dist/ no lleva ese
+archivo). Formato:
+
+```json
+{ "year": 2026, "updatedAt": "2026-09-29", "items": [
+  { "id": "b01", "date": "2026-09-01", "type": "cambio", "platform": "meta", "done": true, "text": "..." }
+] }
+```
+
+- `type`: `cambio`, `comentario` o `decision` (otro valor se lee como `comentario`).
+- `platform`: clave de `PLATFORMS` en `js/bitacora.js` (`general`, `meta`); para agregar una plataforma se edita esa
+  lista, el select del formulario en `index.html` y su color en `css/dashboard.css` (`.log-tag.platform.<clave>`).
+- `date` (`YYYY-MM-DD`) define el mes en que se agrupa el item; `done` marca la casilla.
+
+Flujo editar -> exportar -> publicar: lo que se agrega o edita en el tablero queda como borrador en ese navegador
+(`localStorage`, clave `amador-bitacora-draft`). **Exportar** descarga `amador-bitacora-2026.json` con `updatedAt` de hoy;
+para publicarlo se reemplaza el archivo en `data/`, se hace commit y se despliega. El borrador guarda el `updatedAt`
+sobre el que se hizo y se ignora cuando se publica una version nueva del archivo.
 
 ## Archivo de Reportes (Google Drive)
 

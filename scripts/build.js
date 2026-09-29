@@ -53,12 +53,14 @@ function main() {
   const sidebar = readFile('js/sidebar.js');
   const reportsArchive = readFile('js/reports-archive.js');
   const projections = readFile('js/projections.js');
+  const bitacora = readFile('js/bitacora.js');
   const data = readFile('data/amador-ads-2026.json').replace(/</g, '\\u003c');
   const juneData = readFile('data/amador-june-sheet-2026.json').replace(/</g, '\\u003c');
   const julyData = readFile('data/amador-july-sheet-2026.json').replace(/</g, '\\u003c');
   const septemberData = readFile('data/amador-september-sheet-2026.json').replace(/</g, '\\u003c');
   const augustData = readFile('data/amador-august-sheet-2026.json').replace(/</g, '\\u003c');
   const driveReports = readFile('data/amador-drive-reports.json').replace(/</g, '\\u003c');
+  const bitacoraData = JSON.stringify(JSON.parse(readFile('data/amador-bitacora-2026.json'))).replace(/</g, '\\u003c');
 
   html = html.replace(
     new RegExp('<link rel=\"stylesheet\" href=\"css/dashboard\\.css(?:\\?v=[^\"]+)?\">'),
@@ -88,9 +90,15 @@ function main() {
     new RegExp('<script src="js\\/reports-archive\\.js(?:\\?v=[^"]+)?"><\\/script>'),
     `<script>${reportsArchive}</script>`
   );
+  // Reemplazo con funcion: un $& o $' dentro del JS no debe interpretarse como patron de reemplazo.
+  html = html.replace(
+    new RegExp('<script src="js\\/bitacora\\.js(?:\\?v=[^"]+)?"><\\/script>'),
+    () => `<script>${bitacora}</script>`
+  );
+  // La bitacora publicada viaja incrustada: dist/ no lleva data/amador-bitacora-2026.json.
   html = html.replace(
     '</head>',
-    `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_JUNE_DATA = ${juneData};window.AMADOR_JULY_DATA = ${julyData};window.AMADOR_AUGUST_DATA = ${augustData};window.AMADOR_SEPTEMBER_DATA = ${septemberData};window.AMADOR_DRIVE_REPORTS = ${driveReports};</script></head>`
+    () => `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_JUNE_DATA = ${juneData};window.AMADOR_JULY_DATA = ${julyData};window.AMADOR_AUGUST_DATA = ${augustData};window.AMADOR_SEPTEMBER_DATA = ${septemberData};window.AMADOR_DRIVE_REPORTS = ${driveReports};window.AMADOR_BITACORA = ${bitacoraData};</script></head>`
   );
 
   // El navegador convierte CRLF en LF antes de calcular el hash CSP de cada <script>; si el HTML

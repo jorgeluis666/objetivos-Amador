@@ -29,6 +29,13 @@
       source: 'Fuente: Carpeta compartida Reportes Amador / Google Drive',
       footer: 'Vista previa y descarga directa desde Drive',
     },
+    'view-log': {
+      title: 'Bitácora',
+      caption: 'Checklist de cambios, comentarios y decisiones',
+      status: 'Editable',
+      source: 'Fuente: Bitácora del equipo de Agencia Lima Retail',
+      footer: 'Las ediciones quedan como borrador hasta exportar y publicar el archivo',
+    },
   };
 
   function storedView() {
@@ -73,6 +80,7 @@
     if (viewId === 'view-obj') window.setTimeout(() => window.dispatchEvent(new Event('resize')), 0);
     if (viewId === 'view-history') window.AmadorObjectives?.renderHistory?.();
     if (viewId === 'view-reports') window.ReportsArchive?.init();
+    if (viewId === 'view-log') window.Bitacora?.init();
   }
 
   function initNavigation() {
