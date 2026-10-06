@@ -2,9 +2,8 @@ name: Deploy al hosting de Lima Retail
 
 # Publica solo dist/ (HTML con datos incrustados + .htaccess con Basic Auth) en la carpeta del
 # cliente. Nunca sube data/csv-backups, scripts ni el resto del repo.
+# Solo manual: amador.limaretail.com hoy apunta a GitHub Pages (deploy-pages.yml).
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

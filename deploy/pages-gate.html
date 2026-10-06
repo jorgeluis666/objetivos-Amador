@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Amador | Acceso</title>
+<!-- Plantilla: scripts/protect-pages.js pone aqui el tablero cifrado. No lleva la clave ni su hash. -->
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; background: #f8fafc; color: #0f172a; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .card { width: 100%; max-width: 380px; padding: 28px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .brand img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+  .brand strong { display: block; font-size: 18px; }
+  .brand span { color: #64748b; font-size: 12px; }
+  label { display: block; margin-bottom: 6px; color: #334155; font-size: 12px; font-weight: 600; }
+  input[type=password] { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; color: #0f172a; font: inherit; font-size: 14px; }
+  input[type=password]:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
+  .remember { display: flex; align-items: center; gap: 8px; margin: 12px 0 18px; color: #475569; font-weight: 500; }
+  button { width: 100%; padding: 10px 12px; border: 0; border-radius: 8px; background: #2563eb; color: #fff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:hover { background: #1d4ed8; }
+  button:disabled { opacity: .6; cursor: progress; }
+  .msg { min-height: 18px; margin: 12px 0 0; color: #b91c1c; font-size: 12px; }
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand">
+    <img src="assets/logo-amador.jpg" alt="">
+    <div><strong>Amador</strong><span>BI Agencia Lima Retail</span></div>
+  </div>
+  <form id="gate">
+    <label for="gate-pass">Clave de acceso</label>
+    <input id="gate-pass" type="password" autocomplete="current-password" required autofocus>
+    <label class="remember"><input id="gate-remember" type="checkbox"> Recordar en este equipo</label>
+    <button id="gate-submit" type="submit">Entrar</button>
+    <p class="msg" id="gate-msg" role="alert"></p>
+  </form>
+</main>
+<script>
+(() => {
+  // AES-256-GCM con clave PBKDF2-SHA256. Sin la clave correcta el descifrado falla: no hay nada que saltar.
+  const PAYLOAD = __PAYLOAD__;
+  // Se guarda la clave derivada (no la escrita), atada a la sal de este build: cada deploy pide la clave otra vez.
+  const STORE_KEY = 'amador-gate-key';
+  const form = document.getElementById('gate');
+  const input = document.getElementById('gate-pass');
+  const remember = document.getElementById('gate-remember');
+  const submit = document.getElementById('gate-submit');
+  const msg = document.getElementById('gate-msg');
+
+  const fromB64 = text => Uint8Array.from(atob(text), char => char.charCodeAt(0));
+  const toB64 = bytes => btoa(String.fromCharCode(...bytes));
+
+  function readStored() {
+    for (const store of [sessionStorage, localStorage]) {
+      try {
+        const saved = JSON.parse(store.getItem(STORE_KEY) || 'null');
+        if (saved && saved.salt === PAYLOAD.salt && saved.key) return fromB64(saved.key);
+      } catch (error) { /* almacenamiento bloqueado: se pide la clave */ }
+    }
+    return null;
+  }
+
+  function store(rawKey, persistent) {
+    const value = JSON.stringify({ salt: PAYLOAD.salt, key: toB64(rawKey) });
+    try { sessionStorage.setItem(STORE_KEY, value); } catch (error) { /* sin almacenamiento */ }
+    try {
+      if (persistent) localStorage.setItem(STORE_KEY, value);
+      else localStorage.removeItem(STORE_KEY);
+    } catch (error) { /* sin almacenamiento */ }
+  }
+
+  function forget() {
+    for (const store of [sessionStorage, localStorage]) {
+      try { store.removeItem(STORE_KEY); } catch (error) { /* sin almacenamiento */ }
+    }
+  }
+
+  async function deriveKey(password) {
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', hash: 'SHA-256', salt: fromB64(PAYLOAD.salt), iterations: PAYLOAD.iterations },
+      base,
+      256
+    );
+    return new Uint8Array(bits);
+  }
+
+  async function decrypt(rawKey) {
+    const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(PAYLOAD.iv) }, key, fromB64(PAYLOAD.data));
+    return new TextDecoder().decode(plain);
+  }
+
+  function show(html) {
+    document.open();
+    document.write(html);
+    document.close();
+  }
+
+  if (!window.crypto || !crypto.subtle) {
+    msg.textContent = 'Abre esta página con https:// para poder ingresar.';
+    input.disabled = true;
+    submit.disabled = true;
+    return;
+  }
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    msg.textContent = '';
+    submit.disabled = true;
+    submit.textContent = 'Verificando...';
+    try {
+      const rawKey = await deriveKey(input.value.trim());
+      const html = await decrypt(rawKey);
+      store(rawKey, remember.checked);
+      show(html);
+    } catch (error) {
+      msg.textContent = 'Clave incorrecta.';
+      submit.disabled = false;
+      submit.textContent = 'Entrar';
+      input.select();
+    }
+  });
+
+  // Con la clave recordada se abre solo, pero despues del load: un document.open() con el parser
+  // todavia activo agrega el tablero debajo del formulario en vez de reemplazar la pagina.
+  const saved = readStored();
+  if (saved) {
+    submit.disabled = true;
+    submit.textContent = 'Abriendo...';
+    const loaded = document.readyState === 'complete'
+      ? Promise.resolve()
+      : new Promise(resolve => window.addEventListener('load', resolve, { once: true }));
+    Promise.all([decrypt(saved), loaded]).then(([html]) => show(html), () => {
+      forget();
+      submit.disabled = false;
+      submit.textContent = 'Entrar';
+    });
+  }
+})();
+</script>
+</body>
+</html>

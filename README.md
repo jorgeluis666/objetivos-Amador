@@ -150,7 +150,32 @@ npm run build
 El resultado se genera en `dist/`: `index.html` (CSS, JS y datos incrustados), `assets/`, `data/amador-drive-reports.json` y `.htaccess`.
 Nada mas: `data/csv-backups`, `scripts/` y el resto del repo nunca se publican.
 
-## Publicacion en el hosting de Lima Retail
+## Publicacion en GitHub Pages con clave (actual)
+
+`amador.limaretail.com` es un CNAME a `jorgeluis666.github.io`. Pages no puede pedir clave por servidor, asi que
+`scripts/protect-pages.js` cifra el `dist/index.html` ya compilado (AES-256-GCM, clave PBKDF2-SHA256 de 600.000
+iteraciones) y lo envuelve en `deploy/pages-gate.html`. El navegador solo lo descifra con la clave correcta: el
+HTML publicado no lleva la clave, ni su hash, ni los datos en claro. Tambien quita `dist/.htaccess` y `dist/data/`
+y agrega un `robots.txt` que bloquea buscadores.
+
+- "Recordar en este equipo" guarda la clave derivada (no la escrita) en `localStorage`; sin marcarlo dura la sesion
+  de la pestaña. Cada deploy usa otra sal, asi que despues de publicar todos vuelven a escribir la clave.
+- Cambiar la clave = actualizar el secret y volver a publicar.
+- Cualquiera puede descargar el HTML cifrado y probar claves sin limite en su propia maquina: la seguridad depende
+  de que la clave sea larga y dificil de adivinar.
+- Esto protege el sitio, no el repositorio: mientras el repo sea publico, `data/` se ve en github.com.
+
+Configuracion unica en GitHub:
+
+1. Settings > Secrets and variables > Actions > **New repository secret**: `DASHBOARD_PASSWORD` con la clave.
+2. Settings > Pages > Build and deployment > Source: **GitHub Actions**. Asi deja de publicarse la raiz del repo.
+3. Settings > Pages > Custom domain: `amador.limaretail.com` > Save; cuando GitHub emita el certificado,
+   marcar **Enforce HTTPS** (la pagina de acceso necesita https para descifrar).
+
+Cada push a `main` ejecuta `.github/workflows/deploy-pages.yml`. Si falta el secret, el build falla y no se publica nada.
+Prueba local: `DASHBOARD_PASSWORD=<clave de prueba> npm run build:pages` y servir `dist/` en localhost.
+
+## Publicacion en el hosting de Lima Retail (alternativa, manual)
 
 El acceso lo controla Apache con HTTP Basic Auth (una cuenta por cliente). No hay contraseña en el HTML.
 `dist/.htaccess` se genera desde `deploy/.htaccess` con la ruta del archivo de claves y una CSP con el hash de cada script.
@@ -167,5 +192,5 @@ Configuracion unica en cPanel:
    - `FTP_SERVER_DIR`: carpeta destino relativa a esa cuenta, terminada en `/` (por ejemplo `./`).
 4. Desactivar GitHub Pages (Settings > Pages) y dejar el repositorio en privado: los datos del cliente no deben quedar publicos.
 
-Cada push a `main` ejecuta `.github/workflows/deploy-hosting.yml`, que compila y sube `dist/` por FTPS.
+`.github/workflows/deploy-hosting.yml` se ejecuta a mano (Actions > Run workflow), compila y sube `dist/` por FTPS.
 Si falta `HTPASSWD_PATH` el build falla; si la ruta es incorrecta Apache responde 500 en vez de mostrar el tablero sin clave.

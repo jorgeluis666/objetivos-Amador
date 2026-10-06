@@ -5,7 +5,8 @@
   "description": "Dashboard de objetivos e inversion publicitaria de Amador",
   "scripts": {
     "dev": "live-server --port=3000 --open=index.html --no-browser",
-    "build": "node scripts/build.js"
+    "build": "node scripts/build.js",
+    "build:pages": "node scripts/build.js && node scripts/protect-pages.js"
   },
   "engines": { "node": ">=20" },
   "dependencies": {},
