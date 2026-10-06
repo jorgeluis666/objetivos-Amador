@@ -23,7 +23,9 @@ function main() {
   const html = fs.readFileSync(DIST_HTML, 'utf8');
   if (html.includes('id="gate"')) throw new Error('dist/index.html ya esta cifrado: correr scripts/build.js otra vez');
 
-  const salt = crypto.randomBytes(16);
+  // Sal fija por marca (no es secreta): la llave que recuerda el navegador sigue sirviendo despues de cada
+  // deploy y solo deja de servir cuando cambia la clave. El iv si es nuevo en cada build.
+  const salt = crypto.createHash('sha256').update('lr-gate:amador').digest().subarray(0, 16);
   const iv = crypto.randomBytes(12);
   const key = crypto.pbkdf2Sync(password, salt, ITERATIONS, 32, 'sha256');
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);

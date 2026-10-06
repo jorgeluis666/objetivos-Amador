@@ -59,7 +59,7 @@
     <form id="gate">
       <input id="gate-pass" type="password" aria-label="Contraseña" placeholder="Contraseña" autocomplete="current-password" required autofocus>
       <label class="remember"><input id="gate-remember" type="checkbox"> Recordar en este equipo</label>
-      <button id="gate-submit" type="submit">Ingresar</button>
+      <button id="gate-submit" type="submit" disabled>Ingresar</button>
     </form>
     <div class="error" id="gate-msg" role="alert"></div>
   </div>
@@ -69,7 +69,8 @@
 (() => {
   // AES-256-GCM con clave PBKDF2-SHA256. Sin la clave correcta el descifrado falla: no hay nada que saltar.
   const PAYLOAD = __PAYLOAD__;
-  // Se guarda la clave derivada (no la escrita), atada a la sal de este build: cada deploy pide la clave otra vez.
+  // Se guarda la clave derivada (no la escrita) con la sal del build. La sal es fija por marca
+  // (scripts/protect-pages.js): lo recordado sirve entre deploys y deja de servir cuando cambia la clave.
   const STORE_KEY = 'amador-gate-key';
   const form = document.getElementById('gate');
   const input = document.getElementById('gate-pass');
@@ -128,12 +129,15 @@
   }
 
   // El fondo se aplica solo cuando termino de cargar; si falla queda el degradado.
-  const background = new Image();
-  background.onload = () => {
-    const bg = document.getElementById('gate-bg');
-    if (bg) bg.style.backgroundImage = "url('assets/login-bg.jpg')";
-  };
-  background.src = 'assets/login-bg.jpg';
+  // Con una llave guardada no se pide: la imagen retrasaria el 'load' que espera la apertura automatica.
+  if (!readStored()) {
+    const background = new Image();
+    background.onload = () => {
+      const bg = document.getElementById('gate-bg');
+      if (bg) bg.style.backgroundImage = "url('assets/login-bg.jpg')";
+    };
+    background.src = 'assets/login-bg.jpg';
+  }
 
   if (!window.crypto || !crypto.subtle) {
     msg.textContent = 'Abre esta página con https:// para poder ingresar.';
@@ -159,6 +163,10 @@
       input.select();
     }
   });
+
+  // El boton nace deshabilitado: mientras la pagina sigue bajando el tablero cifrado, Enter no envia el
+  // formulario (recargaria la pagina y se perderia lo escrito). Se habilita cuando ya se escucha el submit.
+  submit.disabled = false;
 
   // Con la clave recordada se abre solo, pero despues del load: un document.open() con el parser
   // todavia activo agrega el tablero debajo del formulario en vez de reemplazar la pagina.
