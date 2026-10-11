@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.20.0`.
+Version actual: `v1.20.1`.
 
 ## Versionado
 
@@ -119,7 +119,7 @@ como `window.AMADOR_USUARIOS`; dist/ no lleva ese archivo).
 El modulo lee `data/amador-drive-reports.json`, un catalogo de la carpeta compartida
 `Reportes Amador` (https://drive.google.com/drive/folders/1zqSfc2MlfsWYd3rfYgFWBgQwbrz6-R2b).
 Cada entrada guarda `id`, `title`, `mimeType`, `sizeBytes`, `createdTime` y `modifiedTime` tal como los devuelve Drive;
-el tipo de documento, el periodo y la version vigente se deducen en el navegador a partir del nombre del archivo.
+el tipo de documento, el periodo y la version vigente se deducen en el navegador a partir del nombre del archivo (gana la primera palabra de mes; "mar", "may" y "set" solo cuentan pegadas al ano, y "set"/"setiembre" es septiembre). Imagenes, hojas de calculo y comprimidos sin "reporte" en el nombre van como Otros documentos. Las fechas se muestran en hora de Lima.
 
 Para incorporar nuevos documentos basta con agregar su bloque al arreglo `files` y actualizar `syncedAt`.
 La vista previa usa el visor de Drive (`/preview`), por lo que el usuario debe tener acceso a la carpeta.

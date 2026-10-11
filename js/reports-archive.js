@@ -9,24 +9,25 @@
   const DRIVE_TIMEOUT_MS = 30000;
   const SNAPSHOT_KEY = 'amador-drive-reports-snapshot-v1';
   const SIN_CAMBIOS = ' (sin cambios)';
-  const MONTHS = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-  ];
+  const { MONTHS, SHORT_MONTHS, limaParts } = window.AmadorShared;
+  // Un patron por mes, en orden de calendario (la posicion es el mes 0-11). Septiembre acepta "set" y "setiembre".
   const MONTH_PATTERNS = [
-    { index: 0, re: /\bene(?:ro)?\b/ },
-    { index: 1, re: /\bfeb(?:rero)?\b/ },
-    { index: 2, re: /\bmar(?:zo)?\b/ },
-    { index: 3, re: /\babr(?:il)?\b/ },
-    { index: 4, re: /\bmay(?:o)?\b/ },
-    { index: 5, re: /\bjun(?:io)?\b/ },
-    { index: 6, re: /\bjul(?:io)?\b/ },
-    { index: 7, re: /\bago(?:sto)?\b/ },
-    { index: 8, re: /\bsep(?:t(?:iembre)?)?\b/ },
-    { index: 9, re: /\boct(?:ubre)?\b/ },
-    { index: 10, re: /\bnov(?:iembre)?\b/ },
-    { index: 11, re: /\bdic(?:iembre)?\b/ },
+    /\bene(?:ro)?\b/,
+    /\bfeb(?:rero)?\b/,
+    /\bmar(?:zo)?\b/,
+    /\babr(?:il)?\b/,
+    /\bmay(?:o)?\b/,
+    /\bjun(?:io)?\b/,
+    /\bjul(?:io)?\b/,
+    /\bago(?:sto)?\b/,
+    /\bse(?:pt?|t)(?:iembre)?\b/,
+    /\boct(?:ubre)?\b/,
+    /\bnov(?:iembre)?\b/,
+    /\bdic(?:iembre)?\b/,
   ];
+  // Imagenes, hojas de calculo y comprimidos son materiales, no reportes.
+  const MATERIAL_MIME_RE = /^image\/|spreadsheet|ms-excel|csv|zip|compressed/;
+  const MATERIAL_EXTENSION_RE = /\.(png|jpe?g|gif|xlsx?|csv|zip)$/i;
   const TYPES = {
     monthly: { id: 'monthly', label: 'Reporte mensual', tone: 'blue' },
     partial: { id: 'partial', label: 'Reporte parcial', tone: 'amber' },
@@ -46,6 +47,7 @@
     filters: { search: '', type: 'all', period: 'all', latestOnly: false },
     sort: 'recent',
     syncPromise: null,
+    lastFocus: null,
   };
 
   const els = {};
@@ -76,6 +78,20 @@
       .trim();
   }
 
+  // Mes (0-11) de la palabra de mes que aparece primero en el texto, o -1.
+  function firstMonth(text) {
+    let month = -1;
+    let at = Infinity;
+    MONTH_PATTERNS.forEach((re, index) => {
+      const found = text.search(re);
+      if (found >= 0 && found < at) {
+        month = index;
+        at = found;
+      }
+    });
+    return month;
+  }
+
   function detectPeriod(title) {
     // "Amador_Julio2026" o "1-13Sep2026": se separan letras y numeros para reconocer mes y ano.
     const text = normalize(stripExtension(title))
@@ -83,12 +99,15 @@
       .replace(/(\d)([a-z])/g, '$1 $2')
       .replace(/([a-z])(\d)/g, '$1 $2');
     const yearMatch = text.match(/\b(20\d{2})\b/);
-    const year = yearMatch ? Number(yearMatch[1]) : null;
-    const monthHit = MONTH_PATTERNS.find(pattern => pattern.re.test(text));
-    if (!monthHit || !year) return null;
-
-    const label = `${MONTHS[monthHit.index].charAt(0).toUpperCase()}${MONTHS[monthHit.index].slice(1)} ${year}`;
-    return { key: `${year}-${String(monthHit.index + 1).padStart(2, '0')}`, label, year, month: monthHit.index + 1 };
+    if (!yearMatch) return null;
+    const year = Number(yearMatch[1]);
+    // Gana la palabra de mes que aparece primero; "mar", "may" y "set" tambien son palabras comunes
+    // ("Frutos del mar", "Set de anuncios") y solo cuentan pegadas al ano ("Mar2026", "1-13Mar2026").
+    const loose = text.replace(new RegExp(`\\b(?:mar|may|set)\\b(?!\\s*${year}\\b)`, 'g'), ' ');
+    let month = firstMonth(loose);
+    if (month < 0) month = firstMonth(text);
+    if (month < 0) return null;
+    return { key: `${year}-${String(month + 1).padStart(2, '0')}`, label: `${MONTHS[month]} ${year}`, year, month: month + 1 };
   }
 
   function detectRange(title) {
@@ -103,12 +122,16 @@
 
   function detectType(title, mimeType, range) {
     const text = normalize(title);
-    if (String(mimeType).startsWith('video/')) return TYPES.audiovisual;
+    const mime = String(mimeType);
+    if (mime.startsWith('video/')) return TYPES.audiovisual;
     if (text.includes('propuesta')) return TYPES.proposal;
     if (text.includes('recomendacion')) return TYPES.recommendations;
     if (text.includes('dashboard')) return TYPES.dashboard;
+    const named = text.includes('reporte');
+    // Un material con mes o tramo en el nombre no se vuelve reporte por eso.
+    if (!named && (MATERIAL_MIME_RE.test(mime) || MATERIAL_EXTENSION_RE.test(String(title)))) return TYPES.other;
     if (range) return TYPES.partial;
-    if (text.includes('reporte') || detectPeriod(title)) return TYPES.monthly;
+    if (named || detectPeriod(title)) return TYPES.monthly;
     return TYPES.other;
   }
 
@@ -125,16 +148,22 @@
     return new Date(value);
   }
 
+  // Dia, mes y ano en hora de Lima (Drive guarda las fechas en UTC). Una fecha sin hora se toma tal cual.
+  function dateParts(iso) {
+    const plain = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (plain) return { year: Number(plain[1]), month: Number(plain[2]) - 1, day: Number(plain[3]) };
+    const date = new Date(iso);
+    return Number.isNaN(date.getTime()) ? null : limaParts(date);
+  }
+
   function formatDate(iso) {
-    const date = toDate(iso);
-    if (Number.isNaN(date.getTime())) return '--';
-    return `${date.getDate()} ${MONTHS[date.getMonth()].slice(0, 3)} ${date.getFullYear()}`;
+    const parts = dateParts(iso);
+    return parts ? `${parts.day} ${SHORT_MONTHS[parts.month].toLowerCase()} ${parts.year}` : '--';
   }
 
   function formatLongDate(iso) {
-    const date = toDate(iso);
-    if (Number.isNaN(date.getTime())) return '--';
-    return `${date.getDate()} de ${MONTHS[date.getMonth()]} de ${date.getFullYear()}`;
+    const parts = dateParts(iso);
+    return parts ? `${parts.day} de ${MONTHS[parts.month].toLowerCase()} de ${parts.year}` : '--';
   }
 
   function buildReports(files) {
@@ -416,7 +445,7 @@
       const resumen = summarize(before, listing.files);
       // La sincronizacion automatica al abrir el modulo solo avisa si algo cambio.
       if (!silent || resumen !== SIN_CAMBIOS) {
-        const when = new Date(listing.checkedAt).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+        const when = new Date(listing.checkedAt).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' });
         renderSyncStatus('ok', `Sincronizado con Drive a las ${when}: ${state.reports.length} documentos${resumen}.`);
       }
     } catch (error) {
@@ -448,6 +477,10 @@
     els.modalFrame.src = report.previewUrl;
     els.modal.classList.add('visible');
     document.body.classList.add('modal-open');
+    // El foco entra al dialogo y el fondo sale del orden de tab y del arbol accesible (sin cambio visual).
+    state.lastFocus = document.activeElement;
+    if (els.shell) els.shell.inert = true;
+    els.modal.querySelector('[data-close-preview]')?.focus({ preventScroll: true });
   }
 
   function closePreview() {
@@ -455,6 +488,24 @@
     els.modal.classList.remove('visible');
     els.modalFrame.src = '';
     document.body.classList.remove('modal-open');
+    if (els.shell) els.shell.inert = false;
+    // El foco vuelve al boton que abrio el modal, si la tabla no se rearmo mientras estaba abierto.
+    const back = state.lastFocus;
+    state.lastFocus = null;
+    if (back?.isConnected && typeof back.focus === 'function') back.focus({ preventScroll: true });
+  }
+
+  // Tab y Shift+Tab dan la vuelta dentro del modal en lugar de salir a la pagina de fondo.
+  function trapFocus(event) {
+    const focusable = [...els.modal.querySelectorAll('a[href], button, iframe')];
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const edge = event.shiftKey ? first : last;
+    if (!els.modal.contains(document.activeElement) || document.activeElement === edge) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    }
   }
 
   function bindEvents() {
@@ -489,7 +540,9 @@
       if (event.target === els.modal || event.target.closest('[data-close-preview]')) closePreview();
     });
     document.addEventListener('keydown', event => {
+      if (!els.modal?.classList.contains('visible')) return;
       if (event.key === 'Escape') closePreview();
+      else if (event.key === 'Tab') trapFocus(event);
     });
   }
 
@@ -520,6 +573,7 @@
     els.modalFrame = document.getElementById('reports-modal-frame');
     els.modalLink = document.getElementById('reports-modal-link');
     els.modalDownload = document.getElementById('reports-modal-download');
+    els.shell = document.querySelector('.shell');
 
     try {
       const data = await loadData();

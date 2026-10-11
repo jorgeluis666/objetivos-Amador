@@ -655,7 +655,6 @@
   margin-bottom: 16px;
   padding: 10px 14px;
   border: 1px solid var(--border);
-  border-left-width: 4px;
   border-radius: 9px;
   color: #334155;
   font-size: 11px;
@@ -663,9 +662,9 @@
 }
 
 .reports-sync-result[hidden] { display: none; }
-.reports-sync-result.ok { border-color: #bbf7d0; border-left-color: var(--green); background: var(--green-soft); }
-.reports-sync-result.warn { border-color: #fde68a; border-left-color: #d97706; background: #fffbeb; }
-.reports-sync-result.error { border-color: #fecaca; border-left-color: var(--red); background: #fef2f2; }
+.reports-sync-result.ok { border-color: #bbf7d0; background: var(--green-soft); }
+.reports-sync-result.warn { border-color: #fde68a; background: #fffbeb; }
+.reports-sync-result.error { border-color: #fecaca; background: #fef2f2; }
 
 .reports-sync-close {
   margin-left: auto;
