@@ -48,14 +48,16 @@ function main() {
   let html = readFile('index.html');
   const css = readFile('css/dashboard.css');
   const data = readFile('data/amador-ads-2026.json').replace(/</g, '\\u003c');
-  const juneData = readFile('data/amador-june-sheet-2026.json').replace(/</g, '\\u003c');
-  const julyData = readFile('data/amador-july-sheet-2026.json').replace(/</g, '\\u003c');
-  const septemberData = readFile('data/amador-september-sheet-2026.json').replace(/</g, '\\u003c');
-  const augustData = readFile('data/amador-august-sheet-2026.json').replace(/</g, '\\u003c');
   const driveReports = readFile('data/amador-drive-reports.json').replace(/</g, '\\u003c');
   const inlineJson = file => JSON.stringify(JSON.parse(readFile(file))).replace(/</g, '\\u003c');
   const bitacoraData = inlineJson('data/amador-bitacora-2026.json');
   const usuariosData = inlineJson('data/amador-usuarios-2026.json');
+  // Copias de las pestanas mensuales de la hoja: se incrustan todas las que haya en data/, en orden de mes.
+  const MONTH_FILES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+  const sheetMonths = MONTH_FILES
+    .map(month => `data/amador-${month}-sheet-2026.json`)
+    .filter(file => fs.existsSync(path.join(ROOT, file)))
+    .map(inlineJson);
 
   // Reemplazos con funcion: una cadena de reemplazo interpretaria "$&" o "$'" dentro del codigo.
   html = html.replace(/<link rel="stylesheet" href="css\/dashboard\.css(?:\?v=[^"]+)?">/, () => `<style>${css}</style>`);
@@ -65,7 +67,7 @@ function main() {
   // La bitacora y el directorio de usuarios viajan incrustados: dist/ no lleva esos JSON.
   html = html.replace(
     '</head>',
-    () => `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_JUNE_DATA = ${juneData};window.AMADOR_JULY_DATA = ${julyData};window.AMADOR_AUGUST_DATA = ${augustData};window.AMADOR_SEPTEMBER_DATA = ${septemberData};window.AMADOR_DRIVE_REPORTS = ${driveReports};window.AMADOR_BITACORA = ${bitacoraData};window.AMADOR_USUARIOS = ${usuariosData};</script></head>`
+    () => `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_SHEET_MONTHS = [${sheetMonths.join(',')}];window.AMADOR_DRIVE_REPORTS = ${driveReports};window.AMADOR_BITACORA = ${bitacoraData};window.AMADOR_USUARIOS = ${usuariosData};</script></head>`
   );
 
   // El navegador convierte CRLF en LF antes de calcular el hash CSP de cada <script>; si el HTML

@@ -29,26 +29,23 @@
     return date ? `${date.getDate()} de ${MONTHS[date.getMonth()].toLowerCase()} de ${date.getFullYear()}` : '-';
   }
 
-  // El mes proyectado es el que esta en curso; si aun no tiene gasto, se usa el ultimo mes con datos.
-  function pickMonth(months, cutoff) {
+  // El mes proyectado es el ultimo con gasto: el mes en curso o, si aun no tiene gasto, el anterior.
+  function pickMonth(months) {
     const withData = months.filter(month => Number(month.spend) > 0);
-    if (!withData.length) return null;
-    const reference = toDate(cutoff) || new Date();
-    const current = withData.find(month => MONTHS.indexOf(month.name) === reference.getMonth());
-    return current || withData[withData.length - 1];
+    return withData[withData.length - 1] || null;
   }
 
   function buildProjection(snapshot) {
-    const month = pickMonth(snapshot.months || [], snapshot.cutoff);
+    const month = pickMonth(snapshot.months || []);
     if (!month) return null;
 
     const monthIndex = MONTHS.indexOf(month.name);
-    const year = snapshot.year || (toDate(snapshot.cutoff) || new Date()).getFullYear();
+    const year = snapshot.year || new Date().getFullYear();
     const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-    const cutoffDate = toDate(snapshot.cutoff);
-    const sameMonth = cutoffDate && cutoffDate.getMonth() === monthIndex && cutoffDate.getFullYear() === year;
-    const closed = !sameMonth;
-    const daysWithData = closed ? daysInMonth : Math.min(daysInMonth, Math.max(1, cutoffDate.getDate()));
+    // Cierre y dia de corte del mes segun el calendario de Lima (los marca el modulo Gasto publicitario).
+    const cutoffDate = toDate(month.cutoff || snapshot.cutoff);
+    const closed = Boolean(month.closed);
+    const daysWithData = closed ? daysInMonth : Math.min(daysInMonth, Math.max(1, Number(month.dataDay) || cutoffDate?.getDate() || 1));
     const daysLeft = daysInMonth - daysWithData;
 
     const reservationGoal = (month.campaigns || []).reduce((total, campaign) => total + (Number(campaign.reservationGoal) || 0), 0) || null;

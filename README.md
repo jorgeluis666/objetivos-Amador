@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.16.2`.
+Version actual: `v1.16.3`.
 
 ## Versionado
 
@@ -30,14 +30,20 @@ El tablero solo muestra los modulos activos: los modulos pendientes (Comparativo
 
 ## Datos
 
-La fuente normalizada del dashboard esta en `data/amador-ads-2026.json`. Junio se cerro el 1 de julio de 2026 con los datos finales de `Distribucion-amador / Junio`; el CSV de respaldo esta en `data/csv-backups/`. Julio se cerro el 1 de septiembre de 2026 con los datos finales de `Distribucion-amador / Julio` (`data/amador-july-sheet-2026.json`). Agosto se cerro el 1 de septiembre de 2026 desde `Distribucion-amador / Agosto` (`data/amador-august-sheet-2026.json`). Septiembre se inicio el 3 de septiembre de 2026 desde `Distribucion-amador / Septiembre` (`data/amador-september-sheet-2026.json`) y se actualizo el 17 de septiembre de 2026 con el acumulado del mes (gasto S/1,778.94; 308 mensajes; 16 reservas); la sincronizacion en vivo apunta a esa pestana por nombre de hoja. El spreadsheet esta compartido como "cualquier persona con el enlace / lector", que es lo que necesita la lectura del CSV publicado; si vuelve a restringirse, el boton Actualizar deja de funcionar y hay que refrescar el JSON a mano. Las pestanas de julio en adelante agrupan anuncios por `Conjunto de anuncios` (RTGT, P. Frio, P. Caliente, etc.), reflejado en el campo `adSet`.
+La fuente normalizada del dashboard esta en `data/amador-ads-2026.json` (enero a mayo y la fecha de la ultima copia) y en una copia por pestana mensual de `Distribucion-amador` (`data/amador-<mes>-sheet-2026.json`: junio, julio, agosto y septiembre). El build incrusta todas las copias mensuales que haya en `data/`; en desarrollo se piden las de la lista `SHEET_FILES` de `js/objectives.js`. Junio, julio y agosto estan guardados con sus datos finales; la copia de septiembre es la del 17 de septiembre de 2026 (gasto S/1,778.94; 308 mensajes; 16 reservas) y la lectura en vivo la reemplaza por la pestana actual. Las pestanas de julio en adelante agrupan anuncios por `Conjunto de anuncios` (RTGT, P. Frio, P. Caliente, etc.), reflejado en el campo `adSet`.
+
+Lectura en vivo: al abrir el tablero, cada hora y con el boton Actualizar se leen el CSV publicado de la pestana del mes en curso y la del mes anterior (hora de Lima), por nombre de hoja (`Octubre`, `Septiembre`...). Si la pestana del mes todavia no existe, Google devuelve la primera hoja (Junio): el tablero la descarta porque la mayoria de sus fechas no cae en el mes pedido, y sigue mostrando el mes anterior. Al volver a la pestana del navegador solo se relee si la ultima lectura tiene mas de 5 minutos; una lectura que trae lo mismo no repinta. Si Google no responde en 30 s o falla, se mantienen los ultimos datos y se emite `amador:data-error` (`detail.error`). Las copias de `data/` solo hacen falta como respaldo: un mes nuevo aparece en cuanto existe su pestana.
+
+Fecha de corte: un mes cuyo ultimo dia ya paso en Lima esta cerrado y su corte es ese ultimo dia; el mes en curso corta en el dia de la ultima lectura en vivo (o en la fecha de `data/amador-ads-2026.json` si solo esta la copia guardada).
+
+El spreadsheet esta compartido como "cualquier persona con el enlace / lector", que es lo que necesita la lectura del CSV publicado; si vuelve a restringirse, la lectura en vivo falla y el tablero muestra las copias de `data/`.
 
 ## Proyecciones
 
 El modulo Proyecciones lee los datos del modulo Gasto publicitario
 a traves de `window.AmadorObjectives.snapshot()` y proyecta el cierre del mes en curso.
 
-- El mes proyectado es el que corresponde a la fecha de corte (`cutoff`); si no tiene gasto, se usa el ultimo mes con datos.
+- El mes proyectado es el ultimo con gasto; si ya cerro (calendario de Lima) se muestra completo y el simulador no aplica.
 - Ritmo diario = acumulado real / dias con datos; la proyeccion mantiene ese ritmo hasta el ultimo dia del mes.
 - La linea de tiempo marca el dia de la ultima actualizacion y compara contra el presupuesto (inversion) o el objetivo de reservas.
 - Cada sincronizacion con Google Sheets emite el evento `amador:data-updated` y el modulo se recalcula solo.

@@ -1,20 +1,21 @@
 (function () {
   const DATA_URL = 'data/amador-ads-2026.json';
-  const JUNE_DATA_URL = 'data/amador-june-sheet-2026.json';
-  const JULY_DATA_URL = 'data/amador-july-sheet-2026.json';
-  const AUGUST_DATA_URL = 'data/amador-august-sheet-2026.json';
-  const SEPTEMBER_DATA_URL = 'data/amador-september-sheet-2026.json';
+  // Copias de las pestanas mensuales de la hoja (respaldo si Google no responde). El build incrusta todas las
+  // data/amador-<mes>-sheet-2026.json como window.AMADOR_SHEET_MONTHS; esta lista solo se usa en desarrollo.
+  const SHEET_FILES = ['june', 'july', 'august', 'september'].map(month => `data/amador-${month}-sheet-2026.json`);
   const SHEET_ID = '1Lj5rEepYZhHlf-VyGJwRYVMqnpWLu9lg3oL6wes3o-s';
-  const SHEET_MONTH = 'Septiembre';
   const REFRESH_BUTTON_IDS = ['campaigns-refresh-btn', 'projection-refresh-btn'];
-  const LIVE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_MONTH)}`;
+  const liveCsvUrl = sheetName => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
   const SYNC_INTERVAL_MS = 60 * 60 * 1000;
+  // Al volver a la pestana del navegador solo se relee si la ultima lectura tiene mas de 5 minutos.
+  const VISIBILITY_REFETCH_MS = 5 * 60 * 1000;
+  const FETCH_TIMEOUT_MS = 30 * 1000;
   const GOALS_KEY = 'amador-reservation-goals-v1';
   // URL del Web App de scripts/google-sheets-sync.gs; vacio = la edicion de objetivos queda solo local.
   const SHEET_SYNC_ENDPOINT = '';
   const SHEET_SYNC_ENDPOINT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
   const CHART_COLLAPSED_KEY = 'amador-chart-collapsed-v1';
-  const { MONTHS, SHORT_MONTHS, esc, safeUrl } = window.AmadorShared;
+  const { MONTHS, SHORT_MONTHS, esc, safeUrl, limaParts, monthKey, daysInMonth } = window.AmadorShared;
   const REQUIRED_HEADERS = ['Tipo','Campaña','Anuncio','Objetivo','Reservas','Objetivo Reservas','Mensajes','Costo por mensaje','Costo por reserva','Ratio de reservas','Estado','Fecha de inicio','Fecha de fin','Duración (días)','Días restantes','Importe diario','Presupuesto total x campaña','Gasto x Campaña','Saldo por campaña','Proyección real de gasto mesual'];
   const OPTIONAL_HEADERS = ['Nuevo ppto diario','Observaciones','Vista previa','Conjunto de anuncios'];
   const AD_BUDGET_HEADERS = ['Presupuesto total x anuncio','Presupuesto total x conjunto'];
@@ -26,7 +27,7 @@
     reservations: { label: 'Reservas', unit: 'count', color: '#ea580c', fill: 'rgba(234,88,12,.10)' },
   };
   const CHART_SERIES_KEY = 'amador-chart-series-v1';
-  const state = { data: null, types: readChartSeries(), month: 'Septiembre', chart: null, syncTimer: null, goals: readGoals(), chartCollapsed: readChartCollapsed(), lastSync: null };
+  const state = { data: null, types: readChartSeries(), month: null, chart: null, syncTimer: null, goals: readGoals(), chartCollapsed: readChartCollapsed(), lastSync: null, lastFetch: 0, loading: false, pendingManual: false, error: '' };
 
   const fmtMoney = value => Number.isFinite(Number(value)) ? `S/. ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
   const fmtCount = value => Number(value || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 });
@@ -127,6 +128,20 @@
     if (missing.length) throw new Error(`Cabeceras faltantes: ${missing.join(', ')}`);
     return map;
   }
+  // "1/9/2026" -> "2026-09-01"
+  function isoDate(value) {
+    const match = String(value || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    return match ? `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}` : null;
+  }
+  // Si la pestana pedida no existe, Google devuelve la primera de la hoja (Junio) con estado 200. Una pestana es la
+  // del mes pedido si al menos la mitad de sus filas con fechas corre en ese mes; sin fechas se acepta.
+  function belongsToMonth(ranges, key) {
+    if (!ranges.length) return true;
+    const first = `${key}-01`;
+    const last = `${key}-31`;
+    const inside = ranges.filter(range => range.start <= last && range.end >= first).length;
+    return inside * 2 >= ranges.length;
+  }
   function dateLabel(value) {
     const text = String(value || '').trim();
     const match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -160,7 +175,7 @@
     // Al exportar, el titulo del mes queda fusionado con la cabecera "Tipo".
     return /(^|\s)tipo$/.test(normalizeHeader(cell));
   }
-  function sheetToMonthData(rows) {
+  function sheetToMonthData(rows, sheetName) {
     const headerIndex = rows.findIndex(row => row.some(isTypeHeader) && row.some(cell => normalizeHeader(cell) === 'estado'));
     if (headerIndex < 0) throw new Error('No se encontro la fila de cabeceras del sheet.' );
     const headers = rows[headerIndex].map(cell => (isTypeHeader(cell) ? 'Tipo' : cell));
@@ -169,6 +184,7 @@
     let current = null;
     let currentAdSet = null;
     let totals = null;
+    const ranges = [];
     rows.slice(headerIndex + 1).forEach(row => {
       const first = String(get(row, map, 'Tipo')).trim();
       const campaignName = String(get(row, map, 'Campaña')).trim();
@@ -179,6 +195,9 @@
         totals = row;
         return;
       }
+      const start = isoDate(get(row, map, 'Fecha de inicio'));
+      const end = isoDate(get(row, map, 'Fecha de fin'));
+      if (start || end) ranges.push({ start: start || end, end: end || start });
       if (campaignName) {
         current = {
           name: campaignName,
@@ -237,8 +256,8 @@
     const budgetTotal = parseNumber(totals && get(totals, map, 'Presupuesto total x campaña')) ?? round2(campaigns.reduce((sum, campaign) => sum + Number(campaign.budget || 0), 0));
     const balanceTotal = parseNumber(totals && get(totals, map, 'Saldo por campaña')) ?? round2(campaigns.reduce((sum, campaign) => sum + Number(campaign.balance || 0), 0));
     const brandingSpend = round2(campaigns.filter(campaign => campaign.ads.some(ad => normalizeHeader(ad.objective).includes('reconocimiento'))).reduce((sum, campaign) => sum + Number(campaign.spent || 0), 0));
-    return {
-      name: SHEET_MONTH,
+    const month = {
+      name: sheetName,
       spend,
       messages: allAds.reduce((sum, ad) => sum + Number(ad.messages || 0), 0),
       reservations: allAds.reduce((sum, ad) => sum + Number(ad.reservas || 0), 0),
@@ -251,22 +270,83 @@
       spendBreakdown: { sales: round2(spend - brandingSpend), branding: brandingSpend },
       campaigns,
       headers: headers.map(header => String(header || '').trim()).filter(Boolean),
-      source: `Google Sheets / Distribucion-amador / ${SHEET_MONTH}`
+      source: `Google Sheets / Distribucion-amador / ${sheetName}`
     };
+    return { month, ranges };
   }
   function mergeSheetMonth(monthData, source = 'Google Sheets') {
     const data = cloneData(state.data);
     const index = data.months.findIndex(month => month.name === monthData.name);
     if (index >= 0) data.months[index] = monthData;
     else data.months.push(monthData);
-    data.cutoff = new Date().toISOString().slice(0, 10);
+    data.months.sort((a, b) => MONTHS.indexOf(a.name) - MONTHS.indexOf(b.name));
     data.source = source;
     state.data = data;
   }
-  async function fetchLiveSheet() {
-    const response = await fetch(`${LIVE_CSV_URL}&cacheBust=${Date.now()}`, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return sheetToMonthData(parseCsv(await response.text()));
+  // Mes de hoy en hora de Lima: decide que meses se leen en vivo y cuales ya cerraron.
+  function today() {
+    const now = limaParts();
+    return { ...now, key: monthKey(now.year, now.month) };
+  }
+  // Cada mes lleva su clave YYYY-MM, si ya cerro (calendario de Lima) y su dia de corte: el ultimo dia completo
+  // para un mes cerrado y, para el mes en curso, el dia de la ultima lectura en vivo (o el de la copia guardada).
+  function decorate(data) {
+    const now = today();
+    const fileCutoff = String(data.fileCutoff || '');
+    data.months.forEach(month => {
+      const index = MONTHS.indexOf(month.name);
+      month.key = monthKey(data.year, index);
+      month.days = daysInMonth(data.year, index);
+      month.closed = month.key < now.key;
+      let day = month.days;
+      if (!month.closed) {
+        if (month.readAt) day = limaParts(new Date(month.readAt)).day;
+        else if (fileCutoff.startsWith(month.key)) day = Number(fileCutoff.slice(8, 10));
+        else day = now.day;
+      }
+      month.dataDay = Math.min(month.days, Math.max(1, day));
+      month.cutoff = `${month.key}-${String(month.dataDay).padStart(2, '0')}`;
+    });
+    const latest = latestMonth(data);
+    data.latestKey = latest?.key || null;
+    data.cutoff = latest?.cutoff || null;
+  }
+  function latestMonth(data = state.data) {
+    return (data?.months || []).filter(month => Number(month.spend) > 0).pop() || null;
+  }
+  // Huella de los datos para no repintar si una lectura trae lo mismo (la hora de lectura no cuenta).
+  function signature(data = state.data) {
+    return JSON.stringify((data?.months || []).map(({ readAt, ...month }) => month));
+  }
+  async function fetchText(url) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.text();
+    } catch (error) {
+      if (error?.name === 'AbortError') throw new Error('Google Sheets no respondio a tiempo');
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  // Una pestana que todavia no existe (el mes recien empieza) devuelve null, no un error.
+  async function fetchLiveMonth(index) {
+    const sheetName = MONTHS[index];
+    const text = await fetchText(`${liveCsvUrl(sheetName)}&cacheBust=${Date.now()}`);
+    const { month, ranges } = sheetToMonthData(parseCsv(text), sheetName);
+    return belongsToMonth(ranges, monthKey(state.data.year, index)) ? month : null;
+  }
+  // Se leen en vivo el mes en curso (hora de Lima) y el anterior, que sigue recibiendo ajustes despues del
+  // cierre. Solo meses del año del tablero.
+  function liveMonthIndexes() {
+    const now = today();
+    return [[now.year, now.month - 1], [now.year, now.month]]
+      .map(([year, month]) => (month < 0 ? [year - 1, 11] : [year, month]))
+      .filter(([year]) => year === state.data.year)
+      .map(([, month]) => month);
   }
   function setRefreshButtonState(isLoading) {
     REFRESH_BUTTON_IDS.forEach(id => {
@@ -276,29 +356,53 @@
       button.textContent = isLoading ? 'Actualizando...' : 'Actualizar';
     });
   }
-  async function syncLiveSheet({ silent = false, manual = false } = {}) {
+  async function syncLiveSheet({ manual = false } = {}) {
+    if (state.loading) {
+      // Actualizar pulsado durante una lectura silenciosa: se repite en cuanto esta termina.
+      if (manual) {
+        state.pendingManual = true;
+        setRefreshButtonState(true);
+      }
+      return false;
+    }
+    state.loading = true;
     if (manual) {
       setRefreshButtonState(true);
       updateSyncLabel('Actualizando datos desde Google Sheets...');
     }
+    let ok = false;
     try {
-      const monthData = await fetchLiveSheet();
-      mergeSheetMonth(monthData);
+      const months = (await Promise.all(liveMonthIndexes().map(fetchLiveMonth))).filter(Boolean);
       state.lastSync = new Date();
-      renderAll();
+      state.lastFetch = Date.now();
+      const before = signature();
+      months.forEach(month => mergeSheetMonth({ ...month, readAt: state.lastSync.toISOString() }));
+      decorate(state.data);
+      const hadError = Boolean(state.error);
+      state.error = '';
+      // Una lectura silenciosa que trae lo mismo no repinta; Actualizar siempre publica.
+      if (manual || hadError || signature() !== before) renderAll();
       updateSyncLabel('Datos sincronizados desde Google Sheets');
-      return true;
+      ok = true;
     } catch (error) {
-      if (!silent) console.warn('[amador] No se pudo sincronizar Google Sheets:', error);
+      state.lastFetch = Date.now();
+      state.error = String(error?.message || error);
+      console.warn('[amador] No se pudo sincronizar Google Sheets:', error);
       updateSyncLabel(manual ? 'No se pudo actualizar desde Google Sheets' : 'Datos locales, esperando sincronizacion');
-      return false;
+      window.dispatchEvent(new CustomEvent('amador:data-error', { detail: { error: state.error } }));
     } finally {
-      if (manual) setRefreshButtonState(false);
+      state.loading = false;
     }
+    if (state.pendingManual) {
+      state.pendingManual = false;
+      return syncLiveSheet({ manual: true });
+    }
+    if (manual) setRefreshButtonState(false);
+    return ok;
   }
   function updateSyncLabel(text) {
     const label = document.getElementById('topbar-status');
-    if (label && state.month === SHEET_MONTH) label.textContent = text;
+    if (label && state.month === latestMonth()?.name) label.textContent = text;
   }
   function renderKpis() {
     const month = sourceMonth(state.month);
@@ -323,13 +427,13 @@
     host.innerHTML = MONTHS.map(name => {
       const available = !!sourceMonth(name);
       const selected = name === state.month;
-      return `<button type="button" class="month-tab ${selected ? 'active' : ''}" data-month="${name}" ${available ? '' : 'disabled'}>${name}${name === SHEET_MONTH ? '<span class="current-dot"></span>' : ''}</button>`;
+      return `<button type="button" class="month-tab ${selected ? 'active' : ''}" data-month="${name}" ${available ? '' : 'disabled'}>${name}${name === latestMonth()?.name ? '<span class="current-dot"></span>' : ''}</button>`;
     }).join('');
     host.querySelectorAll('.month-tab:not(:disabled)').forEach(button => {
       button.addEventListener('click', () => {
         state.month = button.dataset.month;
         host.querySelectorAll('.month-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.month === state.month));
-        renderAll(false);
+        renderMonthView();
       });
     });
   }
@@ -408,7 +512,7 @@
     }
     const payload = {
       action: 'updateReservationGoal',
-      sheetName: SHEET_MONTH,
+      sheetName: state.month,
       campaign: input.dataset.campaign,
       ad: input.dataset.ad,
       campaignLevel: input.dataset.ad === '__campaign__',
@@ -423,7 +527,7 @@
         body: JSON.stringify(payload)
       });
       updateSyncLabel('Objetivo enviado a Google Sheets');
-      setTimeout(() => syncLiveSheet({ silent: true }), 1800);
+      setTimeout(() => syncLiveSheet(), 1800);
     } catch (error) {
       console.warn('[amador] No se pudo enviar el objetivo a Google Sheets:', error);
       updateSyncLabel('Cambio local; error al enviar a Google Sheets');
@@ -634,12 +738,18 @@
     if (state.chart) state.chart.destroy();
     state.chart = new Chart(canvas, { type: 'line', data: { labels: SHORT_MONTHS, datasets }, options: chartOptions(selectedKeys), plugins: [{ id: 'valueLabels', afterDatasetsDraw(chart) { const ctx = chart.ctx; ctx.save(); ctx.font = '600 10px Inter, sans-serif'; ctx.textAlign = 'center'; chart.data.datasets.forEach((dataset, datasetIndex) => { const meta = chart.getDatasetMeta(datasetIndex); ctx.fillStyle = dataset.borderColor; meta.data.forEach((point, index) => { const value = dataset.data[index]; if (value == null) return; ctx.fillText(formatSeriesValue(value, SERIES[dataset.seriesKey], true), point.x, point.y - 13); }); }); ctx.restore(); } }] });
   }
-  function renderAll(withTabs = true) {
+  // Cambiar de mes solo repinta lo que depende del mes; el grafico mensual y el Historico no.
+  function renderMonthView() {
     renderKpis();
+    renderCampaigns();
+  }
+  // Datos nuevos: se repinta todo y se avisa a los modulos que dependen de estos datos (Proyecciones).
+  function renderAll() {
+    if (!sourceMonth(state.month)) state.month = latestMonth()?.name || state.data.months[0]?.name;
     applyChartCollapsed();
     renderChart();
-    if (withTabs) renderTabs();
-    renderCampaigns();
+    renderTabs();
+    renderMonthView();
     renderHistory();
     window.dispatchEvent(new CustomEvent('amador:data-updated'));
   }
@@ -724,24 +834,24 @@
         renderCampaigns();
       }
     });
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) syncLiveSheet({ silent: true }); });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && Date.now() - state.lastFetch > VISIBILITY_REFETCH_MS) syncLiveSheet();
+    });
   }
   async function init() {
     try {
-      if (window.AMADOR_ADS_DATA) state.data = window.AMADOR_ADS_DATA;
+      if (window.AMADOR_ADS_DATA) state.data = cloneData(window.AMADOR_ADS_DATA);
       else { const response = await fetch(DATA_URL, { cache: 'no-store' }); if (!response.ok) throw new Error(`HTTP ${response.status}`); state.data = await response.json(); }
-      const juneData = window.AMADOR_JUNE_DATA || await fetch(JUNE_DATA_URL, { cache: 'no-store' }).then(response => response.json());
-      mergeSheetMonth(juneData, state.data.source || 'Datos locales');
-      const julyData = window.AMADOR_JULY_DATA || await fetch(JULY_DATA_URL, { cache: 'no-store' }).then(response => response.json());
-      mergeSheetMonth(julyData, state.data.source || 'Datos locales');
-      const augustData = window.AMADOR_AUGUST_DATA || await fetch(AUGUST_DATA_URL, { cache: 'no-store' }).then(response => response.json());
-      mergeSheetMonth(augustData, state.data.source || 'Datos locales');
-      const septemberData = window.AMADOR_SEPTEMBER_DATA || await fetch(SEPTEMBER_DATA_URL, { cache: 'no-store' }).then(response => response.json());
-      mergeSheetMonth(septemberData, state.data.source || 'Datos locales');
+      // La fecha del archivo es la de la copia guardada del mes en curso, no la de hoy.
+      state.data.fileCutoff = state.data.cutoff;
+      const sheetMonths = window.AMADOR_SHEET_MONTHS || await Promise.all(SHEET_FILES.map(url => fetch(url, { cache: 'no-store' }).then(response => response.json())));
+      sheetMonths.forEach(month => mergeSheetMonth(month, state.data.source || 'Datos locales'));
+      decorate(state.data);
+      state.month = latestMonth()?.name || MONTHS[0];
       wireEvents();
       renderAll();
-      syncLiveSheet({ silent: true });
-      state.syncTimer = setInterval(() => syncLiveSheet({ silent: true }), SYNC_INTERVAL_MS);
+      syncLiveSheet();
+      state.syncTimer = setInterval(() => syncLiveSheet(), SYNC_INTERVAL_MS);
     } catch (error) { document.getElementById('view-obj').innerHTML = '<div class="data-notice error"><strong>No se pudo cargar la informacion de Amador.</strong></div>'; console.error(error); }
   }
   // Snapshot de solo lectura para los modulos que dependen de estos datos (Proyecciones).
@@ -749,9 +859,11 @@
     if (!state.data) return null;
     return {
       cutoff: state.data.cutoff,
+      latestKey: state.data.latestKey,
       source: state.data.source,
       year: state.data.year,
       lastSync: state.lastSync,
+      error: state.error,
       months: cloneData(state.data).months,
     };
   }
