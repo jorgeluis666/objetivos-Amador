@@ -31,6 +31,12 @@
     { key: 'reservations', label: 'Reservas', format: 'count', better: 'up' },
     { key: 'costPerReservation', label: 'Costo por reserva', format: 'money', better: 'down' },
   ];
+  // Indicadores del grafico de cada cuadro (todos por mes).
+  const BLOCK_METRICS = [
+    { key: 'spend', label: 'Inversión', unit: 'money' },
+    { key: 'messages', label: 'Mensajes', unit: 'count' },
+    { key: 'reservations', label: 'Reservas', unit: 'count' },
+  ];
   // URL del Web App de scripts/google-sheets-sync.gs; vacio = la edicion de objetivos queda solo local.
   const SHEET_SYNC_ENDPOINT = '';
   const SHEET_SYNC_ENDPOINT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
@@ -61,7 +67,8 @@
   // monthKey: pestana elegida (YYYY-MM o anual); month: nombre del mes que muestran la tabla de campanas y sus
   // ediciones locales. current: lectura en vivo en curso. liveSheets: pestanas leidas en la ultima lectura.
   const state = {
-    data: null, types: readChartSeries(), monthKey: null, month: null, chart: null, syncTimer: null, nextSync: 0, goals: {},
+    // charts: graficos de Chart.js vivos ("global" y uno por cuadro, "block:<objetivo>").
+    data: null, types: readChartSeries(), monthKey: null, month: null, charts: new Map(), syncTimer: null, nextSync: 0, goals: {},
     chartCollapsed: readChartCollapsed(), lastSync: null, lastFetch: 0, current: null, liveSheets: [], error: '', goalNote: '',
     // Tabla de anuncios: densidad, pantalla completa (las pestanas de mes vuelven a tabsHome) y filtro por objetivo.
     tableCompact: readFlag(TABLE_COMPACT_KEY), tableFullscreen: false, tabsHome: null, adsObjective: 'all',
@@ -70,11 +77,6 @@
 
   const fmtMoney = value => Number.isFinite(Number(value)) ? `S/. ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
   const fmtCount = value => Number(value || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 });
-  const fmtShort = value => {
-    if (value == null) return '';
-    if (value >= 1000) return `S/. ${(value / 1000).toFixed(2).replace(/0$/, '').replace(/\.0$/, '')}k`;
-    return `S/. ${Math.round(value)}`;
-  };
 
 
   function readFlag(key) {
@@ -228,11 +230,6 @@
     const ads = (month.campaigns || []).flatMap(campaign => campaign.ads || []);
     if (!ads.some(ad => ad[field] != null)) return null;
     return ads.reduce((total, ad) => total + Number(ad[field] || 0), 0);
-  }
-  function formatSeriesValue(value, series, short = false) {
-    if (value == null) return '';
-    if (series.unit === 'money') return short ? fmtShort(value) : fmtMoney(value);
-    return fmtCount(value);
   }
   function isTypeHeader(cell) {
     // Al exportar, el titulo del mes queda fusionado con la cabecera "Tipo".
@@ -1018,6 +1015,182 @@
     keepFocus(body, () => { body.innerHTML = html.join(''); });
   }
 
+  // ── Graficos por mes ─────────────────────────────────────────────────────
+  const formatValue = (unit, value) => (unit === 'money' ? fmt.money(value) : fmt.count(value));
+  const tickValue = (unit, value) => (unit === 'money'
+    ? (value === 0 ? 'S/. 0' : `S/. ${Number(value).toLocaleString('es-PE', { maximumFractionDigits: 0 })}`)
+    : Number(value).toLocaleString('es-PE', { notation: Math.abs(value) >= 100000 ? 'compact' : 'standard', maximumFractionDigits: 1 }));
+
+  // Con un indicador hay un solo eje y; con varios, un eje por indicador apilado en vertical (paneles con su
+  // escala) sobre el mismo eje de meses. Nunca dos escalas superpuestas: los cruces entre lineas no significarian nada.
+  function yScales(metrics) {
+    const base = unit => ({ beginAtZero: true, border: { display: false }, ticks: { color: '#7890b5', font: { size: 10 }, callback: value => tickValue(unit, value) } });
+    if (metrics.length === 1) return { y: { ...base(metrics[0].unit), grid: { color: 'rgba(148,163,184,.20)' } } };
+    // Chart.js apila de abajo hacia arriba en el orden de los ejes: se dan al reves para que el primero quede arriba.
+    return Object.fromEntries(metrics.map((metric, index) => [`y${index}`, {
+      ...base(metric.unit),
+      stack: 'metrics',
+      stackWeight: 1,
+      grace: '25%',
+      // El tope de cada panel cae sobre el cero del panel de arriba: se omite para que no se encimen.
+      ticks: { ...base(metric.unit).ticks, maxTicksLimit: 5, callback: (value, tickIndex, ticks) => (index > 0 && tickIndex === ticks.length - 1 ? '' : tickValue(metric.unit, value)) },
+      // La linea del cero marca el piso de cada panel.
+      grid: { color: context => (context.tick?.value === 0 ? '#cbd5e1' : 'rgba(148,163,184,.20)') },
+      panelLabel: metric.label,
+    }]).reverse());
+  }
+
+  // Total de cada mes del año por indicador; un mes sin dato queda como hueco. legend: leyenda propia (opcional).
+  function monthlySeries(metrics, valueOf, legend) {
+    const multiple = metrics.length > 1;
+    return {
+      labels: SHORT_MONTHS,
+      datasets: metrics.map((metric, index) => ({
+        label: metric.label,
+        unit: metric.unit,
+        data: MONTHS.map((_, monthIndex) => valueOf(metric, monthIndex)),
+        borderColor: metric.color,
+        backgroundColor: `${metric.color}1a`,
+        fill: true,
+        borderWidth: 2.5,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: metric.color,
+        tension: 0.25,
+        spanGaps: false,
+        valueLabels: true,
+        ...(multiple ? { yAxisID: `y${index}` } : {}),
+      })),
+      legend: legend || (multiple
+        ? [`<span><i class="legend-line" style="background:${metrics[0].color}"></i><b>${metrics.length} indicadores por mes</b></span>`, '<span>Cada indicador con su escala.</span>']
+        : [`<span><i class="legend-line" style="background:${metrics[0].color}"></i><b>${esc(metrics[0].label)} por mes</b></span>`]),
+    };
+  }
+
+  function destroyChart(id) {
+    state.charts.get(id)?.destroy();
+    state.charts.delete(id);
+  }
+
+  function drawLineChart(id, canvas, series, metrics) {
+    destroyChart(id);
+    if (!canvas) return;
+    if (typeof Chart === 'undefined') {
+      canvas.parentElement.innerHTML = '<div class="empty-state"><strong>Grafico no disponible sin conexion.</strong><span>Los indicadores y las tablas siguen visibles.</span></div>';
+      return;
+    }
+    // Cada panel extra suma alto para que ninguno quede aplastado.
+    canvas.parentElement.style.height = metrics.length > 1 ? `${90 + 135 * metrics.length}px` : '';
+    state.charts.set(id, new Chart(canvas, {
+      type: 'line',
+      data: { labels: series.labels, datasets: series.datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: 'index', intersect: false },
+        layout: { padding: { top: 24, right: 12, left: 4 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            filter: item => item.raw != null,
+            callbacks: {
+              title: items => MONTHS[items[0].dataIndex],
+              label: context => ` ${context.dataset.label}: ${formatValue(context.dataset.unit, context.raw)}`,
+            },
+          },
+        },
+        scales: {
+          x: { grid: { display: false }, border: { color: '#cbd5e1' }, ticks: { color: '#7890b5', font: { size: 10 }, autoSkip: true, maxTicksLimit: 12 } },
+          ...yScales(metrics),
+        },
+      },
+      plugins: [{
+        id: 'valueLabels',
+        afterDatasetsDraw(chart) {
+          const ctx = chart.ctx;
+          ctx.save();
+          ctx.font = '600 10px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          chart.data.datasets.forEach((dataset, index) => {
+            if (!dataset.valueLabels) return;
+            ctx.fillStyle = dataset.borderColor;
+            chart.getDatasetMeta(index).data.forEach((point, pointIndex) => {
+              const value = dataset.data[pointIndex];
+              if (value == null) return;
+              const text = dataset.unit === 'money' ? tickValue('money', Math.round(value)) : Number(value).toLocaleString('es-PE', { notation: value >= 10000 ? 'compact' : 'standard', maximumFractionDigits: 1 });
+              ctx.fillText(text, point.x, point.y - 12);
+            });
+          });
+          ctx.restore();
+        },
+      }, {
+        // Nombre de cada panel arriba a la izquierda (solo con varios indicadores).
+        id: 'panelLabels',
+        afterDatasetsDraw(chart) {
+          const ctx = chart.ctx;
+          ctx.save();
+          ctx.font = '600 11px Inter, sans-serif';
+          ctx.textBaseline = 'top';
+          Object.values(chart.scales).forEach(scale => {
+            const label = scale.options.panelLabel;
+            if (!label) return;
+            const x = chart.chartArea.left + 8;
+            const y = scale.top + 4;
+            ctx.fillStyle = 'rgba(255,255,255,.85)';
+            ctx.fillRect(x - 4, y - 2, ctx.measureText(label).width + 8, 16);
+            ctx.fillStyle = '#475569';
+            ctx.fillText(label, x, y);
+          });
+          ctx.restore();
+        },
+      }, {
+        // Linea vertical en el mes del tooltip, a lo alto de todos los paneles.
+        id: 'crosshair',
+        afterDatasetsDraw(chart) {
+          const active = chart.tooltip?.getActiveElements() || [];
+          if (!active.length) return;
+          const x = active[0].element.x;
+          const ctx = chart.ctx;
+          ctx.save();
+          ctx.strokeStyle = '#94a3b8';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.moveTo(x, chart.chartArea.top);
+          ctx.lineTo(x, chart.chartArea.bottom);
+          ctx.stroke();
+          ctx.restore();
+        },
+      }],
+    }));
+  }
+
+  // Casillas de indicadores de un grafico.
+  function chipsHtml(items, selected, name, color) {
+    return items.map(item => {
+      const on = selected.includes(item.key);
+      return `<label class="series-toggle campaign-chip${on ? ' active' : ''}" style="--campaign-color:${color}"><input type="checkbox" name="${esc(name)}" value="${esc(item.key)}"${on ? ' checked' : ''}>${esc(item.label)}</label>`;
+    }).join('');
+  }
+
+  // Indicadores del grafico de un cuadro: el resultado del objetivo va primero (Reservas en su cuadro, Mensajes en
+  // los demas) y, por defecto, junto a la inversion. El orden sigue la lista, no los clics.
+  function blockMetricList(objective) {
+    const result = objective.key === 'reservas' ? 'reservations' : 'messages';
+    return [result, 'spend', result === 'messages' ? 'reservations' : 'messages']
+      .map(key => ({ ...BLOCK_METRICS.find(metric => metric.key === key), color: objective.color }));
+  }
+
+  // Valor de un objetivo en un mes; hueco si ese mes el objetivo no tuvo gasto o no registra el indicador.
+  function objectiveMonthValue(month, key, metric) {
+    if (!hasData(month)) return null;
+    const entries = campaignEntries(month).filter(entry => entry.group === key);
+    if (!entries.some(hasSpend)) return null;
+    if (metric === 'spend') return entries.reduce((sum, entry) => sum + entry.spend, 0);
+    return entries.reduce((sum, entry) => addNullable(sum, entry[metric]), null);
+  }
+
   // ── Cuadro de cada objetivo ──────────────────────────────────────────────
   function blockSettings(key) {
     const saved = state.campaignBlocks[key] || {};
@@ -1112,6 +1285,9 @@
         </div>
         <dl class="chart-kpis">${kpis}</dl>
         <div class="campaign-block-body" id="campaign-body-${key}">
+          <div class="chart-series-toggles chart-metrics" data-campaign-metrics role="group" aria-label="Indicadores del grafico de ${esc(objective.label)}"></div>
+          <div class="chart-wrap h-300"><canvas role="img" aria-label="Grafico por mes de la campaña ${esc(objective.label)}"></canvas></div>
+          <div class="chart-legend projection-legend" data-campaign-legend></div>
           ${adSetsHtml(period, objective, model)}
         </div>
       </section>`;
@@ -1121,17 +1297,32 @@
     const objective = model?.objectives.find(item => item.key === key);
     if (!block || !objective) return;
     const settings = blockSettings(key);
+    const metrics = blockMetricList(objective);
+    const saved = Array.isArray(settings.metrics) ? metrics.map(metric => metric.key).filter(metricKey => settings.metrics.includes(metricKey)) : [];
+    const selectedKeys = saved.length ? saved : metrics.slice(0, 2).map(metric => metric.key);
+    const selected = metrics.filter(metric => selectedKeys.includes(metric.key));
     block.classList.toggle('is-collapsed', settings.collapsed);
     setToggle(block.querySelector('[data-campaign-toggle]'), settings.collapsed, `la campaña ${objective.label}`);
+    const chips = block.querySelector('[data-campaign-metrics]');
+    keepFocus(chips, () => { chips.innerHTML = chipsHtml(metrics, selectedKeys, `campaign-metric-${key}`, objective.color); });
+    if (settings.collapsed) {
+      destroyChart(`block:${key}`);
+      return;
+    }
+    const series = monthlySeries(selected, (metric, monthIndex) => objectiveMonthValue(monthByKey(monthKey(state.data.year, monthIndex)), key, metric.key));
+    block.querySelector('[data-campaign-legend]').innerHTML = series.legend.join('');
+    drawLineChart(`block:${key}`, block.querySelector('canvas'), series, selected);
   }
   function renderCampaignBlocks(period, model) {
     const host = document.getElementById('campaign-blocks');
     if (!host) return;
     if (!period || !model) {
+      [...state.charts.keys()].filter(id => id.startsWith('block:')).forEach(destroyChart);
       host.innerHTML = '';
       return;
     }
     const previous = new Map(model.previous.objectives.map(objective => [objective.key, objective]));
+    [...state.charts.keys()].filter(id => id.startsWith('block:')).forEach(destroyChart);
     keepFocus(host, () => {
       host.innerHTML = model.objectives.map(objective => campaignBlockHtml(period, objective, period.compare ? previous.get(objective.key) : null, model)).join('');
       model.objectives.forEach(objective => renderCampaignBlock(objective.key, period, model));
@@ -1361,48 +1552,36 @@
       </tr>
     `).join('');
   }
-  function chartOptions(selectedKeys) {
-    const hasMoney = selectedKeys.includes('investment');
-    const hasCount = selectedKeys.some(key => key !== 'investment');
-    const mixed = hasMoney && hasCount;
-    const moneyTicks = value => value === 0 ? 'S/. 0' : `S/. ${(value / 1000).toFixed(1)}k`;
-    const countTicks = value => Number(value).toLocaleString('es-PE');
-    const scales = {
-      x: { grid: { display: false }, border: { color: '#cbd5e1' }, ticks: { color: '#7890b5', font: { size: 10 } } },
-      y: { beginAtZero: true, suggestedMax: hasMoney ? 3500 : undefined, border: { display: false }, grid: { color: 'rgba(148,163,184,.20)' }, ticks: { precision: 0, color: '#7890b5', font: { size: 10 }, callback: value => hasMoney ? moneyTicks(value) : countTicks(value) } }
-    };
-    if (mixed) scales.y1 = { beginAtZero: true, position: 'right', border: { display: false }, grid: { drawOnChartArea: false }, ticks: { precision: 0, color: '#7890b5', font: { size: 10 }, callback: countTicks } };
-    return { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, layout: { padding: { top: 24, right: 12, left: 4 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => ` ${context.dataset.label}: ${formatSeriesValue(context.raw, SERIES[context.dataset.seriesKey] || SERIES.investment)}` } } }, scales };
-  }
   function applyChartCollapsed() {
     const panel = document.getElementById('chart-panel');
     const button = document.getElementById('chart-toggle-btn');
     if (!panel || !button) return;
     panel.classList.toggle('is-collapsed', state.chartCollapsed);
-    button.textContent = state.chartCollapsed ? '+' : '-';
-    button.setAttribute('aria-expanded', String(!state.chartCollapsed));
-    button.setAttribute('title', state.chartCollapsed ? 'Expandir grafico' : 'Minimizar grafico');
+    setToggle(button, state.chartCollapsed, 'el grafico');
   }
+  // Grafico mensual de la cuenta: el unico que muestra enero a mayo. Varios indicadores van en paneles apilados.
   function renderChart() {
     const selectedKeys = Object.keys(SERIES).filter(key => state.types.includes(key));
-    document.getElementById('chart-title').textContent = `Evolucion mensual | ${selectedKeys.map(key => SERIES[key].label).join(' + ')} | 2026`;
-    const legend = document.getElementById('chart-legend');
-    if (legend) legend.innerHTML = selectedKeys.map(key => `<span><i class="legend-line ${key}"></i><b>${SERIES[key].label}</b></span>`).join('');
+    const months = state.data.months.filter(hasData);
+    document.getElementById('chart-title').textContent = `Evolucion mensual | ${selectedKeys.map(key => SERIES[key].label).join(' + ')} | ${state.data.year}`;
+    const sub = document.getElementById('chart-sub');
+    if (sub) sub.textContent = months.length ? `Indicadores reales registrados de ${months[0].name.toLowerCase()} a ${months[months.length - 1].name.toLowerCase()}` : 'Sin meses con datos';
     document.querySelectorAll('#chart-series-toggles input').forEach(input => {
       input.checked = selectedKeys.includes(input.value);
       input.closest('.series-toggle')?.classList.toggle('active', input.checked);
     });
-    if (state.chartCollapsed) return;
-    const canvas = document.getElementById('chart-monthly');
-    if (!canvas) return;
-    if (typeof Chart === 'undefined') { canvas.parentElement.innerHTML = '<div class="empty-state"><strong>Grafico no disponible sin conexion.</strong><span>Los totales mensuales siguen visibles debajo.</span></div>'; return; }
-    const mixed = selectedKeys.includes('investment') && selectedKeys.some(key => key !== 'investment');
-    const datasets = selectedKeys.map(key => {
-      const series = SERIES[key];
-      return { label: series.label, seriesKey: key, data: MONTHS.map(name => valueFor(name, key)), borderColor: series.color, backgroundColor: series.fill, borderWidth: 2.5, pointRadius: 5, pointHoverRadius: 7, pointBackgroundColor: series.color, pointBorderColor: series.color, tension: .25, fill: selectedKeys.length === 1, spanGaps: false, yAxisID: mixed && key !== 'investment' ? 'y1' : 'y' };
-    });
-    if (state.chart) state.chart.destroy();
-    state.chart = new Chart(canvas, { type: 'line', data: { labels: SHORT_MONTHS, datasets }, options: chartOptions(selectedKeys), plugins: [{ id: 'valueLabels', afterDatasetsDraw(chart) { const ctx = chart.ctx; ctx.save(); ctx.font = '600 10px Inter, sans-serif'; ctx.textAlign = 'center'; chart.data.datasets.forEach((dataset, datasetIndex) => { const meta = chart.getDatasetMeta(datasetIndex); ctx.fillStyle = dataset.borderColor; meta.data.forEach((point, index) => { const value = dataset.data[index]; if (value == null) return; ctx.fillText(formatSeriesValue(value, SERIES[dataset.seriesKey], true), point.x, point.y - 13); }); }); ctx.restore(); } }] });
+    const legend = document.getElementById('chart-legend');
+    if (state.chartCollapsed) {
+      destroyChart('global');
+      if (legend) legend.innerHTML = '';
+      return;
+    }
+    const metrics = selectedKeys.map(key => ({ key, label: SERIES[key].label, unit: SERIES[key].unit, color: SERIES[key].color }));
+    const items = metrics.map(metric => `<span><i class="legend-line" style="background:${metric.color}"></i><b>${esc(metric.label)} por mes</b></span>`);
+    if (metrics.length > 1) items.push('<span>Cada indicador con su escala.</span>');
+    const series = monthlySeries(metrics, (metric, monthIndex) => valueFor(MONTHS[monthIndex], metric.key), items);
+    if (legend) legend.innerHTML = series.legend.join('');
+    drawLineChart('global', document.getElementById('chart-monthly'), series, metrics);
   }
   // Cambiar de mes solo repinta lo que depende del mes: pestanas, periodo, KPIs y campanas.
   function renderMonthView() {
@@ -1445,7 +1624,7 @@
       state.chartCollapsed = !state.chartCollapsed;
       saveChartCollapsed();
       applyChartCollapsed();
-      if (!state.chartCollapsed) renderChart();
+      renderChart();
     });
     // Objetivo Reservas por campana y campanas agregadas a mano (tabla de distribucion).
     const distribution = document.getElementById('distribution-body');
@@ -1508,6 +1687,17 @@
       });
       renderCampaignSection(currentPeriod());
     });
+    // Indicadores del grafico de cada cuadro: siempre queda al menos uno (desmarcar el ultimo lo deja como estaba).
+    document.getElementById('campaign-blocks')?.addEventListener('change', event => {
+      const input = event.target.closest('[data-campaign-metrics] input');
+      const block = input?.closest('.campaign-block');
+      const key = block?.dataset.objective;
+      if (!key) return;
+      const checked = [...block.querySelectorAll('[data-campaign-metrics] input:checked')].map(item => item.value);
+      if (checked.length) saveBlockSettings(key, { metrics: checked });
+      const period = currentPeriod();
+      renderCampaignBlock(key, period, periodModel(period));
+    });
     // Minimizar cada cuadro de objetivo.
     document.getElementById('campaign-blocks')?.addEventListener('click', event => {
       const key = event.target.closest('[data-campaign-toggle]')?.closest('.campaign-block')?.dataset.objective;
@@ -1556,7 +1746,12 @@
       renderAll();
       updateStatusLabel('Leyendo Google Sheets...');
       syncLiveSheet();
-    } catch (error) { document.getElementById('view-obj').innerHTML = '<div class="data-notice error"><strong>No se pudo cargar la informacion de Amador.</strong></div>'; console.error(error); }
+    } catch (error) {
+      document.getElementById('view-obj').innerHTML = '<div class="data-notice error"><strong>No se pudo cargar la informacion de Amador.</strong></div>';
+      console.error(error);
+      state.error = String(error?.message || error);
+      window.dispatchEvent(new CustomEvent('amador:data-error', { detail: { error: state.error } }));
+    }
   }
   // Snapshot de solo lectura para los modulos que dependen de estos datos (Proyecciones).
   function snapshot() {

@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.18.0`.
+Version actual: `v1.19.0`.
 
 ## Versionado
 
@@ -49,7 +49,8 @@ El spreadsheet esta compartido como "cualquier persona con el enlace / lector", 
 - **Comparacion**: contra el mes anterior completo. Conjuntos y anuncios se comparan por nombre dentro del objetivo; uno que no corria sale como "Nuevo". Sin detalle en el mes anterior (enero, febrero o junio para los conjuntos) no hay comparacion.
 - **Objetivo Reservas**: lo editado se guarda en este navegador por mes y campana (`localStorage`, clave `amador-reservation-goals-v2`, "2026-09::Campana"); los valores de la version anterior (`-v1`, sin mes) pasan a cada mes en que aparece la campana. Proyecciones lo usa como referencia.
 - **Filas propias**: "Agregar campana" (distribucion) y "Agregar un anuncio a..." (anuncios) guardan filas de nota en este navegador (`amador-custom-rows-v1`), sin cifras de la hoja.
-- Minimizado de cada cuadro en `amador-campaign-charts-v1` y densidad de la tabla de anuncios en `amador-campaigns-compact-v1`.
+- **Graficos por mes**: cada cuadro trae su grafico del año con Inversion, Mensajes y Reservas (por defecto el resultado del objetivo y la inversion). Con varios indicadores, cada uno va en su propio panel con su escala, apilados sobre el mismo eje de meses: nunca dos escalas en un mismo panel. Un mes sin actividad del objetivo queda como hueco. El grafico mensual de la cuenta (el unico con enero a mayo) sigue la misma regla y arranca minimizado.
+- Minimizado e indicadores de cada cuadro en `amador-campaign-charts-v1`; densidad de la tabla de anuncios en `amador-campaigns-compact-v1`.
 
 ## Proyecciones
 
@@ -59,7 +60,7 @@ a traves de `window.AmadorObjectives.snapshot()` y proyecta el cierre del mes en
 - El mes proyectado es el ultimo con gasto; si ya cerro (calendario de Lima) se muestra completo y el simulador no aplica.
 - Ritmo diario = acumulado real / dias con datos; la proyeccion mantiene ese ritmo hasta el ultimo dia del mes.
 - La linea de tiempo marca el dia de la ultima actualizacion y compara contra el presupuesto (inversion) o el objetivo de reservas.
-- Cada sincronizacion con Google Sheets emite el evento `amador:data-updated` y el modulo se recalcula solo.
+- Cada sincronizacion con Google Sheets emite el evento `amador:data-updated` y el modulo se recalcula solo; si llega durante el arrastre del nodo, se aplica al soltar. Si los datos no cargan, `amador:data-error` muestra el motivo.
 - Simulador de objetivo: el ultimo punto de la linea de tiempo es un nodo arrastrable. Al moverlo hacia el cierre deseado
   (o escribir el valor / usar "Llevar al objetivo") se recalcula el cierre de inversion, mensajes y reservas, el ritmo
   diario requerido para los dias restantes, la brecha contra presupuesto u objetivo y la inversion adicional.

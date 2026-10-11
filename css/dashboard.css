@@ -2228,3 +2228,36 @@ body.amador-table-fullscreen {
     justify-content: flex-start;
   }
 }
+
+/* ===== Graficos por mes (cuadros y grafico de la cuenta) ===== */
+
+.h-300 {
+  height: 300px;
+}
+
+.chart-metrics {
+  margin: -4px 0 14px;
+}
+
+/* Chips de indicadores con el color del objetivo del cuadro. */
+.series-toggle.campaign-chip.active {
+  color: var(--campaign-color);
+  border-color: var(--campaign-color);
+  background: color-mix(in srgb, var(--campaign-color) 9%, #fff);
+}
+
+.chart-panel.is-collapsed .chart-toggle svg {
+  transform: rotate(180deg);
+}
+
+.chart-panel .chart-controls {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* El arrastre del nodo en tactil: sin esto el navegador desplaza la pagina en lugar de mover el punto. */
+#chart-projection.is-dragging {
+  touch-action: none;
+}
+

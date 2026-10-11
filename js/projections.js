@@ -13,7 +13,8 @@
 
   // factor = cierre objetivo / cierre proyectado. Es comun a los tres indicadores porque el escenario
   // mantiene el costo por mensaje y la tasa de reserva del mes; asi cambiar de indicador conserva el escenario.
-  const state = { ready: false, metric: 'investment', chart: null, projection: null, factor: 1, dragging: false };
+  // pendingRender: datos nuevos llegados durante el arrastre; se pintan al soltar.
+  const state = { ready: false, metric: 'investment', chart: null, projection: null, factor: 1, dragging: false, pendingRender: false };
 
   const money = fmt.money;
   const count = fmt.count;
@@ -205,13 +206,13 @@
     if (!host) return;
     const items = [
       `<span><i class="legend-line" style="background:${metric.color}"></i><b>Acumulado real</b></span>`,
-      `<span><i class="legend-line dashed" style="background:${metric.color}"></i><b>Proyeccion al cierre</b></span>`,
+      `<span><i class="legend-line dashed" style="color:${metric.color}"></i><b>Proyeccion al cierre</b></span>`,
     ];
     if (scenario.active) {
-      items.push(`<span><i class="legend-line dashed" style="background:${SCENARIO_COLOR}"></i><b>Escenario objetivo</b></span>`);
+      items.push(`<span><i class="legend-line dashed" style="color:${SCENARIO_COLOR}"></i><b>Escenario objetivo</b></span>`);
     }
     if (metric.reference != null) {
-      items.push(`<span><i class="legend-line dashed" style="background:#94a3b8"></i><b>${metric.referenceLabel}</b></span>`);
+      items.push(`<span><i class="legend-line dashed" style="color:#94a3b8"></i><b>${metric.referenceLabel}</b></span>`);
     }
     if (canSimulate(projection, metric)) {
       items.push(`<span style="color:${scenario.active ? SCENARIO_COLOR : metric.color}"><i class="legend-dot"></i><b>Nodo arrastrable (cierre objetivo)</b></span>`);
@@ -458,11 +459,16 @@
     if (body) body.innerHTML = '<tr><td class="table-empty" colspan="6">Sin datos para proyectar.</td></tr>';
   }
 
-  function renderWaiting() {
+  // Sin datos todavia: se espera a Gasto publicitario o, si fallo la carga, se muestra el motivo.
+  function renderWaiting(error) {
+    const message = error ? `No se pudieron cargar los datos (${error}). Pulsa Actualizar para reintentar.` : 'Esperando los datos del modulo Gasto publicitario...';
     const sub = document.getElementById('projection-sub');
-    if (sub) sub.textContent = 'Esperando los datos del modulo Gasto publicitario...';
+    if (sub) sub.textContent = message;
     const body = document.getElementById('projection-body');
-    if (body) body.innerHTML = '<tr><td class="table-empty" colspan="6">Esperando los datos del modulo Gasto publicitario...</td></tr>';
+    if (body) {
+      body.innerHTML = '<tr><td class="table-empty" colspan="6"></td></tr>';
+      body.querySelector('td').textContent = message;
+    }
   }
 
   function render() {
@@ -497,15 +503,21 @@
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   }
 
-  function nearHandle(event) {
+  // x, y relativos al canvas.
+  function nearPoint(x, y) {
     const chart = state.chart;
     const projection = state.projection;
     if (!chart || !projection) return false;
     const metric = projection.byKey[state.metric];
     if (!metric || !canSimulate(projection, metric)) return false;
     const point = handlePosition(chart, projection, metric);
-    const pointer = pointerPosition(event, chart);
-    return Math.hypot(pointer.x - point.x, pointer.y - point.y) <= HANDLE_HIT_RADIUS;
+    return Math.hypot(x - point.x, y - point.y) <= HANDLE_HIT_RADIUS;
+  }
+
+  function nearHandle(event) {
+    if (!state.chart) return false;
+    const pointer = pointerPosition(event, state.chart);
+    return nearPoint(pointer.x, pointer.y);
   }
 
   function wireDrag() {
@@ -517,6 +529,7 @@
       event.preventDefault();
       state.dragging = true;
       canvas.setPointerCapture(event.pointerId);
+      canvas.classList.add('is-dragging');
       canvas.style.cursor = 'grabbing';
       // Se congela la escala durante el arrastre para que el eje no salte bajo el cursor.
       const metric = state.projection.byKey[state.metric];
@@ -539,11 +552,27 @@
       updateScenario(projection);
     });
 
+    // En tactil el navegador fija el touch-action al empezar el toque, asi que .is-dragging llega tarde: el
+    // desplazamiento de la pagina se bloquea aqui, y solo si el toque cae sobre el nodo.
+    canvas.addEventListener('touchstart', event => {
+      const touch = event.changedTouches[0];
+      if (!touch) return;
+      const rect = canvas.getBoundingClientRect();
+      if (nearPoint(touch.clientX - rect.left, touch.clientY - rect.top)) event.preventDefault();
+    }, { passive: false });
+
     const endDrag = event => {
       if (!state.dragging) return;
       state.dragging = false;
       if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      canvas.classList.remove('is-dragging');
       canvas.style.cursor = '';
+      // Datos nuevos llegados durante el arrastre: se pintan ahora.
+      if (state.pendingRender) {
+        state.pendingRender = false;
+        render();
+        return;
+      }
       if (state.projection) renderChart(state.projection);
     };
     canvas.addEventListener('pointerup', endDrag);
@@ -616,7 +645,16 @@
     wireSimulator();
 
     window.addEventListener('amador:data-updated', () => {
-      if (state.ready) render();
+      if (!state.ready) return;
+      // Recrear el grafico a mitad del arrastre cortaria el gesto: los datos nuevos se pintan al soltar.
+      if (state.dragging) {
+        state.pendingRender = true;
+        return;
+      }
+      render();
+    });
+    window.addEventListener('amador:data-error', event => {
+      if (state.ready && !window.AmadorObjectives?.snapshot?.()) renderWaiting(event.detail?.error || 'error desconocido');
     });
   }
 
