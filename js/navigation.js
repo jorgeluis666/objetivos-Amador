@@ -73,11 +73,7 @@
     document.getElementById('footer-status').textContent = meta.footer;
     saveView(viewId);
 
-    if (viewId === 'view-messages') {
-      window.AmadorProjections?.init();
-      window.setTimeout(() => window.dispatchEvent(new Event('resize')), 0);
-    }
-    if (viewId === 'view-obj') window.setTimeout(() => window.dispatchEvent(new Event('resize')), 0);
+    if (viewId === 'view-messages') window.AmadorProjections?.init();
     if (viewId === 'view-reports') window.ReportsArchive?.init();
     if (viewId === 'view-log') window.Bitacora?.init();
     if (viewId === 'view-users') window.Usuarios?.init();
