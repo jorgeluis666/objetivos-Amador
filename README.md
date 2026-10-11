@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.20.2`.
+Version actual: `v1.20.3`.
 
 ## Versionado
 
@@ -191,7 +191,10 @@ HTML publicado no lleva la clave, ni su hash, ni los datos en claro. Tambien qui
 y agrega un `robots.txt` que bloquea buscadores.
 
 - "Recordar en este equipo" guarda la clave derivada (no la escrita) en `localStorage`; sin marcarlo dura la sesion
-  de la pestaña. Cada deploy usa otra sal, asi que despues de publicar todos vuelven a escribir la clave.
+  de la pestaña. La sal es fija por marca (`lr-gate:amador`), asi que lo recordado sigue sirviendo despues de cada deploy
+  y solo deja de servir cuando cambia la clave (entonces el formulario vuelve a pedirla).
+- La clave se toma sin espacios en los extremos y en NFC, en el build y en la pantalla de acceso; si trae un salto de
+  linea el build falla. La foto de fondo (JPEG de 125 KB) solo se descarga si se ve (no en pantallas de 768px o menos).
 - Cambiar la clave = actualizar el secret y volver a publicar.
 - Cualquiera puede descargar el HTML cifrado y probar claves sin limite en su propia maquina: la seguridad depende
   de que la clave sea larga y dificil de adivinar.

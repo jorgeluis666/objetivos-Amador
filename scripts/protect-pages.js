@@ -15,8 +15,11 @@ const ITERATIONS = 600000;
 const MIN_LENGTH = 8;
 
 function main() {
-  const password = (process.env.DASHBOARD_PASSWORD || '').trim();
+  // Igual que la pantalla de acceso: sin espacios en los extremos y en NFC.
+  const password = (process.env.DASHBOARD_PASSWORD || '').trim().normalize('NFC');
   if (!password) throw new Error('falta DASHBOARD_PASSWORD');
+  // Un <input type="password"> descarta los saltos de linea: con uno en la clave nadie podria abrir el tablero.
+  if (/[\r\n]/.test(password)) throw new Error('DASHBOARD_PASSWORD contiene un salto de linea: la pantalla de acceso no lo puede escribir');
   if (password.length < MIN_LENGTH) throw new Error(`DASHBOARD_PASSWORD debe tener al menos ${MIN_LENGTH} caracteres`);
   if (!fs.existsSync(DIST_HTML)) throw new Error('no existe dist/index.html: correr antes scripts/build.js');
 
@@ -38,7 +41,8 @@ function main() {
     data: data.toString('base64'),
   });
 
-  const template = fs.readFileSync(path.join(ROOT, 'deploy', 'pages-gate.html'), 'utf8');
+  // El payload es JSON de cadenas base64 (sin saltos de linea): solo la plantilla puede traer CRLF.
+  const template = fs.readFileSync(path.join(ROOT, 'deploy', 'pages-gate.html'), 'utf8').replace(/\r\n?/g, '\n');
   if (template.split('__PAYLOAD__').length !== 2) throw new Error('deploy/pages-gate.html debe contener __PAYLOAD__ exactamente una vez');
   fs.writeFileSync(DIST_HTML, template.replace('__PAYLOAD__', () => payload), 'utf8');
 

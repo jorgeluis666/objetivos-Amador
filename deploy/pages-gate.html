@@ -78,8 +78,15 @@
   const submit = document.getElementById('gate-submit');
   const msg = document.getElementById('gate-msg');
 
-  const fromB64 = text => Uint8Array.from(atob(text), char => char.charCodeAt(0));
+  const fromB64 = text => {
+    const raw = atob(text);
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  };
   const toB64 = bytes => btoa(String.fromCharCode(...bytes));
+  // El tablero cifrado se decodifica una sola vez, aunque se pruebe la clave varias veces.
+  let cipherData = null;
 
   function readStored() {
     for (const store of [sessionStorage, localStorage]) {
@@ -107,7 +114,8 @@
   }
 
   async function deriveKey(password) {
-    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    // NFC en ambos lados (aqui y en scripts/protect-pages.js): la misma clave escrita con otro teclado da la misma llave.
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password.normalize('NFC')), 'PBKDF2', false, ['deriveBits']);
     const bits = await crypto.subtle.deriveBits(
       { name: 'PBKDF2', hash: 'SHA-256', salt: fromB64(PAYLOAD.salt), iterations: PAYLOAD.iterations },
       base,
@@ -118,7 +126,8 @@
 
   async function decrypt(rawKey) {
     const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
-    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(PAYLOAD.iv) }, key, fromB64(PAYLOAD.data));
+    cipherData = cipherData || fromB64(PAYLOAD.data);
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(PAYLOAD.iv) }, key, cipherData);
     return new TextDecoder().decode(plain);
   }
 
@@ -129,8 +138,7 @@
   }
 
   // El fondo se aplica solo cuando termino de cargar; si falla queda el degradado.
-  // Con una llave guardada no se pide: la imagen retrasaria el 'load' que espera la apertura automatica.
-  if (!readStored()) {
+  function loadBackground() {
     const background = new Image();
     background.onload = () => {
       const bg = document.getElementById('gate-bg');
@@ -138,6 +146,24 @@
     };
     background.src = 'assets/login-bg.jpg';
   }
+
+  // En pantallas angostas .bg esta oculto: la foto se pide solo si el fondo llega a verse (al girar una tableta
+  // o agrandar la ventana). Safari < 14 solo tiene addListener/removeListener en MediaQueryList.
+  function showBackground() {
+    const narrow = window.matchMedia ? window.matchMedia('(max-width: 768px)') : null;
+    if (!narrow || !narrow.matches) { loadBackground(); return; }
+    const onChange = () => {
+      if (narrow.matches) return;
+      if (narrow.removeEventListener) narrow.removeEventListener('change', onChange); else narrow.removeListener(onChange);
+      // Si el tablero ya reemplazo esta pantalla, la foto no se veria.
+      if (document.getElementById('gate-bg')) loadBackground();
+    };
+    if (narrow.addEventListener) narrow.addEventListener('change', onChange); else narrow.addListener(onChange);
+  }
+
+  // La llave guardada se lee una vez. Con ella no se pide la foto: retrasaria el 'load' que espera la apertura automatica.
+  const saved = readStored();
+  if (!saved) showBackground();
 
   if (!window.crypto || !crypto.subtle) {
     msg.textContent = 'Abre esta página con https:// para poder ingresar.';
@@ -169,8 +195,8 @@
   submit.disabled = false;
 
   // Con la clave recordada se abre solo, pero despues del load: un document.open() con el parser
-  // todavia activo agrega el tablero debajo del formulario en vez de reemplazar la pagina.
-  const saved = readStored();
+  // todavia activo agrega el tablero debajo del formulario en vez de reemplazar la pagina. Si la llave ya no
+  // abre el tablero (la clave cambio), queda el formulario con su fondo de siempre.
   if (saved) {
     submit.disabled = true;
     submit.textContent = 'Abriendo...';
@@ -181,6 +207,7 @@
       forget();
       submit.disabled = false;
       submit.textContent = 'Ingresar';
+      showBackground();
     });
   }
 })();
