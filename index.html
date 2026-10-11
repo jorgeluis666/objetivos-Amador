@@ -8,39 +8,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="css/dashboard.css">
-<style>
-  .reservations-total-row td { height: auto !important; padding: 10px 12px !important; border-top: 2px solid #cbd5e1 !important; color: #0f172a !important; background: #f8fafc; font-size: 13px; font-weight: 800; vertical-align: middle; }
-  .reservations-total-row .total-label { text-align: right; }
-  .reservations-total-row .resultados-col { font-size: 12px; }
-  .campaigns-note { display: none; margin: -5px 0 12px; color: #64748b; font-size: 10px; font-weight: 600; line-height: 1.45; }
-  .campaigns-note.visible { display: block; }
-  .deadline-cell { min-width: 92px; }
-  .days-counter { display: block; margin-top: 5px; color: #64748b; font-size: 9px; font-weight: 700; white-space: nowrap; }
-  .days-counter.urgent { color: #b91c1c; }
-  .days-counter.closed { color: #94a3b8; }
-  .reservation-value { display: block; }
-  .reservation-trend { display: block; margin-top: 3px; font-size: 9px; font-weight: 800; line-height: 1.2; white-space: nowrap; }
-  .reservation-trend.up { color: #16a34a; }
-  .reservation-trend.down { color: #dc2626; }
-  .icon-btn { background: none; border: 1px solid #cbd5e1; border-radius: 4px; color: #64748b; cursor: pointer; font-size: 11px; line-height: 1; margin-left: 4px; padding: 1px 4px; vertical-align: middle; }
-  .icon-btn:hover { background: #f1f5f9; color: #0f172a; }
-  .add-campaign-row td { padding: 8px 12px !important; }
-  .add-campaign-btn { background: none; border: 1px dashed #cbd5e1; border-radius: 6px; color: #64748b; cursor: pointer; font-size: 11px; font-weight: 600; padding: 5px 14px; }
-  .add-campaign-btn:hover { background: #f8fafc; border-color: #94a3b8; color: #0f172a; }
-  .inline-edit { border: 1px solid #e2e8f0; border-radius: 4px; color: #0f172a; font-size: 12px; padding: 2px 6px; width: 90px; }
-  .inline-edit.wide { width: 130px; }
-  .inline-edit:focus { border-color: #3b82f6; outline: none; }
-  .campaign-sep td { height: 0; padding: 0 !important; border: none; position: relative; text-align: center; }
-  .add-ad-line-btn { background: #fff; border: 1px solid #cbd5e1; border-radius: 10px; color: #64748b; cursor: pointer; font-size: 10px; font-weight: 700; line-height: 16px; opacity: 0; padding: 0 10px; position: relative; top: -8px; transition: opacity .15s, border-color .15s; }
-  .campaign-sep:hover .add-ad-line-btn { opacity: 1; }
-  .add-ad-line-btn:hover { border-color: #3b82f6; color: #1d4ed8; }
-</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha512-ZwR1/gSZM3ai6vCdI+LVF1zSq/5HznD3ZSTk7kajkaj4D292NLuduDCO1c/NT8Id+jE58KYLKT7hXnbtryGmMg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
 <div class="shell">
   <aside class="sidebar" id="sidebar">
-    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.17.0</span></div></div>
+    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.18.0</span></div></div>
     <div class="s-group-lbl">Modulos activos</div>
     <button class="s-item active" type="button" data-view-target="view-obj">
       <div class="s-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
@@ -86,7 +59,44 @@
           <div class="panel-head chart-panel-head"><div><div class="panel-title" id="chart-title">Evolucion mensual | Inversion | 2026</div><div class="panel-sub">Indicadores reales registrados de enero a septiembre</div></div><div class="chart-controls"><button type="button" class="chart-toggle" id="chart-toggle-btn" aria-expanded="false" aria-controls="monthly-chart-body" title="Expandir grafico">+</button><div class="chart-series-toggles" id="chart-series-toggles" role="group" aria-label="Indicadores del grafico"><label class="series-toggle active" data-series="investment"><input type="checkbox" value="investment" checked>Inversion</label><label class="series-toggle" data-series="messages"><input type="checkbox" value="messages">Mensajes</label><label class="series-toggle" data-series="reservations"><input type="checkbox" value="reservations">Reservas</label></div><div class="chart-legend" id="chart-legend"></div></div></div>
           <div class="chart-wrap h-360" id="monthly-chart-body"><canvas id="chart-monthly"></canvas></div>
         </div>
-        <div class="panel campaigns-panel"><div class="panel-head campaigns-panel-head"><div><div class="panel-title" id="campaigns-title">Campanas del mes</div><div class="panel-sub" id="campaigns-sub"></div></div></div><div class="campaigns-note" id="campaigns-note"></div><div class="table-scroll"><table class="data-table campaigns-table"><thead><tr><th>Tipo</th><th>Campana</th><th>Anuncio</th><th>Objetivo</th><th>Reservas</th><th>Objetivo Reservas</th><th>Mensajes</th><th class="num">Costo por mensaje</th><th class="num">Costo por reserva</th><th class="num">Ratio de reservas</th><th>Estado</th><th>Fecha inicio</th><th>Fecha fin / dias restantes</th><th class="num">Duracion</th><th class="num">Importe diario</th><th class="num">Presupuesto x anuncio</th><th class="num">Gasto x anuncio</th><th class="num">Presupuesto x campana</th><th class="num">Gasto x campana</th><th class="num">Saldo x anuncio</th><th class="num">Saldo por campana</th><th class="num">Nuevo ppto diario</th><th>Observaciones</th></tr></thead><tbody id="campaigns-body"></tbody></table></div></div>
+        <!-- Campanas en un solo marco: arriba la distribucion de la inversion y debajo un cuadro por objetivo con sus
+             KPIs contra el mes anterior y sus conjuntos de anuncios. -->
+        <div class="panel distribution-panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Distribucion de inversion por campaña</div>
+              <div class="panel-sub" id="distribution-sub"></div>
+            </div>
+          </div>
+          <div class="campaigns-note" id="campaigns-note"></div>
+          <div class="table-scroll">
+            <table class="data-table distribution-table">
+              <thead><tr><th>Campaña</th><th>Objetivo</th><th>Tipo</th><th class="num">Mensajes</th><th class="num">Costo por mensaje</th><th class="num">Reservas</th><th>Objetivo Reservas</th><th class="num">Costo por reserva</th><th class="num">Gasto</th><th>% de la inversion</th><th class="num">Presupuesto</th><th class="num">Saldo</th><th>Fin / dias restantes</th><th class="num">Nuevo ppto diario</th></tr></thead>
+              <tbody id="distribution-body"><tr><td class="table-empty" colspan="14">Cargando datos...</td></tr></tbody>
+            </table>
+          </div>
+          <div class="campaign-blocks" id="campaign-blocks"></div>
+        </div>
+
+        <div class="panel campaigns-panel">
+          <div class="panel-head campaigns-panel-head">
+            <div>
+              <div class="panel-title" id="campaigns-title">Anuncios del periodo</div>
+              <div class="panel-sub" id="campaigns-sub"></div>
+            </div>
+            <div class="table-tools">
+              <label class="table-tool-select" for="ads-objective"><span class="sr-only">Filtrar por objetivo</span><select id="ads-objective"><option value="all">Todos los objetivos</option></select></label>
+              <button type="button" class="table-tool-btn" id="campaigns-density-btn" aria-pressed="false" title="Alternar densidad de las filas">Compacto</button>
+              <button type="button" class="table-tool-btn" id="campaigns-expand-btn" aria-pressed="false" title="Ver la tabla en pantalla completa (Esc para salir)">&#10530; Pantalla completa</button>
+            </div>
+          </div>
+          <div class="table-scroll" tabindex="0" role="region" aria-label="Tabla de anuncios">
+            <table class="data-table campaigns-table">
+              <thead><tr><th>Objetivo</th><th>Anuncio</th><th>Campaña / conjunto</th><th>Estado</th><th class="num">Mensajes</th><th class="num" id="ads-prev-head">Mes anterior</th><th class="num">Variacion</th><th class="num">Costo por mensaje</th><th class="num">Gasto</th><th class="num">Reservas</th><th>Inicio</th><th>Fin / dias restantes</th><th class="num">Importe diario</th><th>Observaciones</th><th>Vista previa</th></tr></thead>
+              <tbody id="campaigns-body"><tr><td class="table-empty" colspan="15">Cargando datos...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <section class="view" id="view-messages">

@@ -1649,6 +1649,582 @@ button.topbar-pill[aria-expanded="true"] .status-chevron {
 .delta.bad { color: #b91c1c; }
 .delta.flat { color: #64748b; }
 
-#view-obj .campaigns-panel {
+/* ===== Gasto publicitario: distribucion, cuadros por objetivo y anuncios ===== */
+
+.distribution-panel {
   margin-top: 24px;
+  margin-bottom: 20px;
+}
+
+.distribution-table {
+  min-width: 1380px;
+}
+
+/* Vista anual: los meses en que corrio la campana, bajo su nombre. */
+.distribution-table .campaign-name small {
+  display: block;
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.campaigns-note {
+  display: none;
+  margin: -5px 0 12px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.campaigns-note.visible {
+  display: block;
+}
+
+.objective-label {
+  display: inline-flex;
+  align-items: center;
+  color: #334155;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.campaign-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--campaign-color, #94a3b8);
+  vertical-align: 0;
+}
+
+.share-col {
+  white-space: nowrap;
+}
+
+.share-bar {
+  display: inline-block;
+  width: 72px;
+  height: 6px;
+  margin-right: 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #f1f5f9;
+  vertical-align: middle;
+}
+
+.share-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--campaign-color);
+}
+
+.share-value {
+  color: var(--ink);
+  font-size: 10px;
+}
+
+.data-table .total-row td {
+  background: #f8fafc;
+  font-weight: 700;
+}
+
+.deadline-cell {
+  min-width: 92px;
+}
+
+.days-counter {
+  display: block;
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.days-counter.urgent { color: #b91c1c; }
+.days-counter.closed { color: #94a3b8; }
+
+.goal-sum {
+  display: block;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.reservation-trend {
+  display: block;
+  margin-top: 3px;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.reservation-trend.up { color: #16a34a; }
+.reservation-trend.down { color: #dc2626; }
+
+/* Campanas y anuncios agregados a mano en este navegador. */
+.custom-row td {
+  background: #fcfcfd;
+}
+
+.inline-edit {
+  width: 90px;
+  padding: 2px 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  color: #0f172a;
+  font-size: 12px;
+}
+
+.inline-edit.wide {
+  width: 160px;
+}
+
+.inline-edit:focus {
+  border-color: #3b82f6;
+  outline: none;
+}
+
+.add-campaign-row td {
+  padding: 8px 12px;
+}
+
+.add-campaign-btn {
+  padding: 5px 14px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  color: #64748b;
+  background: none;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.add-campaign-btn:hover {
+  border-color: #94a3b8;
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+.add-ad-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 10px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.add-ad-picker select {
+  height: 28px;
+  max-width: 280px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: var(--ink);
+  background: #fff;
+  font-size: 11px;
+}
+
+/* ===== Cuadro de cada objetivo ===== */
+/* Van dentro del panel de distribucion, debajo de su tabla, separados por una linea fina.
+   minmax(0, 1fr): sin el, la tabla de conjuntos (min-width) ensancharia la columna y la pagina. */
+.campaign-blocks {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.campaign-blocks:empty {
+  display: none;
+}
+
+.campaign-block {
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+  scroll-margin-top: 16px;
+}
+
+.campaign-block-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+}
+
+.campaign-block-title .campaign-dot {
+  width: 10px;
+  height: 10px;
+  margin-right: -4px;
+}
+
+.campaign-block-title em {
+  color: #94a3b8;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.campaign-block .chart-controls {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.chart-toggle svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform .15s ease;
+}
+
+.campaign-block.is-collapsed .chart-toggle svg {
+  transform: rotate(180deg);
+}
+
+/* Minimizado quedan el titulo y los KPIs. */
+.campaign-block.is-collapsed .campaign-block-body {
+  display: none;
+}
+
+.campaign-block.is-collapsed .chart-kpis {
+  margin-bottom: 0;
+}
+
+.chart-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 32px;
+  margin: 0 0 16px;
+}
+
+.chart-kpis dt {
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.chart-kpis dd {
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.chart-kpis dd .delta {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.adset-head {
+  margin: 18px 0 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.adset-table {
+  min-width: 640px;
+}
+
+/* th.num hace falta: sin el, .data-table .num { white-space: nowrap } gana y los encabezados no se parten. */
+.adset-table th,
+.adset-table th.num {
+  white-space: normal;
+  vertical-align: bottom;
+}
+
+.adset-table th,
+.adset-table td {
+  padding-right: 8px;
+  padding-left: 8px;
+}
+
+.adset-table .campaign-name {
+  min-width: 120px;
+}
+
+.adset-table .campaign-name small {
+  display: block;
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.adset-table .share-bar {
+  width: 44px;
+}
+
+.delta-pill {
+  display: inline-flex;
+  padding: 3px 7px;
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.delta-pill.good { color: var(--green-text); background: var(--green-soft); }
+.delta-pill.bad { color: #b91c1c; background: #fef2f2; }
+/* Azul: con la marca roja, "Nuevo" en el color de marca se leeria como una caida. */
+.delta-pill.new { color: #1d4ed8; background: #eff6ff; }
+
+/* ===== Tabla de anuncios: cabecera fija, columnas ancladas, pantalla completa ===== */
+
+#view-obj .campaigns-panel {
+  margin-top: 0;
+}
+
+.table-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.table-tool-btn {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #475569;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.table-tool-btn:hover,
+.table-tool-btn[aria-pressed="true"] {
+  border-color: var(--brand);
+  color: var(--brand-text);
+  background: var(--brand-soft);
+}
+
+.table-tool-select select {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #475569;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+/* El alto propio del contenedor es lo que activa la cabecera fija: la tabla scrollea dentro del panel. */
+.campaigns-panel .table-scroll {
+  overflow: auto;
+  max-height: calc(100vh - 230px);
+  min-height: 260px;
+  overscroll-behavior-x: contain;
+}
+
+.campaigns-table {
+  min-width: 1600px;
+}
+
+/* Sin periodo de comparacion (vista anual o primer mes): fuera "Mes anterior" y "Variacion". */
+.campaigns-panel.no-compare .campaigns-table :is(th, td):is(:nth-child(6), :nth-child(7)) {
+  display: none;
+}
+
+.campaigns-panel.no-compare .campaigns-table {
+  min-width: 1440px;
+}
+
+.campaigns-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  /* Con border-collapse el borde se pierde al scrollear; el inset lo reemplaza. */
+  border-bottom: 0;
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+
+/* Objetivo y Anuncio quedan a la vista mientras se recorren las demas columnas. */
+.campaigns-table .type-col,
+.campaigns-table .ad-name-col {
+  position: sticky;
+  z-index: 2;
+  background: #fff;
+}
+
+.campaigns-table thead th:nth-child(-n+2) {
+  z-index: 4;
+  background: #f8fafc;
+}
+
+.campaigns-table .type-col,
+.campaigns-table thead th:nth-child(1) {
+  left: 0;
+  width: 150px;
+  min-width: 150px;
+}
+
+.campaigns-table .ad-name-col,
+.campaigns-table thead th:nth-child(2) {
+  left: 150px;
+  width: 244px;
+  min-width: 244px;
+}
+
+.campaigns-table td.ad-name-col {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Borde derecho del bloque anclado + sombra que indica que hay mas columnas. */
+.campaigns-table .ad-name-col {
+  box-shadow: 1px 0 0 #cbd5e1, 9px 0 11px -8px rgba(15, 23, 42, .45);
+}
+
+.campaigns-table thead th:nth-child(2) {
+  box-shadow: 1px 0 0 #cbd5e1, 9px 0 11px -8px rgba(15, 23, 42, .45), inset 0 -1px 0 var(--border);
+}
+
+.campaigns-table .ad-name-text {
+  display: block;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.campaigns-table tbody tr:hover > td {
+  background: #f8fafc;
+}
+
+.campaign-set-col {
+  min-width: 190px;
+  font-size: 10px;
+}
+
+.campaign-set-col small {
+  display: block;
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 9px;
+}
+
+.observation-col {
+  min-width: 160px;
+  color: #475569;
+  font-size: 10px;
+}
+
+.leader-star {
+  color: #f59e0b;
+}
+
+.preview-link {
+  color: #2563eb;
+  font-size: 10px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.preview-link:hover {
+  text-decoration: underline;
+}
+
+/* Pantalla completa: el panel toma todo el viewport y las pestanas de mes viajan dentro por JS. */
+.campaigns-panel.is-fullscreen {
+  position: fixed;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  inset: 0;
+  margin: 0;
+  padding: 16px 20px 12px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+
+.campaigns-panel.is-fullscreen .table-scroll {
+  min-height: 0;
+  max-height: none;
+  flex: 1;
+}
+
+.campaigns-panel.is-fullscreen .month-tabs {
+  margin: 0 0 14px;
+}
+
+body.amador-table-fullscreen {
+  overflow: hidden;
+}
+
+/* Densidad compacta: mas filas visibles sin tocar el tamano de letra. */
+.campaigns-panel.is-compact .campaigns-table td {
+  padding: 6px 9px;
+}
+
+.campaigns-panel.is-compact .campaigns-table th {
+  padding: 7px 9px;
+}
+
+.campaigns-panel.is-compact .campaigns-table .status-pill {
+  padding: 2px 7px;
+}
+
+@media(max-width:760px) {
+  .campaigns-panel-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .campaigns-panel .table-scroll {
+    max-height: calc(100vh - 170px);
+  }
+
+  .campaigns-table .type-col,
+  .campaigns-table .ad-name-col {
+    position: static;
+  }
+
+  /* Sin anclaje a la izquierda, pero la cabecera completa sigue fija arriba. */
+  .campaigns-table thead th:nth-child(-n+2) {
+    left: auto;
+  }
+
+  .table-tools {
+    flex-wrap: wrap;
+  }
+
+  .campaign-block .chart-panel-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .campaign-block .chart-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }

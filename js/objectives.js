@@ -9,12 +9,33 @@
   // Al volver a la pestana del navegador solo se relee si la ultima lectura tiene mas de 5 minutos.
   const VISIBILITY_REFETCH_MS = 5 * 60 * 1000;
   const FETCH_TIMEOUT_MS = 30 * 1000;
-  const GOALS_KEY = 'amador-reservation-goals-v1';
+  // Objetivo Reservas editado en el tablero, por mes y campana ("2026-09::Campana"). v1 no tenia el mes.
+  const GOALS_KEY = 'amador-reservation-goals-v2';
+  const LEGACY_GOALS_KEY = 'amador-reservation-goals-v1';
+  const TABLE_COMPACT_KEY = 'amador-campaigns-compact-v1';
+  // Minimizado de cada cuadro de objetivo (y, desde el grafico por cuadro, sus indicadores).
+  const CAMPAIGN_BLOCKS_KEY = 'amador-campaign-charts-v1';
+  const CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>';
+  const OBJECTIVES = [
+    { key: 'reservas', label: 'Reservas', match: /reserva/, color: '#ea580c' },
+    { key: 'mensajes', label: 'Mensajes', match: /mensaje/, color: '#16a34a' },
+    { key: 'branding', label: 'Branding', match: /reconocimiento|thruplay|branding|alcance|notoriedad/, color: '#7c3aed' },
+  ];
+  const FALLBACK_COLORS = ['#0891b2', '#4f46e5', '#b45309', '#be123c'];
+  const otherObjectives = new Map();
+  // KPIs de cada cuadro, con su variacion contra el mes anterior al lado del valor.
+  const BLOCK_KPIS = [
+    { key: 'spend', label: 'Inversión', format: 'money', better: null },
+    { key: 'messages', label: 'Mensajes', format: 'count', better: 'up' },
+    { key: 'costPerMessage', label: 'Costo por mensaje', format: 'money', better: 'down' },
+    { key: 'reservations', label: 'Reservas', format: 'count', better: 'up' },
+    { key: 'costPerReservation', label: 'Costo por reserva', format: 'money', better: 'down' },
+  ];
   // URL del Web App de scripts/google-sheets-sync.gs; vacio = la edicion de objetivos queda solo local.
   const SHEET_SYNC_ENDPOINT = '';
   const SHEET_SYNC_ENDPOINT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
   const CHART_COLLAPSED_KEY = 'amador-chart-collapsed-v1';
-  const { MONTHS, SHORT_MONTHS, esc, safeUrl, fmt, change, limaParts, monthKey, daysInMonth, formatStamp, keepFocus } = window.AmadorShared;
+  const { MONTHS, SHORT_MONTHS, esc, safeUrl, fmt, change, hasActivity, hasSpend, limaParts, monthKey, daysInMonth, formatStamp, keepFocus } = window.AmadorShared;
   // Pestana "Anual" junto a las de mes: acumula los meses del año con datos.
   const YEAR_KEY = 'anual';
   // Resumen ejecutivo. better: hacia donde una variacion es buena (null = neutra). perMonth: en la vista anual se
@@ -39,11 +60,16 @@
   const CHART_SERIES_KEY = 'amador-chart-series-v1';
   // monthKey: pestana elegida (YYYY-MM o anual); month: nombre del mes que muestran la tabla de campanas y sus
   // ediciones locales. current: lectura en vivo en curso. liveSheets: pestanas leidas en la ultima lectura.
-  const state = { data: null, types: readChartSeries(), monthKey: null, month: null, chart: null, syncTimer: null, nextSync: 0, goals: readGoals(), chartCollapsed: readChartCollapsed(), lastSync: null, lastFetch: 0, current: null, liveSheets: [], error: '', goalNote: '' };
+  const state = {
+    data: null, types: readChartSeries(), monthKey: null, month: null, chart: null, syncTimer: null, nextSync: 0, goals: {},
+    chartCollapsed: readChartCollapsed(), lastSync: null, lastFetch: 0, current: null, liveSheets: [], error: '', goalNote: '',
+    // Tabla de anuncios: densidad, pantalla completa (las pestanas de mes vuelven a tabsHome) y filtro por objetivo.
+    tableCompact: readFlag(TABLE_COMPACT_KEY), tableFullscreen: false, tabsHome: null, adsObjective: 'all',
+    campaignBlocks: readBlockSettings(),
+  };
 
   const fmtMoney = value => Number.isFinite(Number(value)) ? `S/. ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
   const fmtCount = value => Number(value || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 });
-  const fmtRatio = value => Number.isFinite(Number(value)) ? `${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : '-';
   const fmtShort = value => {
     if (value == null) return '';
     if (value >= 1000) return `S/. ${(value / 1000).toFixed(2).replace(/0$/, '').replace(/\.0$/, '')}k`;
@@ -51,8 +77,38 @@
   };
 
 
-  function readGoals() {
-    try { return JSON.parse(localStorage.getItem(GOALS_KEY) || '{}'); } catch { return {}; }
+  function readFlag(key) {
+    try { return localStorage.getItem(key) === 'true'; } catch { return false; }
+  }
+  // La version anterior (v1) guardaba "campana::anuncio" sin mes: cada valor pasa a todos los meses en que aparece
+  // esa campana, que es lo que se veia. Se hace una vez, con los datos ya cargados.
+  function loadGoals() {
+    try {
+      const saved = localStorage.getItem(GOALS_KEY);
+      if (saved != null) {
+        const goals = JSON.parse(saved);
+        state.goals = goals && typeof goals === 'object' ? goals : {};
+        return;
+      }
+      const legacy = JSON.parse(localStorage.getItem(LEGACY_GOALS_KEY) || '{}') || {};
+      const goals = {};
+      state.data.months.forEach(month => (month.campaigns || []).forEach(campaign => {
+        const prefix = `${campaign.name}::`;
+        if (!Object.keys(legacy).some(key => key.startsWith(prefix))) return;
+        const own = legacy[`${prefix}__campaign__`];
+        const value = own !== '' && own != null
+          ? Number(own)
+          : (campaign.ads || []).reduce((sum, ad) => {
+            const adGoal = legacy[`${prefix}${ad.name}`];
+            return sum + Number(adGoal === '' || adGoal == null ? ad.reservationGoal || 0 : adGoal);
+          }, 0);
+        if (Number.isFinite(value)) goals[goalStoreKey(month.key, campaign.name)] = String(value);
+      }));
+      state.goals = goals;
+      saveGoals();
+    } catch {
+      state.goals = {};
+    }
   }
   function readChartCollapsed() {
     try {
@@ -160,11 +216,6 @@
     if (!match) return text || null;
     const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     return `${match[1].padStart(2, '0')}-${months[Number(match[2]) - 1] || 'Mes'}`;
-  }
-  function goalKey(campaign, ad) { return `${campaign}::${ad}`; }
-  function effectiveGoal(campaign, ad) {
-    const saved = state.goals[goalKey(campaign.name, ad.name)];
-    return saved === '' || saved == null ? ad.reservationGoal : Number(saved);
   }
   function sourceMonth(name) { return state.data.months.find(month => month.name === name); }
   function cloneData(data) { return JSON.parse(JSON.stringify(data)); }
@@ -540,7 +591,8 @@
       year: state.data.year,
       closed: month.closed,
       label: `1-${month.dataDay} ${month.name}`,
-      compare: hasData(previous) ? { month: previous, months: [previous], label: `${previous.name} completo` } : null,
+      // detail: el mes anterior trae campanas (enero y febrero solo traen el gasto total).
+      compare: hasData(previous) ? { month: previous, months: [previous], label: `${previous.name} completo`, detail: (previous.campaigns || []).length > 0 } : null,
     };
   }
   // "▲ 12.3% vs Agosto completo". El color depende de si subir es bueno para ese indicador.
@@ -628,19 +680,13 @@
     const normalized = String(status || '').toLowerCase();
     return normalized === 'off' || normalized.includes('finaliz') || normalized.includes('desactiva');
   }
-  function renderReservationProgress(value, goal) {
-    if (goal == null || Number(goal) <= 0) return `${value}`;
-    const reached = Number(value) >= Number(goal);
-    const label = reached ? 'Sobre el objetivo' : 'Debajo del objetivo';
-    return `<span class="reservation-value">${value}</span><span class="reservation-trend ${reached ? 'up' : 'down'}" title="${label}: ${value}/${goal}" aria-label="${label}: ${value} de ${goal}">${reached ? '▲' : '▼'} Objetivo: ${goal}</span>`;
-  }
   function renderTrend(reservas, goal) {
     if (goal == null || Number(goal) <= 0) return '';
-    const diff = Number(reservas) - Number(goal);
+    const diff = Number(reservas || 0) - Number(goal);
     const reached = diff >= 0;
     const label = reached ? 'Sobre el objetivo' : 'Debajo del objetivo';
     const detail = reached ? `Sobre: ${diff}` : `Faltan: ${Math.abs(diff)}`;
-    return `<span class="reservation-trend ${reached ? 'up' : 'down'}" title="${label}: ${reservas}/${goal}" aria-label="${label}: ${reservas} de ${goal}">${reached ? '&#9650;' : '&#9660;'} ${detail} | Objetivo: ${goal}</span>`;
+    return `<span class="reservation-trend ${reached ? 'up' : 'down'}" title="${label}: ${reservas || 0}/${goal}" aria-label="${label}: ${reservas || 0} de ${goal}">${reached ? '&#9650;' : '&#9660;'} ${detail} | Objetivo: ${goal}</span>`;
   }
   function renderDeadline(endDate, days) {
     if (!endDate) return '-';
@@ -649,41 +695,576 @@
     const label = days === 0 ? 'Plazo finalizado' : `${days} ${days === 1 ? 'día restante' : 'días restantes'}`;
     return `${esc(endDate)}<span class="days-counter ${counterClass}">${label}</span>`;
   }
-  function renderGoalInput(campaign, ad) {
-    const value = effectiveGoal(campaign, ad);
-    return `<input class="reservation-goal-input" type="number" min="0" step="1" value="${esc(value)}" data-campaign="${esc(campaign.name)}" data-ad="${esc(ad.name)}" aria-label="Objetivo Reservas ${esc(campaign.name)} ${esc(ad.name)}">`;
+
+  // ── Campanas: objetivos, conjuntos y anuncios ────────────────────────────
+  const addNullable = (a, b) => (a == null && b == null ? null : Number(a || 0) + Number(b || 0));
+  const normalize = normalizeHeader;
+
+  // El objetivo es el cuadro de cada campana. Desde julio viene en la campana; junio lo trae por anuncio y en texto
+  // libre ("Reservas/Mensajes", "Interaccion/Reservas"): cuenta la primera palabra.
+  function objectiveFor(text) {
+    const first = String(text || '').split('/')[0].trim();
+    const known = OBJECTIVES.find(item => item.match.test(normalize(first)));
+    if (known) return known;
+    const label = first ? first.charAt(0).toUpperCase() + first.slice(1) : 'Sin objetivo';
+    const key = `otro-${normalize(label).replace(/[^a-z0-9]+/g, '-')}`;
+    // Un objetivo no reconocido toma el siguiente color la primera vez que aparece y lo conserva entre meses.
+    if (!otherObjectives.has(key)) otherObjectives.set(key, { key, label, color: FALLBACK_COLORS[otherObjectives.size % FALLBACK_COLORS.length] });
+    return otherObjectives.get(key);
   }
-  function goalValue(campaign, ad) {
-    return Number(effectiveGoal(campaign, ad || {}) || 0);
+  // Si los anuncios de una campana de junio tienen objetivos distintos, la campana va al de mayor gasto.
+  function campaignObjective(campaign) {
+    if (campaign.objective) return objectiveFor(campaign.objective);
+    const bySpend = new Map();
+    (campaign.ads || []).forEach(ad => {
+      const objective = objectiveFor(ad.objective);
+      bySpend.set(objective, (bySpend.get(objective) || 0) + Number(ad.spent || 0) + 1e-9);
+    });
+    return [...bySpend.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || objectiveFor('');
   }
-  function campaignGoal(campaign, ads) {
-    const saved = state.goals[goalKey(campaign.name, '__campaign__')];
-    if (saved !== '' && saved != null) return Number(saved);
-    const rows = ads && ads.length ? ads : (campaign.ads || []);
-    return rows.reduce((sum, ad) => sum + goalValue(campaign, ad), 0);
+  // Desde julio la hoja agrupa por conjunto: el gasto viene por conjunto (en su primera fila) y las reservas por
+  // campana. Junio trae gasto y reservas por anuncio; marzo a mayo, solo campanas.
+  const byAdSet = month => (month.campaigns || []).some(campaign => (campaign.ads || []).some(ad => ad.adSet));
+  const shortMonth = month => SHORT_MONTHS[MONTHS.indexOf(month.name)];
+
+  // Campanas del mes con las cifras de la campana en la hoja (su gasto es el de la hoja, no la suma de anuncios).
+  function campaignEntries(month) {
+    const perAd = !byAdSet(month);
+    return (month.campaigns || []).map(campaign => {
+      const objective = campaignObjective(campaign);
+      const ads = campaign.ads || [];
+      const byEnd = ads.filter(ad => dateOrderValue(ad.endDate) != null).sort((a, b) => dateOrderValue(b.endDate) - dateOrderValue(a.endDate));
+      const last = byEnd[0] || ads[0] || {};
+      const starts = ads.map(ad => ad.startDate).filter(date => dateOrderValue(date) != null).sort((a, b) => dateOrderValue(a) - dateOrderValue(b));
+      const adGoals = ads.map(ad => ad.reservationGoal).filter(value => value != null);
+      const newDaily = ads.map(ad => ad.newDailyAmount).filter(value => value != null);
+      return {
+        month,
+        monthKey: month.key,
+        name: campaign.name,
+        type: campaign.type || null,
+        status: campaign.status || null,
+        group: objective.key,
+        groupLabel: objective.label,
+        color: objective.color,
+        perAd,
+        spend: Number(campaign.spent) || 0,
+        messages: campaign.messages ?? null,
+        reservations: campaign.reservas ?? null,
+        budget: campaign.budget ?? null,
+        balance: campaign.balance ?? null,
+        // Desde julio el objetivo de reservas viene en la campana; en junio, por anuncio.
+        sheetGoal: campaign.reservationGoal ?? (adGoals.length ? adGoals.reduce((sum, value) => sum + Number(value), 0) : null),
+        startDate: starts[0] || null,
+        endDate: last.endDate || null,
+        daysRemaining: last.daysRemaining ?? null,
+        newDaily: newDaily.length ? newDaily.reduce((sum, value) => sum + Number(value), 0) : null,
+        ads,
+      };
+    });
   }
-  function renderCampaignGoalInput(campaign, ads) {
-    const value = campaignGoal(campaign, ads);
-    return `<input class="reservation-goal-input" type="number" min="0" step="1" value="${esc(value || '')}" data-campaign="${esc(campaign.name)}" data-ad="__campaign__" aria-label="Objetivo Reservas ${esc(campaign.name)}">`;
+  // Una fila por anuncio. Desde julio el nombre en la hoja es "Conjunto · Anuncio": se separan.
+  function adRows(entry) {
+    return entry.ads.map(ad => {
+      const adSet = ad.adSet || '';
+      const name = adSet && String(ad.name).startsWith(`${adSet} · `) ? String(ad.name).slice(adSet.length + 3) : String(ad.name || '');
+      return {
+        key: [entry.group, normalize(entry.name), normalize(adSet), normalize(name)].join('|'),
+        monthKey: entry.monthKey,
+        campaign: entry.name,
+        group: entry.group,
+        groupLabel: entry.groupLabel,
+        color: entry.color,
+        adSet,
+        ad: name,
+        perAd: entry.perAd,
+        spend: Number(ad.spent) || 0,
+        messages: Number(ad.messages) || 0,
+        reservations: Number(ad.reservas) || 0,
+        status: ad.status || entry.status,
+        startDate: ad.startDate || entry.startDate,
+        endDate: ad.endDate || entry.endDate,
+        daysRemaining: ad.daysRemaining ?? entry.daysRemaining,
+        daily: ad.dailyAmount ?? null,
+        observation: ad.observation || null,
+        preview: ad.adUrl || '',
+      };
+    });
   }
-  function updateAdGoal(campaignName, adName, value) {
-    const month = sourceMonth(state.month);
-    const campaign = month?.campaigns?.find(item => item.name === campaignName);
-    if (!campaign) return;
-    const numberValue = value === '' ? null : Number(value);
-    if (adName === '__campaign__') {
-      const firstAd = campaign.ads?.[0];
-      if (firstAd) firstAd.reservationGoal = Number.isFinite(numberValue) ? numberValue : null;
-      (campaign.ads || []).slice(1).forEach(item => { item.reservationGoal = null; });
-      campaign.reservationGoal = firstAd?.reservationGoal ?? null;
-      Object.keys(state.goals).forEach(key => { if (key.startsWith(`${campaignName}::`) && key !== goalKey(campaignName, '__campaign__')) delete state.goals[key]; });
-    } else {
-      const ad = campaign.ads?.find(item => item.name === adName);
-      if (!ad) return;
-      ad.reservationGoal = Number.isFinite(numberValue) ? numberValue : null;
-      campaign.reservationGoal = campaign.ads?.find(item => item?.reservationGoal != null)?.reservationGoal ?? null;
+  const goalStoreKey = (key, campaignName) => `${key}::${campaignName}`;
+  // Objetivo Reservas de una campana en su mes: el editado en el tablero o el de la hoja.
+  function entryGoal(entry) {
+    const saved = state.goals[goalStoreKey(entry.monthKey, entry.name)];
+    return saved === '' || saved == null ? entry.sheetGoal : Number(saved);
+  }
+  const costs = item => ({
+    costPerMessage: item.messages > 0 ? item.spend / item.messages : null,
+    costPerReservation: item.reservations > 0 ? item.spend / item.reservations : null,
+  });
+  // Totales de varias campanas: los costos usan solo el gasto de las campanas que registran ese resultado.
+  function totalsOf(entries) {
+    const spendWith = field => entries.filter(entry => entry[field] != null).reduce((sum, entry) => sum + entry.spend, 0);
+    const messages = entries.reduce((sum, entry) => addNullable(sum, entry.messages), null);
+    const reservations = entries.reduce((sum, entry) => addNullable(sum, entry.reservations), null);
+    return {
+      spend: entries.reduce((sum, entry) => sum + entry.spend, 0),
+      messages,
+      reservations,
+      costPerMessage: messages > 0 ? spendWith('messages') / messages : null,
+      costPerReservation: reservations > 0 ? spendWith('reservations') / reservations : null,
+    };
+  }
+  // Objetivos del periodo con gasto, de mayor a menor. Los nombres de campana salen solo de las que tuvieron gasto.
+  function objectivesOf(entries) {
+    const total = entries.reduce((sum, entry) => sum + entry.spend, 0);
+    const groups = new Map();
+    entries.forEach(entry => {
+      if (!groups.has(entry.group)) groups.set(entry.group, []);
+      groups.get(entry.group).push(entry);
+    });
+    return [...groups.values()]
+      .map(items => {
+        const sums = totalsOf(items);
+        return { key: items[0].group, label: items[0].groupLabel, color: items[0].color, campaigns: [...new Set(items.filter(hasSpend).map(item => item.name))], share: total > 0 ? (sums.spend / total) * 100 : 0, ...sums };
+      })
+      .filter(hasSpend)
+      .sort((a, b) => b.spend - a.spend);
+  }
+  // Una fila por campana con gasto. En la vista anual se juntan por nombre exacto (como en Meta: una campana
+  // renombrada sale en dos filas).
+  function distributionRows(entries, annual) {
+    const total = entries.reduce((sum, entry) => sum + entry.spend, 0);
+    let rows = entries.map(entry => ({ ...entry, goal: entryGoal(entry), months: entry.spend > 0 ? [entry.month] : [] }));
+    if (annual) {
+      const byName = new Map();
+      rows.forEach(entry => {
+        const row = byName.get(entry.name);
+        if (!row) {
+          byName.set(entry.name, { ...entry, months: [...entry.months] });
+          return;
+        }
+        Object.assign(row, { group: entry.group, groupLabel: entry.groupLabel, color: entry.color, type: entry.type || row.type });
+        row.spend += entry.spend;
+        row.messages = addNullable(row.messages, entry.messages);
+        row.reservations = addNullable(row.reservations, entry.reservations);
+        row.goal = addNullable(row.goal, entry.goal);
+        row.months.push(...entry.months);
+      });
+      rows = [...byName.values()];
     }
-    month.reservationGoalTotal = (month.campaigns || []).reduce((sum, item) => sum + campaignGoal(item, item.ads || []), 0);
+    return rows.filter(hasSpend).map(row => ({ ...row, ...costs(row), share: total > 0 ? (row.spend / total) * 100 : 0 })).sort((a, b) => b.spend - a.spend);
+  }
+  // Conjuntos de un objetivo: su nombre dentro del objetivo, para compararlo con el mes anterior aunque cambie la
+  // campana. Solo traen gasto y mensajes: las reservas vienen por campana.
+  function adSetsOf(rows) {
+    const withSet = rows.filter(row => row.adSet);
+    const total = withSet.reduce((sum, row) => sum + row.spend, 0);
+    const groups = new Map();
+    withSet.forEach(row => {
+      const key = `${row.group}|${normalize(row.adSet)}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(row);
+    });
+    return [...groups.entries()]
+      .map(([key, items]) => {
+        const spend = items.reduce((sum, row) => sum + row.spend, 0);
+        const messages = items.reduce((sum, row) => sum + row.messages, 0);
+        const active = items.filter(hasActivity);
+        return {
+          key,
+          name: items[0].adSet,
+          campaigns: [...new Set(active.map(row => row.campaign))],
+          adCount: new Set(active.map(row => normalize(row.ad))).size,
+          spend,
+          messages,
+          costPerMessage: messages > 0 ? spend / messages : null,
+          share: total > 0 ? (spend / total) * 100 : 0,
+        };
+      })
+      .filter(hasSpend)
+      .sort((a, b) => b.spend - a.spend);
+  }
+  // Anuncios con actividad (gasto propio, mensajes o reservas). En la vista anual se suman los meses.
+  function adsOf(rows) {
+    const groups = new Map();
+    rows.forEach(row => {
+      if (!groups.has(row.key)) groups.set(row.key, []);
+      groups.get(row.key).push(row);
+    });
+    return [...groups.values()]
+      .map(items => {
+        const last = items[items.length - 1];
+        const starts = items.map(row => row.startDate).filter(date => dateOrderValue(date) != null).sort((a, b) => dateOrderValue(a) - dateOrderValue(b));
+        const ends = items.map(row => row.endDate).filter(date => dateOrderValue(date) != null).sort((a, b) => dateOrderValue(b) - dateOrderValue(a));
+        const sum = field => items.reduce((total, row) => total + row[field], 0);
+        return {
+          ...last,
+          spend: sum('spend'),
+          messages: sum('messages'),
+          reservations: sum('reservations'),
+          perAd: items.every(row => row.perAd),
+          startDate: starts[0] || last.startDate,
+          endDate: ends[0] || last.endDate,
+          observation: [...items].reverse().find(row => row.observation)?.observation || null,
+          preview: items.find(row => row.preview)?.preview || '',
+        };
+      })
+      .filter(hasActivity);
+  }
+  // Campanas, objetivos y anuncios del periodo y del mes anterior, calculados una vez por render.
+  function periodModel(period) {
+    if (!period) return null;
+    const entries = period.months.flatMap(campaignEntries);
+    const previousEntries = period.compare ? period.compare.months.flatMap(campaignEntries) : [];
+    return {
+      entries,
+      rows: entries.flatMap(adRows),
+      objectives: objectivesOf(entries),
+      distribution: distributionRows(entries, period.annual),
+      previous: { entries: previousEntries, rows: previousEntries.flatMap(adRows), objectives: objectivesOf(previousEntries) },
+    };
+  }
+  // Celda de variacion contra el mes anterior: "Nuevo" si no corria, pastilla verde o roja si no.
+  function variationCell(current, previous) {
+    if (previous == null) return '<span class="delta-pill new">Nuevo</span>';
+    const variation = change(current, previous);
+    if (variation == null) return '<span class="no-data">-</span>';
+    return `<span class="delta-pill ${variation >= 0 ? 'good' : 'bad'}">${variation >= 0 ? '&#9650;' : '&#9660;'} ${fmt.pct(Math.abs(variation), 0)}</span>`;
+  }
+  const periodName = period => (period.annual ? `${period.label} ${period.year}` : `${period.label}`);
+
+  // ── Distribucion de la inversion por campana ─────────────────────────────
+  function goalInput(row) {
+    return `<input class="reservation-goal-input" type="number" min="0" step="1" value="${esc(row.goal ?? '')}" data-month="${esc(row.monthKey)}" data-campaign="${esc(row.name)}" aria-label="Objetivo Reservas ${esc(row.name)}">`;
+  }
+  function renderDistribution(period, model) {
+    const body = document.getElementById('distribution-body');
+    const sub = document.getElementById('distribution-sub');
+    const note = document.getElementById('campaigns-note');
+    if (!body) return;
+    const observation = !period || period.annual ? '' : String(period.month.totalObservation || '').trim();
+    if (note) {
+      note.textContent = observation ? `* ${observation}` : '';
+      note.classList.toggle('visible', Boolean(observation));
+    }
+    if (!period) {
+      body.innerHTML = '<tr><td class="table-empty" colspan="14">Sin datos para el periodo.</td></tr>';
+      if (sub) sub.textContent = '';
+      return;
+    }
+    const rows = model.distribution;
+    const custom = period.annual ? null : getMonthCustom();
+    const branding = period.months.reduce((sum, month) => sum + Number(month.spendBreakdown?.branding || 0), 0);
+    const total = rows.reduce((sum, row) => sum + row.spend, 0);
+    const withoutDetail = period.months.filter(month => hasData(month) && !(month.campaigns || []).length);
+    if (sub && !period.annual && !(period.month.campaigns || []).length) {
+      sub.textContent = `${periodName(period)} | ${period.month.name} no trae detalle de campañas: solo el gasto total.`;
+    } else if (sub) {
+      const parts = [`${periodName(period)} | ${rows.length} ${rows.length === 1 ? 'campaña' : 'campañas'} con gasto.`];
+      if (branding > 0) parts.push(`Ventas ${fmt.money(total - branding)} y Branding ${fmt.money(branding)}.`);
+      if (withoutDetail.length) parts.push(`${withoutDetail.map(month => month.name).join(' y ')} no ${withoutDetail.length === 1 ? 'trae' : 'traen'} detalle de campañas.`);
+      sub.textContent = parts.join(' ');
+    }
+    const html = rows.map(row => `
+      <tr>
+        <td class="campaign-name">${esc(row.name)}${period.annual ? `<small>${row.months.map(shortMonth).join(', ')}</small>` : ''}</td>
+        <td><span class="objective-label" style="--campaign-color:${row.color}"><i class="campaign-dot"></i>${esc(row.groupLabel)}</span></td>
+        <td>${esc(row.type || '-')}</td>
+        <td class="num">${fmt.count(row.messages)}</td>
+        <td class="num">${fmt.money(row.costPerMessage)}</td>
+        <td class="num">${fmt.count(row.reservations)}</td>
+        <td class="goal-col">${period.annual ? `<span class="goal-sum">${fmt.count(row.goal)}</span>` : goalInput(row)}${renderTrend(row.reservations, row.goal)}</td>
+        <td class="num">${fmt.money(row.costPerReservation)}</td>
+        <td class="num"><b>${fmt.money(row.spend)}</b></td>
+        <td class="share-col"><div class="share-bar" style="--campaign-color:${row.color}"><span style="width:${Math.min(100, row.share).toFixed(1)}%"></span></div><b class="share-value">${fmt.pct(row.share)}</b></td>
+        <td class="num">${period.annual ? '-' : fmt.money(row.budget)}</td>
+        <td class="num">${period.annual ? '-' : fmt.money(row.balance)}</td>
+        <td class="date-col deadline-cell">${period.annual ? '-' : renderDeadline(row.endDate, row.daysRemaining)}</td>
+        <td class="num">${period.annual ? '-' : fmt.money(row.newDaily)}</td>
+      </tr>`);
+    // Campanas agregadas a mano en este navegador (sin cifras de la hoja).
+    (custom?.campaigns || []).forEach(campaign => html.push(`
+      <tr class="custom-row">
+        <td class="campaign-name"><input class="inline-edit wide" type="text" placeholder="Nombre campaña" value="${esc(campaign.name)}" data-field="cname" data-cid="${esc(campaign._id)}" aria-label="Nombre de la campaña agregada"></td>
+        <td><span class="no-data">Manual</span></td>
+        <td><input class="inline-edit" type="text" placeholder="Tipo" value="${esc(campaign.type)}" data-field="type" data-cid="${esc(campaign._id)}" aria-label="Tipo de la campaña agregada"></td>
+        <td colspan="11"><span class="no-data">Agregada en este navegador: sin cifras de la hoja.</span></td>
+      </tr>`));
+    if (custom) html.push('<tr class="add-campaign-row"><td colspan="14"><button type="button" class="add-campaign-btn">＋ Agregar campaña</button></td></tr>');
+    if (rows.length) {
+      const sums = totalsOf(rows);
+      const goal = rows.reduce((sum, row) => addNullable(sum, row.goal), null);
+      const month = period.annual ? null : period.month;
+      html.push(`
+      <tr class="total-row">
+        <td class="campaign-name">${month ? `Total actualizado ${month.name.toLowerCase()}` : `Total de campañas ${period.year}`}</td>
+        <td></td><td></td>
+        <td class="num">${fmt.count(sums.messages)}</td>
+        <td class="num">${fmt.money(sums.costPerMessage)}</td>
+        <td class="num">${fmt.count(sums.reservations)}</td>
+        <td class="goal-col">${goal != null ? `<span class="goal-sum">${fmt.count(goal)}</span>` : ''}${renderTrend(sums.reservations, goal)}</td>
+        <td class="num">${fmt.money(sums.costPerReservation)}</td>
+        <td class="num">${fmt.money(month ? month.spend : sums.spend)}</td>
+        <td><b class="share-value">100%</b></td>
+        <td class="num">${month ? fmt.money(month.budgetTotal) : '-'}</td>
+        <td class="num">${month ? fmt.money(month.balanceTotal) : '-'}</td>
+        <td></td>
+        <td class="num">${month ? fmt.money(month.newDailyTotal) : '-'}</td>
+      </tr>`);
+    } else if (!custom?.campaigns.length) {
+      const empty = period.annual || (period.month.campaigns || []).length ? `Sin campañas con gasto en ${esc(periodName(period))}.` : `${esc(period.month.name)} no trae detalle de campañas en la hoja.`;
+      html.unshift(`<tr><td class="table-empty" colspan="14">${empty}</td></tr>`);
+    }
+    keepFocus(body, () => { body.innerHTML = html.join(''); });
+  }
+
+  // ── Cuadro de cada objetivo ──────────────────────────────────────────────
+  function blockSettings(key) {
+    const saved = state.campaignBlocks[key] || {};
+    return { ...saved, collapsed: saved.collapsed === true };
+  }
+  function saveBlockSettings(key, changes) {
+    state.campaignBlocks[key] = { ...blockSettings(key), ...changes };
+    try { localStorage.setItem(CAMPAIGN_BLOCKS_KEY, JSON.stringify(state.campaignBlocks)); } catch {}
+  }
+  function readBlockSettings() {
+    try {
+      const value = JSON.parse(localStorage.getItem(CAMPAIGN_BLOCKS_KEY) || '{}');
+      return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    } catch {
+      return {};
+    }
+  }
+  function setToggle(button, collapsed, what) {
+    if (!button) return;
+    button.setAttribute('aria-expanded', String(!collapsed));
+    button.setAttribute('title', collapsed ? `Expandir ${what}` : `Minimizar ${what}`);
+  }
+  // Meses del año en que corrio un objetivo (vista anual, en lugar de la comparacion con el mes anterior).
+  function objectiveMonths(period, entries, key) {
+    const months = period.months.filter(month => entries.some(entry => entry.group === key && entry.monthKey === month.key && entry.spend > 0));
+    const withDetail = period.months.filter(month => (month.campaigns || []).length);
+    if (months.length === withDetail.length) return `Activo en los ${months.length} ${months.length === 1 ? 'mes' : 'meses'} con detalle`;
+    return `Activo en ${months.map(shortMonth).join(', ') || 'ningún mes'}`;
+  }
+  function adSetsHtml(period, objective, model) {
+    const ofObjective = rows => rows.filter(row => row.group === objective.key);
+    const rows = ofObjective(model.rows);
+    const head = '<div class="adset-head"><div class="panel-title">Conjuntos de anuncios</div>';
+    if (!rows.some(row => row.adSet)) {
+      const why = rows.length
+        ? `${period.annual ? 'Estos meses no agrupan' : `${period.month.name} no agrupa`} los anuncios por conjunto: el detalle va en la tabla de anuncios.`
+        : 'La hoja no trae el detalle de anuncios de estas campañas.';
+      return `${head}<div class="panel-sub">${why}</div></div>`;
+    }
+    const sets = adSetsOf(rows);
+    const previousRows = ofObjective(model.previous.rows);
+    // Sin conjuntos en el mes anterior (junio no agrupaba) no hay contra que comparar.
+    const compare = Boolean(period.compare) && previousRows.some(row => row.adSet);
+    const previous = new Map(compare ? adSetsOf(previousRows).map(set => [set.key, set]) : []);
+    const manyCampaigns = objective.campaigns.length > 1;
+    const columns = [['Conjunto']].concat(manyCampaigns ? [['Campaña']] : [], [['Mensajes', true]])
+      .concat(compare ? [[`Mensajes ${period.compare.month.name}`, true], ['Variación', true]] : [])
+      .concat([['Costo por mensaje', true], ['Gasto', true], ['% del objetivo']]);
+    const body = sets.map(set => {
+      const before = previous.get(set.key);
+      return `
+        <tr>
+          <td class="campaign-name">${esc(set.name)}<small>${set.adCount} ${set.adCount === 1 ? 'anuncio' : 'anuncios'}</small></td>
+          ${manyCampaigns ? `<td class="campaign-set-col">${esc(set.campaigns.join(' / '))}</td>` : ''}
+          <td class="num"><b>${fmt.count(set.messages)}</b></td>
+          ${compare ? `<td class="num">${before ? fmt.count(before.messages) : '<span class="no-data">-</span>'}</td><td class="num">${variationCell(set.messages, before?.messages)}</td>` : ''}
+          <td class="num">${fmt.money(set.costPerMessage)}</td>
+          <td class="num">${fmt.money(set.spend)}</td>
+          <td class="share-col"><div class="share-bar"><span style="width:${Math.min(100, set.share).toFixed(1)}%"></span></div><b class="share-value">${fmt.pct(set.share)}</b></td>
+        </tr>`;
+    }).join('') || `<tr><td class="table-empty" colspan="${columns.length}">Sin conjuntos con gasto en el periodo.</td></tr>`;
+    let note = `${sets.length} ${sets.length === 1 ? 'conjunto' : 'conjuntos'} con gasto en ${esc(periodName(period))}`;
+    if (compare) note += `. Mensajes contra ${esc(period.compare.label)}`;
+    else if (period.compare) note += `. ${esc(period.compare.month.name)} no agrupaba por conjunto`;
+    return `${head}<div class="panel-sub">${note}. Las reservas se registran por campaña.</div></div>
+      <div class="table-scroll">
+        <table class="data-table adset-table">
+          <thead><tr>${columns.map(([label, numeric]) => `<th${numeric ? ' class="num"' : ''}>${esc(label)}</th>`).join('')}</tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
+  }
+  function campaignBlockHtml(period, objective, before, model) {
+    const key = esc(objective.key);
+    const settings = blockSettings(objective.key);
+    let comparison = '';
+    if (period.annual) comparison = `. ${objectiveMonths(period, model.entries, objective.key)}`;
+    else if (period.compare && !period.compare.detail) comparison = `. ${period.compare.month.name} no trae detalle de campañas`;
+    else if (period.compare) comparison = before ? ` vs ${period.compare.label}` : `. Nueva: no corría en ${period.compare.month.name}`;
+    const kpis = BLOCK_KPIS.map(kpi => `
+      <div><dt>${kpi.label}</dt><dd>${fmt[kpi.format](objective[kpi.key])}${before ? deltaHtml(objective[kpi.key], before[kpi.key], kpi.better) : ''}</dd></div>`).join('');
+    return `
+      <section class="campaign-block${settings.collapsed ? ' is-collapsed' : ''}" id="campaign-${key}" data-objective="${key}" style="--campaign-color:${objective.color}">
+        <div class="panel-head chart-panel-head">
+          <div>
+            <div class="campaign-block-title"><i class="campaign-dot"></i>Campaña ${esc(objective.label)}<em>${fmt.pct(objective.share)} de la inversión</em></div>
+            <div class="panel-sub">${esc(objective.campaigns.join(' / '))} | ${esc(periodName(period))}${esc(comparison)}</div>
+          </div>
+          <div class="chart-controls">
+            <button type="button" class="chart-toggle" data-campaign-toggle="${key}" aria-controls="campaign-body-${key}">${CHEVRON}</button>
+          </div>
+        </div>
+        <dl class="chart-kpis">${kpis}</dl>
+        <div class="campaign-block-body" id="campaign-body-${key}">
+          ${adSetsHtml(period, objective, model)}
+        </div>
+      </section>`;
+  }
+  function renderCampaignBlock(key, period, model) {
+    const block = [...document.querySelectorAll('#campaign-blocks .campaign-block')].find(node => node.dataset.objective === key);
+    const objective = model?.objectives.find(item => item.key === key);
+    if (!block || !objective) return;
+    const settings = blockSettings(key);
+    block.classList.toggle('is-collapsed', settings.collapsed);
+    setToggle(block.querySelector('[data-campaign-toggle]'), settings.collapsed, `la campaña ${objective.label}`);
+  }
+  function renderCampaignBlocks(period, model) {
+    const host = document.getElementById('campaign-blocks');
+    if (!host) return;
+    if (!period || !model) {
+      host.innerHTML = '';
+      return;
+    }
+    const previous = new Map(model.previous.objectives.map(objective => [objective.key, objective]));
+    keepFocus(host, () => {
+      host.innerHTML = model.objectives.map(objective => campaignBlockHtml(period, objective, period.compare ? previous.get(objective.key) : null, model)).join('');
+      model.objectives.forEach(objective => renderCampaignBlock(objective.key, period, model));
+    });
+  }
+
+  // ── Anuncios del periodo ─────────────────────────────────────────────────
+  function renderAdsFilter(objectives) {
+    const select = document.getElementById('ads-objective');
+    if (!select) return;
+    if (state.adsObjective !== 'all' && !objectives.some(objective => objective.key === state.adsObjective)) state.adsObjective = 'all';
+    select.innerHTML = ['<option value="all">Todos los objetivos</option>']
+      .concat(objectives.map(objective => `<option value="${esc(objective.key)}"${objective.key === state.adsObjective ? ' selected' : ''}>${esc(objective.label)}</option>`))
+      .join('');
+  }
+  // Anuncios agregados a mano en este navegador, por nombre de campana (sin cifras de la hoja).
+  function customAdsHtml(period) {
+    const custom = getMonthCustom();
+    const names = [...new Set([...(period.month.campaigns || []).map(campaign => campaign.name), ...custom.campaigns.map(campaign => campaign.name).filter(Boolean)])];
+    const rows = Object.entries(custom.extraAds || {}).flatMap(([owner, ads]) => (ads || []).map(ad => `
+      <tr class="custom-row">
+        <td class="type-col"><input class="inline-edit" type="text" placeholder="Objetivo" value="${esc(ad.objective)}" data-field="adobj" data-cname="${esc(owner)}" data-aid="${esc(ad._id)}" aria-label="Objetivo del anuncio agregado"></td>
+        <td class="ad-name-col"><input class="inline-edit wide" type="text" placeholder="Nombre anuncio" value="${esc(ad.name)}" data-field="adname" data-cname="${esc(owner)}" data-aid="${esc(ad._id)}" aria-label="Nombre del anuncio agregado"></td>
+        <td class="campaign-set-col">${esc(owner || 'Sin campaña')}</td>
+        <td colspan="12"><span class="no-data">Agregado en este navegador: sin cifras de la hoja.</span></td>
+      </tr>`));
+    if (names.length) rows.push(`<tr class="add-campaign-row"><td colspan="15"><label class="add-ad-picker">Agregar un anuncio a <select data-add-ad-campaign aria-label="Campaña del anuncio a agregar">${names.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('')}</select></label><button type="button" class="add-campaign-btn add-ad-btn">＋ Agregar anuncio</button></td></tr>`);
+    return rows.join('');
+  }
+  function renderAds(period, model) {
+    const body = document.getElementById('campaigns-body');
+    const title = document.getElementById('campaigns-title');
+    const sub = document.getElementById('campaigns-sub');
+    const prevHead = document.getElementById('ads-prev-head');
+    if (!body) return;
+    // Sin anuncios en el mes anterior (marzo a mayo solo traen campanas) no hay contra que comparar.
+    const compare = Boolean(period?.compare) && model?.previous.rows.length > 0;
+    document.querySelector('.campaigns-panel')?.classList.toggle('no-compare', !compare);
+    if (!period || !model) {
+      body.innerHTML = '<tr><td class="table-empty" colspan="15">Sin datos para el periodo.</td></tr>';
+      if (title) title.textContent = 'Anuncios del periodo';
+      if (sub) sub.textContent = '';
+      if (prevHead) prevHead.textContent = 'Mes anterior';
+      renderAdsFilter([]);
+      return;
+    }
+    renderAdsFilter(model.objectives);
+    const order = new Map(model.objectives.map((objective, index) => [objective.key, index]));
+    const previous = new Map(compare ? adsOf(model.previous.rows).map(ad => [ad.key, ad]) : []);
+    const all = adsOf(model.rows).sort((a, b) => ((order.get(a.group) ?? 99) - (order.get(b.group) ?? 99)) || (b.messages - a.messages) || (b.spend - a.spend));
+    const leaders = new Set();
+    all.forEach(ad => {
+      if (ad.messages > 0 && !leaders.has(ad.group)) {
+        leaders.add(ad.group);
+        ad.leader = true;
+      }
+    });
+    const rows = state.adsObjective === 'all' ? all : all.filter(ad => ad.group === state.adsObjective);
+    const bySet = all.some(ad => !ad.perAd);
+    if (title) title.textContent = `Anuncios | ${periodName(period)}${period.annual ? '' : ` ${period.year}`}`;
+    if (sub) {
+      sub.textContent = model.rows.length
+        ? `${rows.length} ${rows.length === 1 ? 'anuncio' : 'anuncios'} ordenados por mensajes dentro de cada objetivo. La estrella marca al líder de cada objetivo.${bySet ? ' Desde julio el gasto se registra por conjunto y las reservas por campaña: van en su cuadro y en la distribución.' : ''}`
+        : `La hoja no trae el detalle de anuncios de ${period.annual ? 'este periodo' : period.month.name}.`;
+    }
+    if (prevHead) prevHead.textContent = compare ? `Mensajes ${period.compare.month.name}` : 'Mes anterior';
+    const extra = period.annual ? '' : customAdsHtml(period);
+    if (!rows.length) {
+      const empty = model.rows.length ? 'No hay anuncios de este objetivo en el periodo.' : 'La hoja no trae el detalle de anuncios de este periodo.';
+      keepFocus(body, () => { body.innerHTML = `<tr><td class="table-empty" colspan="15">${empty}</td></tr>${extra}`; });
+      return;
+    }
+    const html = rows.map(ad => {
+      const before = previous.get(ad.key);
+      const preview = safeUrl(ad.preview);
+      const set = ad.adSet ? `<small>${esc(ad.adSet)}</small>` : '';
+      return `
+        <tr>
+          <td class="type-col"><span class="objective-label" style="--campaign-color:${ad.color}"><i class="campaign-dot"></i>${esc(ad.groupLabel)}</span></td>
+          <td class="ad-name-col" title="${esc(ad.ad)}"><span class="ad-name-text">${ad.leader ? '<b class="leader-star" title="Líder del objetivo">&#9733;</b> ' : ''}${esc(ad.ad || '(sin nombre)')}</span></td>
+          <td class="campaign-set-col">${esc(ad.campaign)}${set}</td>
+          <td><span class="status-pill ${statusClass(ad.status)}">${esc(ad.status || '-')}</span></td>
+          <td class="num"><b>${fmt.count(ad.messages)}</b></td>
+          <td class="num">${before ? fmt.count(before.messages) : '<span class="no-data">-</span>'}</td>
+          <td class="num">${compare ? variationCell(ad.messages, before?.messages) : '<span class="no-data">-</span>'}</td>
+          <td class="num">${ad.perAd ? fmt.money(ad.messages > 0 ? ad.spend / ad.messages : null) : '<span class="no-data">-</span>'}</td>
+          <td class="num">${ad.perAd ? fmt.money(ad.spend) : '<span class="no-data" title="El gasto se registra por conjunto">Por conjunto</span>'}</td>
+          <td class="num">${ad.perAd ? fmt.count(ad.reservations) : '<span class="no-data" title="Las reservas se registran por campaña">Por campaña</span>'}</td>
+          <td class="date-col">${esc(ad.startDate || '-')}</td>
+          <td class="date-col deadline-cell">${period.annual ? esc(ad.endDate || '-') : renderDeadline(ad.endDate, ad.daysRemaining)}</td>
+          <td class="num">${fmt.money(ad.daily)}</td>
+          <td class="observation-col">${esc(ad.observation || '-')}</td>
+          <td>${preview ? `<a class="preview-link" href="${preview}" target="_blank" rel="noopener noreferrer">Ver anuncio &raquo;</a>` : '<span class="no-data">Sin enlace</span>'}</td>
+        </tr>`;
+    }).join('');
+    keepFocus(body, () => { body.innerHTML = html + extra; });
+  }
+
+  // ── Herramientas de la tabla de anuncios ─────────────────────────────────
+  function applyTableCompact() {
+    const panel = document.querySelector('.campaigns-panel');
+    const button = document.getElementById('campaigns-density-btn');
+    if (!panel || !button) return;
+    panel.classList.toggle('is-compact', state.tableCompact);
+    button.setAttribute('aria-pressed', String(state.tableCompact));
+    button.textContent = state.tableCompact ? 'Cómodo' : 'Compacto';
+    button.setAttribute('title', state.tableCompact ? 'Volver a filas amplias' : 'Reducir el alto de las filas');
+  }
+  function toggleTableFullscreen(force) {
+    state.tableFullscreen = force == null ? !state.tableFullscreen : Boolean(force);
+    const panel = document.querySelector('.campaigns-panel');
+    const button = document.getElementById('campaigns-expand-btn');
+    const tabs = document.getElementById('month-tabs');
+    const scroll = panel?.querySelector('.table-scroll');
+    if (!panel || !button) return;
+    panel.classList.toggle('is-fullscreen', state.tableFullscreen);
+    document.body.classList.toggle('amador-table-fullscreen', state.tableFullscreen);
+    // Las pestanas de mes viajan al panel para cambiar de mes sin salir.
+    if (tabs && scroll && state.tabsHome) {
+      if (state.tableFullscreen) panel.insertBefore(tabs, scroll);
+      else state.tabsHome.parent.insertBefore(tabs, state.tabsHome.next);
+    }
+    button.setAttribute('aria-pressed', String(state.tableFullscreen));
+    button.innerHTML = state.tableFullscreen ? '&#10005; Salir' : '&#10530; Pantalla completa';
+    button.setAttribute('title', state.tableFullscreen ? 'Salir de pantalla completa (Esc)' : 'Ver la tabla en pantalla completa (Esc para salir)');
+    if (state.tableFullscreen) scroll?.focus?.();
+  }
+  // Distribucion, cuadros y anuncios del periodo.
+  function renderCampaignSection(period) {
+    const model = periodModel(period);
+    renderDistribution(period, model);
+    renderCampaignBlocks(period, model);
+    renderAds(period, model);
   }
   async function pushGoalToSheet(input) {
     const endpoint = syncEndpoint();
@@ -693,10 +1274,10 @@
     }
     const payload = {
       action: 'updateReservationGoal',
-      sheetName: state.month,
+      sheetName: MONTHS[Number(String(input.dataset.month).slice(5, 7)) - 1],
       campaign: input.dataset.campaign,
-      ad: input.dataset.ad,
-      campaignLevel: input.dataset.ad === '__campaign__',
+      ad: '__campaign__',
+      campaignLevel: true,
       value: input.value === '' ? '' : Number(input.value)
     };
     setGoalNote('Enviando el Objetivo Reservas a Google Sheets...');
@@ -713,109 +1294,6 @@
       console.warn('[amador] No se pudo enviar el objetivo a Google Sheets:', error);
       setGoalNote('Objetivo Reservas guardado en este navegador; no se pudo enviar a Google Sheets.');
     }
-  }
-  function renderCampaigns(period) {
-    const body = document.getElementById('campaigns-body');
-    if (!period || period.annual) {
-      document.getElementById('campaigns-title').textContent = 'Campanas por mes';
-      document.getElementById('campaigns-sub').textContent = period ? 'Elige un mes para ver sus campanas y anuncios.' : '';
-      document.getElementById('campaigns-note')?.classList.remove('visible');
-      body.innerHTML = `<tr><td colspan="23" class="table-empty">${period ? 'La vista anual resume los indicadores; el detalle de campanas va por mes.' : 'Sin datos.'}</td></tr>`;
-      return;
-    }
-    const month = period.month;
-    const baseCampaigns = month.campaigns || [];
-    const monthCustom = getMonthCustom();
-    const campaigns = [...baseCampaigns, ...monthCustom.campaigns];
-    const active = baseCampaigns.filter(c => ['activa', 'activo'].includes(String(c.status || '').toLowerCase())).length;
-    document.getElementById('campaigns-title').textContent = `Campanas de ${month.name} ${state.data.year}`;
-    document.getElementById('campaigns-sub').textContent = baseCampaigns.length ? `${active} activas de ${baseCampaigns.length} campanas registradas.` : 'Sin detalle de campanas en el archivo fuente.';
-    const note = document.getElementById('campaigns-note');
-    if (note) {
-      const observation = String(month.totalObservation || '').trim();
-      note.textContent = observation ? `* ${observation}` : '';
-      note.classList.toggle('visible', Boolean(observation));
-    }
-    if (!campaigns.length) { body.innerHTML = '<tr><td colspan="23" class="table-empty">Sin campanas registradas para este mes.</td></tr>'; return; }
-    const rows = [];
-    let totalReservas = 0;
-    let totalGoals = 0;
-    let totalMessages = 0;
-    for (const c of campaigns) {
-      const isCustomC = !!(c._id);
-      const baseAds = c.ads?.length ? c.ads : [null];
-      const extraAds = (monthCustom.extraAds || {})[c.name] || [];
-      const ads = [...baseAds, ...extraAds];
-      const span = ads.length;
-      const campaignTotalReservas = ads.reduce((s, ad) => s + Number((ad || {}).reservas ?? (ads.length === 1 ? c.reservas : 0) ?? 0), 0);
-      const campaignTotalGoal = campaignGoal(c, ads);
-      totalGoals += campaignTotalGoal;
-      ads.forEach((ad, i) => {
-        const currentAd = ad || {};
-        const isExtraAd = extraAds.includes(ad);
-        const budget = currentAd.budget ?? c.budget;
-        const spent = currentAd.spent ?? (span === 1 ? c.spent : null);
-        const daily = currentAd.dailyAmount ?? c.dailyAmount;
-        const obj = currentAd.objective ?? c.objective;
-        const st = currentAd.status ?? c.status;
-        const adName = currentAd.name ?? '—';
-        const reservas = Number(currentAd.reservas ?? (span === 1 ? c.reservas : 0) ?? 0);
-        const messages = Number(currentAd.messages ?? (span === 1 ? c.messages : 0) ?? 0);
-        const costPerMessage = currentAd.costPerMessage ?? (messages > 0 && spent != null ? spent / messages : null);
-        const costPerReservation = currentAd.costPerReservation ?? (reservas > 0 && spent != null ? spent / reservas : null);
-        const ratio = currentAd.reservationRatio ?? (messages > 0 ? reservas / messages * 100 : null);
-        const adBalance = currentAd.balance ?? (budget != null && spent != null ? budget - spent : null);
-        const observation = currentAd.observation ?? (i === 0 ? c.observation : null);
-        totalReservas += reservas;
-        totalMessages += messages;
-        const rs = span > 1 ? ` rowspan="${span}"` : '';
-        let tr = '<tr>';
-        if (i === 0) {
-          if (isCustomC) {
-            tr += `<td class="type-col"${rs}><input class="inline-edit" type="text" placeholder="Tipo" value="${esc(c.type)}" data-field="type" data-cid="${esc(c._id)}"></td>`;
-            tr += `<td class="campaign-name"${rs}><input class="inline-edit wide" type="text" placeholder="Nombre campaña" value="${esc(c.name)}" data-field="cname" data-cid="${esc(c._id)}"></td>`;
-          } else {
-            tr += `<td class="type-col"${rs}>${esc(c.type || '—')}</td>`;
-            tr += `<td class="campaign-name"${rs}>${esc(c.name)}</td>`;
-          }
-        }
-        if (isExtraAd || isCustomC) {
-          tr += `<td class="ad-name-col"><input class="inline-edit" type="text" placeholder="Nombre anuncio" value="${esc(currentAd.name)}" data-field="adname" data-cname="${esc(c.name)}" data-cid="${esc(c._id)}" data-aid="${esc(currentAd._id)}"></td>`;
-          tr += `<td><input class="inline-edit" type="text" placeholder="Objetivo" value="${esc(obj)}" data-field="adobj" data-cname="${esc(c.name)}" data-cid="${esc(c._id)}" data-aid="${esc(currentAd._id)}"></td>`;
-        } else {
-          tr += `<td class="ad-name-col">${safeUrl(currentAd.adUrl) ? `<a href="${safeUrl(currentAd.adUrl)}" target="_blank" rel="noopener" title="Ver vista previa del anuncio">${esc(adName)}</a>` : esc(adName)}</td>`;
-          tr += `<td><span class="objective-pill">${esc(obj || '—')}</span></td>`;
-        }
-        tr += `<td class="resultados-col">${reservas}</td>`;
-        if (i === 0) {
-          tr += `<td class="goal-col"${rs}>${renderCampaignGoalInput(c, ads)}${renderTrend(campaignTotalReservas, campaignTotalGoal)}</td>`;
-        }
-        tr += `<td class="num">${fmtCount(messages)}</td>`;
-        tr += `<td class="num">${fmtMoney(costPerMessage)}</td>`;
-        tr += `<td class="num">${fmtMoney(costPerReservation)}</td>`;
-        tr += `<td class="num">${fmtRatio(ratio)}</td>`;
-        tr += `<td><span class="status-pill ${statusClass(st)}">${esc(st || '—')}</span></td>`;
-        tr += `<td class="date-col">${esc(currentAd.startDate || '—')}</td>`;
-        tr += `<td class="date-col deadline-cell">${renderDeadline(currentAd.endDate, currentAd.daysRemaining)}</td>`;
-        tr += `<td class="num">${currentAd.duration != null ? currentAd.duration + ' d' : '—'}</td>`;
-        tr += `<td class="num">${fmtMoney(daily)}</td>`;
-        tr += `<td class="num">${fmtMoney(budget)}</td>`;
-        tr += `<td class="num">${fmtMoney(spent)}</td>`;
-        if (i === 0) tr += `<td class="num campaign-total"${rs}>${fmtMoney(c.budget)}</td>`;
-        if (i === 0) tr += `<td class="num campaign-total"${rs}>${fmtMoney(c.spent)}</td>`;
-        tr += `<td class="num">${fmtMoney(adBalance)}</td>`;
-        if (i === 0) tr += `<td class="num campaign-total"${rs}>${fmtMoney(c.balance)}</td>`;
-        tr += `<td class="num">${fmtMoney(currentAd.newDailyAmount)}</td>`;
-        tr += `<td class="observation-col">${esc(observation || '—')}</td>`;
-        tr += '</tr>';
-        rows.push(tr);
-      });
-      // Separator row with "add ad" button on the dividing line
-      rows.push(`<tr class="campaign-sep"><td colspan="23"><button class="add-ad-btn add-ad-line-btn" data-cname="${esc(c.name)}">＋ Agregar anuncio</button></td></tr>`);
-    }
-    rows.push(`<tr class="add-campaign-row"><td colspan="23"><button class="add-campaign-btn">＋ Agregar campaña</button></td></tr>`);
-    rows.push(`<tr class="reservations-total-row"><td></td><td></td><td></td><td class="total-label">Total actualizado ${month.name.toLowerCase()}</td><td class="resultados-col">${totalReservas}</td><td class="goal-col">${totalGoals || ''}</td><td class="num">${totalMessages}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="num">${fmtMoney(month.adSpendTotal)}</td><td class="num">${fmtMoney(month.budgetTotal)}</td><td class="num">${fmtMoney(month.spend)}</td><td class="num">${fmtMoney(month.balanceTotal)}</td><td></td><td></td><td></td></tr>`);
-    body.innerHTML = rows.join('');
   }
   function dateOrderValue(label) {
     const match = String(label || '').match(/^(\d{1,2})-([A-Za-zÁ-ú]{3})/);
@@ -934,7 +1412,7 @@
     renderTabs();
     renderPeriod(period);
     renderKpis(period);
-    renderCampaigns(period);
+    renderCampaignSection(period);
   }
   // Datos nuevos: se repinta todo y se avisa a los modulos que dependen de estos datos (Proyecciones).
   function renderAll() {
@@ -969,68 +1447,96 @@
       applyChartCollapsed();
       if (!state.chartCollapsed) renderChart();
     });
-    document.getElementById('campaigns-body').addEventListener('change', event => {
+    // Objetivo Reservas por campana y campanas agregadas a mano (tabla de distribucion).
+    const distribution = document.getElementById('distribution-body');
+    distribution?.addEventListener('change', event => {
       const input = event.target.closest('.reservation-goal-input');
       if (input) {
-        if (input.dataset.ad === '__campaign__') {
-          Object.keys(state.goals).forEach(key => { if (key.startsWith(`${input.dataset.campaign}::`)) delete state.goals[key]; });
-        }
-        state.goals[goalKey(input.dataset.campaign, input.dataset.ad)] = input.value;
-        updateAdGoal(input.dataset.campaign, input.dataset.ad, input.value);
+        state.goals[goalStoreKey(input.dataset.month, input.dataset.campaign)] = input.value;
         saveGoals();
-        renderCampaigns(currentPeriod());
+        renderCampaignSection(currentPeriod());
         pushGoalToSheet(input);
+        // Proyecciones toma el Objetivo Reservas del mes como referencia.
+        window.dispatchEvent(new CustomEvent('amador:data-updated'));
         return;
       }
       const edit = event.target.closest('.inline-edit');
-      if (edit) {
-        const { field, cid, cname, aid } = edit.dataset;
-        setMonthCustom(mc => {
-          if (field === 'type' || field === 'cname') {
-            const camp = mc.campaigns.find(x => x._id === cid);
-            if (camp) {
-              if (field === 'type') camp.type = edit.value;
-              if (field === 'cname') {
-                // also rename extraAds key
-                if (mc.extraAds[camp.name]) { mc.extraAds[edit.value] = mc.extraAds[camp.name]; delete mc.extraAds[camp.name]; }
-                camp.name = edit.value;
-              }
-            }
-          } else if (field === 'adname' || field === 'adobj') {
-            const key = cname || cid;
-            const ads = mc.extraAds[key] || [];
-            const adItem = ads.find(a => a._id === aid);
-            if (adItem) {
-              if (field === 'adname') adItem.name = edit.value;
-              if (field === 'adobj') adItem.objective = edit.value;
-            }
-          }
-          return mc;
-        });
-        renderCampaigns(currentPeriod());
-      }
+      if (!edit) return;
+      const { field, cid } = edit.dataset;
+      setMonthCustom(mc => {
+        const campaign = mc.campaigns.find(item => item._id === cid);
+        if (!campaign) return mc;
+        if (field === 'type') campaign.type = edit.value;
+        if (field === 'cname') {
+          // Los anuncios agregados a la campana la siguen con su nombre nuevo.
+          if (mc.extraAds[campaign.name]) { mc.extraAds[edit.value] = mc.extraAds[campaign.name]; delete mc.extraAds[campaign.name]; }
+          campaign.name = edit.value;
+        }
+        return mc;
+      });
+      renderCampaignSection(currentPeriod());
     });
-    document.getElementById('campaigns-body').addEventListener('click', event => {
-      const addAdBtn = event.target.closest('.add-ad-btn');
-      if (addAdBtn) {
-        const cname = addAdBtn.dataset.cname || '';
-        setMonthCustom(mc => {
-          if (!mc.extraAds[cname]) mc.extraAds[cname] = [];
-          mc.extraAds[cname].push({ _id: genId(), name: '', objective: '' });
-          return mc;
-        });
-        renderCampaigns(currentPeriod());
-        return;
-      }
-      const addCampBtn = event.target.closest('.add-campaign-btn');
-      if (addCampBtn) {
-        setMonthCustom(mc => {
-          mc.campaigns.push({ _id: genId(), name: '', type: '', status: 'Activo', ads: [] });
-          return mc;
-        });
-        renderCampaigns(currentPeriod());
-      }
+    distribution?.addEventListener('click', event => {
+      if (!event.target.closest('.add-campaign-btn')) return;
+      setMonthCustom(mc => {
+        mc.campaigns.push({ _id: genId(), name: '', type: '', status: 'Activo', ads: [] });
+        return mc;
+      });
+      renderCampaignSection(currentPeriod());
     });
+    // Anuncios agregados a mano (tabla de anuncios).
+    const adsBody = document.getElementById('campaigns-body');
+    adsBody?.addEventListener('change', event => {
+      const edit = event.target.closest('.inline-edit');
+      if (!edit) return;
+      const { field, cname, aid } = edit.dataset;
+      setMonthCustom(mc => {
+        const item = (mc.extraAds[cname || ''] || []).find(ad => ad._id === aid);
+        if (item && field === 'adname') item.name = edit.value;
+        if (item && field === 'adobj') item.objective = edit.value;
+        return mc;
+      });
+      renderCampaignSection(currentPeriod());
+    });
+    adsBody?.addEventListener('click', event => {
+      if (!event.target.closest('.add-ad-btn')) return;
+      const owner = adsBody.querySelector('[data-add-ad-campaign]')?.value || '';
+      setMonthCustom(mc => {
+        mc.extraAds[owner] = mc.extraAds[owner] || [];
+        mc.extraAds[owner].push({ _id: genId(), name: '', objective: '' });
+        return mc;
+      });
+      renderCampaignSection(currentPeriod());
+    });
+    // Minimizar cada cuadro de objetivo.
+    document.getElementById('campaign-blocks')?.addEventListener('click', event => {
+      const key = event.target.closest('[data-campaign-toggle]')?.closest('.campaign-block')?.dataset.objective;
+      if (!key) return;
+      saveBlockSettings(key, { collapsed: !blockSettings(key).collapsed });
+      const period = currentPeriod();
+      renderCampaignBlock(key, period, periodModel(period));
+    });
+    document.getElementById('ads-objective')?.addEventListener('change', event => {
+      state.adsObjective = event.target.value;
+      const period = currentPeriod();
+      renderAds(period, periodModel(period));
+    });
+    document.getElementById('campaigns-density-btn')?.addEventListener('click', () => {
+      state.tableCompact = !state.tableCompact;
+      try { localStorage.setItem(TABLE_COMPACT_KEY, String(state.tableCompact)); } catch {}
+      applyTableCompact();
+    });
+    document.getElementById('campaigns-expand-btn')?.addEventListener('click', () => toggleTableFullscreen());
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && state.tableFullscreen) toggleTableFullscreen(false);
+    });
+    // Cambiar de modulo con el panel fijo dejaria la pagina bloqueada.
+    document.querySelectorAll('[data-view-target]').forEach(button => {
+      button.addEventListener('click', () => { if (state.tableFullscreen) toggleTableFullscreen(false); });
+    });
+    const tabs = document.getElementById('month-tabs');
+    if (tabs) state.tabsHome = { parent: tabs.parentNode, next: tabs.nextSibling };
+    applyTableCompact();
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && Date.now() - state.lastFetch > VISIBILITY_REFETCH_MS) syncLiveSheet();
     });
@@ -1044,6 +1550,7 @@
       const sheetMonths = window.AMADOR_SHEET_MONTHS || await Promise.all(SHEET_FILES.map(url => fetch(url, { cache: 'no-store' }).then(response => response.json())));
       sheetMonths.forEach(month => mergeSheetMonth(month, state.data.source || 'Datos locales'));
       decorate(state.data);
+      loadGoals();
       state.monthKey = latestMonth()?.key || null;
       wireEvents();
       renderAll();
@@ -1061,7 +1568,14 @@
       year: state.data.year,
       lastSync: state.lastSync,
       error: state.error,
-      months: cloneData(state.data).months,
+      // Con el Objetivo Reservas editado en el tablero (Proyecciones lo usa como referencia).
+      months: cloneData(state.data).months.map(month => ({
+        ...month,
+        campaigns: (month.campaigns || []).map(campaign => {
+          const saved = state.goals[goalStoreKey(month.key, campaign.name)];
+          return saved === '' || saved == null ? campaign : { ...campaign, reservationGoal: Number(saved) };
+        }),
+      })),
     };
   }
   window.AmadorObjectives = { renderHistory, snapshot };

@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.17.0`.
+Version actual: `v1.18.0`.
 
 ## Versionado
 
@@ -16,9 +16,8 @@ El proyecto usa la nomenclatura `vMAJOR.MINOR.PATCH`:
 
 - Gasto mensual total, con pestanas por mes y una pestana Anual (acumulado de los meses con datos).
 - Periodo y resumen ejecutivo en una tarjeta: inversion, mensajes, costo por mensaje, reservas y costo por reserva, con su variacion contra el mes anterior completo (en la vista anual, el promedio mensual de los meses cerrados).
-- Distribucion entre Branding y Ventas.
-- Campanas por mes.
-- Estado, objetivo, presupuesto, gasto, importe diario y URL de anuncios.
+- Campanas en un solo marco: distribucion de la inversion por campana y, debajo, un cuadro por objetivo con sus KPIs contra el mes anterior y sus conjuntos de anuncios (ver "Gasto publicitario: campanas").
+- Anuncios del periodo con columnas ancladas, filtro por objetivo, densidad compacta y pantalla completa.
 - Proyecciones: cierre de mes estimado con los datos reales y simulador de objetivo.
 - Historico de Campanas finalizadas.
 - Archivo de Reportes: catalogo de los documentos guardados en la carpeta de Google Drive.
@@ -40,6 +39,17 @@ Lectura en vivo: al abrir el tablero, cada hora y con el boton Actualizar se lee
 Fecha de corte: un mes cuyo ultimo dia ya paso en Lima esta cerrado y su corte es ese ultimo dia; el mes en curso corta en el dia de la ultima lectura en vivo (o en la fecha de `data/amador-ads-2026.json` si solo esta la copia guardada).
 
 El spreadsheet esta compartido como "cualquier persona con el enlace / lector", que es lo que necesita la lectura del CSV publicado; si vuelve a restringirse, la lectura en vivo falla y el tablero muestra las copias de `data/`.
+
+## Gasto publicitario: campanas
+
+- **Solo lo que tuvo actividad**: campanas y conjuntos con gasto; anuncios con gasto propio, mensajes o reservas (sin heredar el gasto del conjunto). Lo demas no se muestra ni se menciona.
+- **Objetivo (cuadro)**: el de la campana en la hoja (Reservas, Mensajes, Clics, Thruplays...). Junio lo trae por anuncio y en texto libre: cuenta la primera palabra ("Reservas/Mensajes" = Reservas) y, si los anuncios de una campana difieren, el de mayor gasto. Reservas va en naranja, Mensajes en verde y Branding (Reconocimiento, Thruplays) en violeta; otro objetivo toma un color fijo.
+- **Granularidad de la hoja**: desde julio el gasto viene por conjunto (en su primera fila) y las reservas, el objetivo y las fechas por campana; mensajes y estado por anuncio. Junio trae gasto y reservas por anuncio y no tiene conjuntos; marzo a mayo solo campanas; enero y febrero solo el gasto total. Por eso los conjuntos muestran gasto y mensajes, y desde julio los anuncios muestran "Por conjunto" / "Por campana" en gasto y reservas.
+- **Distribucion**: una fila por campana con mensajes, reservas, **Objetivo Reservas** editable, costos, gasto, % de la inversion, presupuesto, saldo, fin y dias restantes y nuevo presupuesto diario, mas la fila "Total actualizado". En la vista anual las campanas se juntan por nombre exacto y el objetivo es la suma de los meses.
+- **Comparacion**: contra el mes anterior completo. Conjuntos y anuncios se comparan por nombre dentro del objetivo; uno que no corria sale como "Nuevo". Sin detalle en el mes anterior (enero, febrero o junio para los conjuntos) no hay comparacion.
+- **Objetivo Reservas**: lo editado se guarda en este navegador por mes y campana (`localStorage`, clave `amador-reservation-goals-v2`, "2026-09::Campana"); los valores de la version anterior (`-v1`, sin mes) pasan a cada mes en que aparece la campana. Proyecciones lo usa como referencia.
+- **Filas propias**: "Agregar campana" (distribucion) y "Agregar un anuncio a..." (anuncios) guardan filas de nota en este navegador (`amador-custom-rows-v1`), sin cifras de la hoja.
+- Minimizado de cada cuadro en `amador-campaign-charts-v1` y densidad de la tabla de anuncios en `amador-campaigns-compact-v1`.
 
 ## Proyecciones
 
