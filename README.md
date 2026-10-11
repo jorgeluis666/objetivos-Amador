@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.19.0`.
+Version actual: `v1.20.0`.
 
 ## Versionado
 
@@ -19,7 +19,7 @@ El proyecto usa la nomenclatura `vMAJOR.MINOR.PATCH`:
 - Campanas en un solo marco: distribucion de la inversion por campana y, debajo, un cuadro por objetivo con sus KPIs contra el mes anterior y sus conjuntos de anuncios (ver "Gasto publicitario: campanas").
 - Anuncios del periodo con columnas ancladas, filtro por objetivo, densidad compacta y pantalla completa.
 - Proyecciones: cierre de mes estimado con los datos reales y simulador de objetivo.
-- Historico de Campanas finalizadas.
+- Historico de Campanas: todas las campanas con gasto, activas y finalizadas, con pestanas por mes y Todos (ver "Historico de Campanas").
 - Archivo de Reportes: catalogo de los documentos guardados en la carpeta de Google Drive.
 - Bitacora: checklist mensual de cambios, comentarios y decisiones de la cuenta.
 - Usuarios y Claves: directorio de las cuentas con acceso al tablero, sin contrasenas (ver "Usuarios y Claves").
@@ -51,6 +51,12 @@ El spreadsheet esta compartido como "cualquier persona con el enlace / lector", 
 - **Filas propias**: "Agregar campana" (distribucion) y "Agregar un anuncio a..." (anuncios) guardan filas de nota en este navegador (`amador-custom-rows-v1`), sin cifras de la hoja.
 - **Graficos por mes**: cada cuadro trae su grafico del año con Inversion, Mensajes y Reservas (por defecto el resultado del objetivo y la inversion). Con varios indicadores, cada uno va en su propio panel con su escala, apilados sobre el mismo eje de meses: nunca dos escalas en un mismo panel. Un mes sin actividad del objetivo queda como hueco. El grafico mensual de la cuenta (el unico con enero a mayo) sigue la misma regla y arranca minimizado.
 - Minimizado e indicadores de cada cuadro en `amador-campaign-charts-v1`; densidad de la tabla de anuncios en `amador-campaigns-compact-v1`.
+
+## Historico de Campanas
+
+- Una fila por campana (nombre exacto) con gasto en algun mes. En **Todos** lleva una columna de gasto por mes ("Oct (al 11)" si el mes sigue en curso), gasto total, mensajes, reservas, costo por reserva, anuncios y periodo; con un **mes** elegido quedan las campanas con gasto ese mes, con sus cifras de ese mes, sus fechas y el gasto acumulado al final.
+- Estado: **Finalizada** si la hoja la marca apagada (OFF, Finalizada, Desactiva) o ya no aparece en el ultimo mes con datos; si no, **Activa**. El filtro Todas / Activas / Finalizadas muestra cuantas hay de cada una y los KPIs siguen los dos filtros.
+- Los anuncios van plegados (marzo a mayo solo traen enlaces de vista previa) y siguen abiertos tras una actualizacion.
 
 ## Proyecciones
 

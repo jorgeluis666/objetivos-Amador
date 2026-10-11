@@ -79,8 +79,60 @@
   margin-top: 18px;
 }
 
+/* El filtro Todas / Activas / Finalizadas baja bajo el titulo cuando no cabe al lado. */
+.history-panel-head {
+  flex-wrap: wrap;
+}
+
 .history-table {
-  min-width: 980px;
+  min-width: 1080px;
+}
+
+.history-table :is(th, td) {
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+/* Encabezado largo en dos lineas para que la tabla entre sin desplazarse. */
+.history-table th.th-wrap {
+  white-space: normal;
+}
+
+/* Una columna por mes: hacia fin de año la tabla se desplaza y el nombre queda anclado. */
+.history-table :is(th, td):first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #fff;
+  box-shadow: inset -1px 0 0 var(--border);
+}
+
+.history-table thead th:first-child,
+.history-table .total-row td:first-child {
+  background: #f8fafc;
+}
+
+@media(max-width:760px) {
+  .history-table :is(th, td):first-child {
+    position: static;
+    box-shadow: none;
+  }
+}
+
+.history-ads summary {
+  color: #2563eb;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* Ancho fijo al abrir: sin el, la columna no crece y queda un anuncio por linea. */
+.history-ads-list {
+  display: flex;
+  flex-wrap: wrap;
+  width: 360px;
+  margin-top: 6px;
 }
 
 .history-ad-link,

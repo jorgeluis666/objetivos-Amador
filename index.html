@@ -13,7 +13,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar" id="sidebar">
-    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.19.0</span></div></div>
+    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.20.0</span></div></div>
     <div class="s-group-lbl">Modulos activos</div>
     <button class="s-item active" type="button" data-view-target="view-obj">
       <div class="s-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
@@ -25,7 +25,7 @@
     </button>
     <button class="s-item" type="button" data-view-target="view-history">
       <div class="s-icon"><svg viewBox="0 0 24 24"><path d="M3 4h18"/><path d="M3 10h18"/><path d="M3 16h18"/><path d="M7 4v16"/><path d="M17 4v16"/></svg></div>
-      <div class="s-text"><div class="s-title-nav">Histórico de Campañas</div><div class="s-desc-nav">Campañas finalizadas</div></div>
+      <div class="s-text"><div class="s-title-nav">Histórico de Campañas</div><div class="s-desc-nav">Activas y finalizadas</div></div>
     </button>
     <button class="s-item" type="button" data-view-target="view-reports">
       <div class="s-icon"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="16" x2="13" y2="16"/></svg></div>
@@ -169,19 +169,21 @@
 
       <section class="view" id="view-history">
         <h1 class="section-title">Histórico de Campañas</h1>
-        <p class="section-desc">Registro acumulado de campañas finalizadas extraídas de todos los meses disponibles en el tablero.</p>
+        <p class="section-desc">Todas las campañas de la hoja Distribucion-amador con gasto, activas y finalizadas, con su gasto mes a mes y su acumulado. Una campaña se da por finalizada cuando la hoja la marca apagada (OFF, Finalizada, Desactiva) o ya no aparece en el último mes con datos.</p>
+        <div class="month-tabs" id="history-month-tabs" role="group" aria-label="Mes del historico"></div>
         <div class="kpi-strip history-kpis" id="history-kpis" role="group" aria-label="KPIs historicos"></div>
         <div class="panel history-panel">
-          <div class="panel-head">
+          <div class="panel-head history-panel-head">
             <div>
-              <div class="panel-title">Campañas finalizadas</div>
+              <div class="panel-title">Campañas</div>
               <div class="panel-sub" id="history-sub"></div>
             </div>
+            <div class="chart-series-toggles log-filters" id="history-status-filter" role="radiogroup" aria-label="Estado de las campañas"></div>
           </div>
           <div class="table-scroll">
             <table class="data-table history-table">
-              <thead><tr><th>Mes</th><th>Campaña</th><th class="num">Reservas</th><th class="num">Mensajes</th><th class="num">Presupuesto</th><th class="num">Gasto</th><th class="num">Saldo</th><th>Anuncios</th><th>Fecha de inicio</th><th>Fecha de fin</th></tr></thead>
-              <tbody id="history-body"></tbody>
+              <thead id="history-head"><tr><th>Campaña</th><th>Objetivo</th><th>Estado</th><th class="num">Gasto total</th><th class="num">Mensajes</th><th class="num">Reservas</th><th class="num">Costo por reserva</th><th>Anuncios</th><th>Periodo</th></tr></thead>
+              <tbody id="history-body"><tr><td class="table-empty" colspan="9">Cargando datos...</td></tr></tbody>
             </table>
           </div>
         </div>

@@ -15,9 +15,9 @@
     },
     'view-history': {
       title: 'Histórico de Campañas',
-      caption: 'Campañas finalizadas',
+      caption: 'Campañas activas y finalizadas',
       source: 'Fuente: Distribucion-amador / Histórico consolidado',
-      footer: 'Solo campañas finalizadas',
+      footer: 'Gasto de cada campaña mes a mes y acumulado',
     },
     'view-reports': {
       title: 'Archivo de Reportes',
@@ -78,7 +78,6 @@
       window.setTimeout(() => window.dispatchEvent(new Event('resize')), 0);
     }
     if (viewId === 'view-obj') window.setTimeout(() => window.dispatchEvent(new Event('resize')), 0);
-    if (viewId === 'view-history') window.AmadorObjectives?.renderHistory?.();
     if (viewId === 'view-reports') window.ReportsArchive?.init();
     if (viewId === 'view-log') window.Bitacora?.init();
     if (viewId === 'view-users') window.Usuarios?.init();

@@ -31,6 +31,13 @@
     { key: 'reservations', label: 'Reservas', format: 'count', better: 'up' },
     { key: 'costPerReservation', label: 'Costo por reserva', format: 'money', better: 'down' },
   ];
+  // Historico: pestana "Todos" (todas las campanas) y filtro por estado.
+  const HISTORY_ALL = 'todos';
+  const HISTORY_STATUS = [
+    { key: 'todas', label: 'Todas', one: 'campaña', many: 'campañas' },
+    { key: 'activas', label: 'Activas', one: 'campaña activa', many: 'campañas activas' },
+    { key: 'finalizadas', label: 'Finalizadas', one: 'campaña finalizada', many: 'campañas finalizadas' },
+  ];
   // Indicadores del grafico de cada cuadro (todos por mes).
   const BLOCK_METRICS = [
     { key: 'spend', label: 'Inversión', unit: 'money' },
@@ -73,11 +80,8 @@
     // Tabla de anuncios: densidad, pantalla completa (las pestanas de mes vuelven a tabsHome) y filtro por objetivo.
     tableCompact: readFlag(TABLE_COMPACT_KEY), tableFullscreen: false, tabsHome: null, adsObjective: 'all',
     campaignBlocks: readBlockSettings(),
+    historyMonth: HISTORY_ALL, historyStatus: 'todas',
   };
-
-  const fmtMoney = value => Number.isFinite(Number(value)) ? `S/. ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
-  const fmtCount = value => Number(value || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 });
-
 
   function readFlag(key) {
     try { return localStorage.getItem(key) === 'true'; } catch { return false; }
@@ -757,6 +761,8 @@
         daysRemaining: last.daysRemaining ?? null,
         newDaily: newDaily.length ? newDaily.reduce((sum, value) => sum + Number(value), 0) : null,
         ads,
+        // Marzo a mayo no traen anuncios, solo los enlaces de vista previa de la campana.
+        adUrls: Array.isArray(campaign.adUrls) ? campaign.adUrls : [],
       };
     });
   }
@@ -1493,64 +1499,184 @@
     if (index < 0) return null;
     return index * 100 + Number(match[1]);
   }
-  function finishedCampaigns() {
-    return (state.data?.months || []).flatMap(month => (month.campaigns || [])
-      .filter(campaign => isFinishedStatus(campaign.status))
-      .map(campaign => {
-        const ads = campaign.ads || [];
-        const reservas = Number(campaign.reservas ?? ads.reduce((sum, ad) => sum + Number(ad.reservas || 0), 0));
-        const messages = Number(campaign.messages ?? ads.reduce((sum, ad) => sum + Number(ad.messages || 0), 0));
-        const spent = Number(campaign.spent ?? ads.reduce((sum, ad) => sum + Number(ad.spent || 0), 0));
-        const budget = Number(campaign.budget ?? ads.reduce((sum, ad) => sum + Number(ad.budget || 0), 0));
-        const balance = Number(campaign.balance ?? (Number.isFinite(budget) && Number.isFinite(spent) ? budget - spent : 0));
-        const startDates = ads.map(ad => ad.startDate).filter(date => dateOrderValue(date) != null);
-        const endDates = ads.map(ad => ad.endDate).filter(date => dateOrderValue(date) != null);
-        const startDate = startDates.sort((a, b) => dateOrderValue(a) - dateOrderValue(b))[0] || null;
-        const endDate = endDates.sort((a, b) => dateOrderValue(b) - dateOrderValue(a))[0] || null;
-        return { month: month.name, campaign, ads, reservas, messages, spent, budget, balance, startDate, endDate };
-      }));
+  // ── Historico de campanas ────────────────────────────────────────────────
+  // Una fila por campana (nombre exacto) con gasto en algun mes. Finalizada: la hoja la marca apagada (OFF,
+  // Finalizada, Desactiva) o ya no aparece en el ultimo mes con datos.
+  function campaignHistory() {
+    const latestKey = latestMonth()?.key || '';
+    const byName = new Map();
+    state.data.months.filter(hasData).forEach(month => campaignEntries(month).forEach(entry => {
+      if (!byName.has(entry.name)) byName.set(entry.name, []);
+      byName.get(entry.name).push(entry);
+    }));
+    return [...byName.entries()]
+      .map(([name, entries]) => {
+        const active = entries.filter(hasSpend);
+        if (!active.length) return null;
+        const last = entries[entries.length - 1];
+        return {
+          name,
+          group: last.group,
+          groupLabel: last.groupLabel,
+          color: last.color,
+          entries,
+          months: active.map(entry => entry.monthKey),
+          lastKey: active[active.length - 1].monthKey,
+          finished: isFinishedStatus(last.status) || last.monthKey < latestKey,
+          ...totalsOf(entries),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.lastKey.localeCompare(a.lastKey) || b.spend - a.spend);
   }
+  // Anuncios de las campanas: los de la hoja (desde junio) y, de marzo a mayo, los enlaces de vista previa.
+  function historyAds(entries) {
+    const ads = adsOf(entries.flatMap(adRows))
+      .sort((a, b) => b.messages - a.messages)
+      .map(ad => ({ name: ad.adSet ? `${ad.adSet} · ${ad.ad}` : ad.ad, preview: ad.preview }));
+    entries.forEach(entry => {
+      (entry.ads.length ? [] : entry.adUrls).forEach((url, index) => {
+        if (!ads.some(ad => ad.preview === url)) ads.push({ name: `Anuncio ${index + 1} (${shortMonth(entry.month)})`, preview: url });
+      });
+    });
+    return ads;
+  }
+  function historyMonth() {
+    if (state.historyMonth === HISTORY_ALL) return null;
+    const month = monthByKey(state.historyMonth);
+    return month && campaignEntries(month).some(hasSpend) ? month : null;
+  }
+  function renderHistoryTabs(month) {
+    const host = document.getElementById('history-month-tabs');
+    if (!host) return;
+    const year = state.data.year;
+    const latest = latestMonth();
+    keepFocus(host, () => {
+      host.innerHTML = MONTHS.map((name, index) => {
+        const key = monthKey(year, index);
+        const item = monthByKey(key);
+        const available = Boolean(item) && campaignEntries(item).some(hasSpend);
+        const on = month?.key === key;
+        return `<button type="button" class="month-tab${on ? ' active' : ''}" data-month="${key}" aria-pressed="${on}"${available ? '' : ' disabled title="Sin campañas con gasto en la hoja"'}>${name}${key === latest?.key ? '<span class="current-dot"></span>' : ''}</button>`;
+      }).join('') + `<button type="button" class="month-tab${month ? '' : ' active'}" data-month="${HISTORY_ALL}" aria-pressed="${!month}" title="Todas las campañas de la hoja">Todos</button>`;
+    });
+  }
+  const matchesStatus = (item, key) => key === 'todas' || (key === 'activas' ? !item.finished : item.finished);
+  // Con un mes elegido quedan las campanas con gasto ese mes, con sus cifras de ese mes.
+  function historyEntries(all, month) {
+    if (!month) return all.map(item => ({ item, stats: item, entries: item.entries }));
+    return all
+      .map(item => ({ item, entries: item.entries.filter(entry => entry.monthKey === month.key && entry.spend > 0) }))
+      .filter(scope => scope.entries.length)
+      .map(scope => ({ ...scope, stats: totalsOf(scope.entries) }))
+      .sort((a, b) => b.stats.spend - a.stats.spend);
+  }
+  function renderHistoryStatus(scoped) {
+    const host = document.getElementById('history-status-filter');
+    if (!host) return;
+    keepFocus(host, () => {
+      host.innerHTML = HISTORY_STATUS.map(status => {
+        const selected = status.key === state.historyStatus;
+        const count = scoped.filter(scope => matchesStatus(scope.item, status.key)).length;
+        return `<label class="series-toggle${selected ? ' active' : ''}"><input type="radio" name="history-status" value="${status.key}"${selected ? ' checked' : ''}>${status.label} (${count})</label>`;
+      }).join('');
+    });
+  }
+  function renderHistoryKpis(scoped, month) {
+    const host = document.getElementById('history-kpis');
+    if (!host) return;
+    const totals = totalsOf(scoped.flatMap(scope => scope.entries));
+    const active = scoped.filter(scope => !scope.item.finished).length;
+    const finished = scoped.length - active;
+    const statusNote = {
+      todas: `${active} ${active === 1 ? 'activa' : 'activas'} y ${finished} ${finished === 1 ? 'finalizada' : 'finalizadas'}`,
+      activas: 'Corriendo en el último mes con datos',
+      finalizadas: 'Apagadas o sin el último mes',
+    }[state.historyStatus];
+    host.innerHTML = [
+      ['Campañas', fmt.count(scoped.length), statusNote],
+      ['Inversión', fmt.money(totals.spend), month ? `Gasto en ${month.name}` : 'Gasto acumulado'],
+      ['Mensajes', fmt.count(totals.messages), month ? `En ${month.name}` : 'Desde junio'],
+      ['Reservas', fmt.count(totals.reservations), month ? `En ${month.name}` : 'Desde junio'],
+      ['Costo por reserva', fmt.money(totals.costPerReservation), 'Gasto / reservas'],
+    ].map(([label, value, meta]) => `<div class="kpi-pill"><span>${label}</span><strong>${value}</strong><small>${esc(meta)}</small></div>`).join('');
+  }
+  function historyAdChip(ad) {
+    const url = safeUrl(ad.preview);
+    return url
+      ? `<a class="history-ad-link" href="${url}" target="_blank" rel="noopener noreferrer">${esc(ad.name)}</a>`
+      : `<span class="history-ad-muted">${esc(ad.name)}</span>`;
+  }
+  // La lista de anuncios va plegada: abierta estiraba la fila una linea por anuncio.
+  function historyAdsCell(ads, campaign) {
+    if (!ads.length) return '<span class="no-data">-</span>';
+    return `<details class="history-ads" data-campaign="${esc(campaign)}"><summary>${ads.length} ${ads.length === 1 ? 'anuncio' : 'anuncios'}</summary><div class="history-ads-list">${ads.map(historyAdChip).join('')}</div></details>`;
+  }
+  function historyPeriod(entries) {
+    const starts = entries.map(entry => entry.startDate).filter(date => dateOrderValue(date) != null).sort((a, b) => dateOrderValue(a) - dateOrderValue(b));
+    const ends = entries.map(entry => entry.endDate).filter(date => dateOrderValue(date) != null).sort((a, b) => dateOrderValue(b) - dateOrderValue(a));
+    if (starts[0] || ends[0]) return `${esc(starts[0] || '?')} - ${esc(ends[0] || '?')}`;
+    const months = [...new Set(entries.map(entry => shortMonth(entry.month)))];
+    return months.length > 1 ? `${months[0]} - ${months[months.length - 1]}` : months[0] || '-';
+  }
+  // Una sola tabla: "Todos" lleva una columna de gasto por mes; un mes deja sus campanas con las cifras de ese mes
+  // y el gasto acumulado al final.
   function renderHistory() {
+    const head = document.getElementById('history-head');
     const body = document.getElementById('history-body');
-    if (!body || !state.data) return;
-    const rows = finishedCampaigns();
-    const kpis = document.getElementById('history-kpis');
+    if (!head || !body || !state.data) return;
+    const open = new Set([...body.querySelectorAll('details.history-ads[open]')].map(node => node.dataset.campaign));
+    const month = historyMonth();
+    state.historyMonth = month ? month.key : HISTORY_ALL;
+    renderHistoryTabs(month);
+    const scoped = historyEntries(campaignHistory(), month);
+    renderHistoryStatus(scoped);
+    const rows = scoped.filter(scope => matchesStatus(scope.item, state.historyStatus));
+    renderHistoryKpis(rows, month);
+    const months = month ? [] : state.data.months.filter(item => campaignEntries(item).some(hasSpend));
+    head.innerHTML = `<tr><th>Campaña</th><th>Objetivo</th><th>Estado</th>${months.map(item => `<th class="num" title="${esc(`${item.name} ${state.data.year}`)}">${shortMonth(item)}${item.closed ? '' : ` (al ${item.dataDay})`}</th>`).join('')}<th class="num">${month ? `Gasto ${shortMonth(month)}` : 'Gasto total'}</th><th class="num">Mensajes</th><th class="num">Reservas</th><th class="num th-wrap">Costo por reserva</th><th>Anuncios</th>${month ? '<th>Fechas</th><th class="num" title="Gasto de la campaña en todos los meses">Gasto acumulado</th>' : '<th>Periodo</th>'}</tr>`;
+    const status = HISTORY_STATUS.find(item => item.key === state.historyStatus);
     const sub = document.getElementById('history-sub');
-    const totals = rows.reduce((acc, row) => {
-      acc.spend += Number(row.spent || 0);
-      acc.budget += Number(row.budget || 0);
-      acc.reservas += Number(row.reservas || 0);
-      acc.messages += Number(row.messages || 0);
-      return acc;
-    }, { spend: 0, budget: 0, reservas: 0, messages: 0 });
-    if (kpis) {
-      kpis.innerHTML = [
-        ['Campañas', fmtCount(rows.length), 'Finalizadas'],
-        ['Inversión', fmtMoney(totals.spend), 'Gasto acumulado'],
-        ['Reservas', fmtCount(totals.reservas), 'Total historico'],
-        ['Mensajes', fmtCount(totals.messages), 'Conversaciones'],
-        ['Saldo', fmtMoney(totals.budget - totals.spend), 'Presupuesto no usado']
-      ].map(([label, value, meta]) => `<div class="kpi-pill"><span>${label}</span><strong>${value}</strong><small>${meta}</small></div>`).join('');
+    if (sub) {
+      if (!rows.length) sub.textContent = `Ninguna ${status.one} ${month ? `con gasto en ${month.name} ${state.data.year}` : 'en la hoja Distribucion-amador'}.`;
+      else if (month) sub.textContent = `${rows.length} ${rows.length === 1 ? status.one : status.many} con gasto en ${month.name} ${state.data.year}.`;
+      else sub.textContent = `${rows.length} ${rows.length === 1 ? status.one : status.many} de ${months[0].name} a ${months[months.length - 1].name} ${state.data.year}. Cada mes es el gasto de su pestaña en la hoja.`;
     }
-    if (sub) sub.textContent = rows.length ? `${rows.length} campanas finalizadas encontradas en los meses disponibles.` : 'Sin campanas finalizadas registradas.';
+    const columns = head.querySelectorAll('th').length;
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="10" class="table-empty">Sin campanas finalizadas en los meses cargados.</td></tr>';
+      body.innerHTML = `<tr><td colspan="${columns}" class="table-empty">Sin ${status.many} ${month ? `en ${esc(month.name)}` : 'en los meses cargados'}.</td></tr>`;
       return;
     }
-    body.innerHTML = rows.map(({ month, campaign, ads, reservas, messages, spent, budget, balance, startDate, endDate }) => `
+    const spendIn = (entries, key) => entries.filter(entry => entry.monthKey === key).reduce((sum, entry) => sum + entry.spend, 0);
+    const allEntries = rows.flatMap(scope => scope.entries);
+    const total = totalsOf(allEntries);
+    body.innerHTML = rows.map(({ item, stats, entries }) => `
       <tr>
-        <td class="date-col">${esc(month)}</td>
-        <td class="campaign-name">${esc(campaign.name)}</td>
-        <td class="num">${fmtCount(reservas)}</td>
-        <td class="num">${fmtCount(messages)}</td>
-        <td class="num">${fmtMoney(budget)}</td>
-        <td class="num">${fmtMoney(spent)}</td>
-        <td class="num">${fmtMoney(balance)}</td>
-        <td>${ads.length ? ads.map(ad => safeUrl(ad.adUrl) ? `<a class="history-ad-link" href="${safeUrl(ad.adUrl)}" target="_blank" rel="noopener">${esc(ad.name)}</a>` : `<span class="history-ad-muted">${esc(ad.name)}</span>`).join('') : '-'}</td>
-        <td class="date-col">${esc(startDate || '-')}</td>
-        <td class="date-col">${esc(endDate || '-')}</td>
-      </tr>
-    `).join('');
+        <td class="campaign-name">${esc(item.name)}</td>
+        <td><span class="objective-label" style="--campaign-color:${item.color}"><i class="campaign-dot"></i>${esc(item.groupLabel)}</span></td>
+        <td>${item.finished ? '<span class="type-pill slate">Finalizada</span>' : '<span class="type-pill green">Activa</span>'}</td>
+        ${months.map(column => `<td class="num">${item.months.includes(column.key) ? fmt.money(spendIn(item.entries, column.key)) : '<span class="no-data">-</span>'}</td>`).join('')}
+        <td class="num"><b>${fmt.money(stats.spend)}</b></td>
+        <td class="num">${fmt.count(stats.messages)}</td>
+        <td class="num">${fmt.count(stats.reservations)}</td>
+        <td class="num">${fmt.money(stats.costPerReservation)}</td>
+        <td>${historyAdsCell(historyAds(entries), item.name)}</td>
+        <td class="date-col">${historyPeriod(entries)}</td>
+        ${month ? `<td class="num">${fmt.money(item.spend)}</td>` : ''}
+      </tr>`).join('') + `
+      <tr class="total-row">
+        <td class="campaign-name">${month ? `Total de ${esc(month.name)}` : 'Total'}</td>
+        <td></td><td></td>
+        ${months.map(column => `<td class="num">${rows.some(scope => scope.item.months.includes(column.key)) ? fmt.money(spendIn(allEntries, column.key)) : '<span class="no-data">-</span>'}</td>`).join('')}
+        <td class="num">${fmt.money(total.spend)}</td>
+        <td class="num">${fmt.count(total.messages)}</td>
+        <td class="num">${fmt.count(total.reservations)}</td>
+        <td class="num">${fmt.money(total.costPerReservation)}</td>
+        <td></td><td></td>
+        ${month ? '<td></td>' : ''}
+      </tr>`;
+    // Datos nuevos no cierran la lista de anuncios que se estaba mirando.
+    if (open.size) body.querySelectorAll('details.history-ads').forEach(node => { if (open.has(node.dataset.campaign)) node.open = true; });
   }
   function applyChartCollapsed() {
     const panel = document.getElementById('chart-panel');
@@ -1686,6 +1812,19 @@
         return mc;
       });
       renderCampaignSection(currentPeriod());
+    });
+    // Historico: pestanas de mes (o Todos) y filtro Todas / Activas / Finalizadas.
+    document.getElementById('history-month-tabs')?.addEventListener('click', event => {
+      const button = event.target.closest('.month-tab:not(:disabled)');
+      if (!button || button.dataset.month === state.historyMonth) return;
+      state.historyMonth = button.dataset.month;
+      renderHistory();
+    });
+    document.getElementById('history-status-filter')?.addEventListener('change', event => {
+      const input = event.target.closest('input[name="history-status"]');
+      if (!input) return;
+      state.historyStatus = input.value;
+      renderHistory();
     });
     // Indicadores del grafico de cada cuadro: siempre queda al menos uno (desmarcar el ultimo lo deja como estaba).
     document.getElementById('campaign-blocks')?.addEventListener('change', event => {
