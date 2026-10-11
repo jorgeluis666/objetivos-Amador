@@ -155,9 +155,9 @@
         sizeBytes: Number(file.sizeBytes) || 0,
         modifiedTime: file.modifiedTime,
         createdTime: file.createdTime,
-        viewUrl: `https://drive.google.com/file/d/${file.id}/view`,
-        previewUrl: `https://drive.google.com/file/d/${file.id}/preview`,
-        downloadUrl: `https://drive.google.com/uc?export=download&id=${file.id}`,
+        viewUrl: `https://drive.google.com/file/d/${encodeURIComponent(file.id)}/view`,
+        previewUrl: `https://drive.google.com/file/d/${encodeURIComponent(file.id)}/preview`,
+        downloadUrl: `https://drive.google.com/uc?export=download&id=${encodeURIComponent(file.id)}`,
         latest: true,
       };
     });
@@ -221,7 +221,7 @@
       <div class="kpi-pill">
         <span>${card.label}</span>
         <strong>${card.value}</strong>
-        <small>${card.hint}</small>
+        <small>${escapeHtml(card.hint)}</small>
       </div>
     `).join('');
   }
@@ -269,8 +269,8 @@
     els.body.innerHTML = rows.map(report => `
       <tr>
         <td class="report-name-col">
-          <span class="report-name">${report.name}</span>
-          <span class="report-file">${report.title}</span>
+          <span class="report-name">${escapeHtml(report.name)}</span>
+          <span class="report-file">${escapeHtml(report.title)}</span>
         </td>
         <td><span class="type-pill ${report.type.tone}">${report.type.label}</span></td>
         <td class="date-col">${report.period ? report.period.label : '<span class="no-data">Sin periodo</span>'}${report.range ? `<span class="report-range">${report.range}</span>` : ''}</td>
@@ -279,9 +279,9 @@
         <td class="date-col">${formatDate(report.modifiedTime)}${report.latest ? '<span class="version-flag current">Version vigente</span>' : '<span class="version-flag old">Version anterior</span>'}</td>
         <td>
           <div class="report-actions">
-            <button type="button" class="report-btn primary" data-preview="${report.id}">Ver</button>
-            <a class="report-btn" href="${report.viewUrl}" target="_blank" rel="noopener">Drive</a>
-            <a class="report-btn" href="${report.downloadUrl}" target="_blank" rel="noopener">Descargar</a>
+            <button type="button" class="report-btn primary" data-preview="${escapeHtml(report.id)}">Ver</button>
+            <a class="report-btn" href="${escapeHtml(report.viewUrl)}" target="_blank" rel="noopener">Drive</a>
+            <a class="report-btn" href="${escapeHtml(report.downloadUrl)}" target="_blank" rel="noopener">Descargar</a>
           </div>
         </td>
       </tr>
@@ -292,8 +292,9 @@
     return ENDPOINT_RE.test(DRIVE_SYNC_ENDPOINT) ? DRIVE_SYNC_ENDPOINT : '';
   }
 
+  // Los nombres de archivo vienen de Drive: todo texto que va a innerHTML se escapa.
   function escapeHtml(value) {
-    return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   }
 
   // La ultima sincronizacion queda en el navegador para que al volver al modulo se vea
@@ -304,7 +305,8 @@
       if (!raw) return null;
       const snapshot = JSON.parse(raw);
       if (!snapshot || !Array.isArray(snapshot.files) || !snapshot.checkedAt) return null;
-      return snapshot;
+      // Lo guardado en el navegador pasa por el mismo filtro que la respuesta de Drive.
+      return { checkedAt: snapshot.checkedAt, files: snapshot.files.map(sanitizeDriveFile).filter(Boolean) };
     } catch {
       return null;
     }
@@ -540,7 +542,7 @@
       syncNow({ silent: true });
     } catch (error) {
       if (els.body) {
-        els.body.innerHTML = `<tr><td class="table-empty" colspan="7">No se pudo cargar el archivo de reportes (${error.message}).</td></tr>`;
+        els.body.innerHTML = `<tr><td class="table-empty" colspan="7">No se pudo cargar el archivo de reportes (${escapeHtml(error.message)}).</td></tr>`;
       }
     } finally {
       state.loading = false;

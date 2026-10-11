@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.16.0`.
+Version actual: `v1.16.1`.
 
 ## Versionado
 
