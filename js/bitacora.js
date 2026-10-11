@@ -6,13 +6,12 @@
   const DRAFT_KEY = 'amador-bitacora-draft';
   const EXPORT_NAME = 'amador-bitacora-2026.json';
   const INLINE_GLOBAL = 'AMADOR_BITACORA';
-  const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   const TYPES = { cambio: 'Cambio', comentario: 'Comentario', decision: 'Decisión' };
   const PLATFORMS = { general: 'General', meta: 'Meta Ads' };
 
   const state = { ready: false, published: { items: [] }, items: [], draft: false, type: 'all' };
 
-  const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+  const { esc, download, MONTHS } = window.AmadorShared;
   const pad = value => String(value).padStart(2, '0');
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
   const newId = () => `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -64,14 +63,7 @@
       updatedAt: today(),
       items: state.items.filter(item => item.text).sort((a, b) => a.date.localeCompare(b.date)),
     };
-    const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = EXPORT_NAME;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    download(EXPORT_NAME, `${JSON.stringify(payload, null, 2)}\n`, 'application/json');
   }
 
   function options(map, selected) {

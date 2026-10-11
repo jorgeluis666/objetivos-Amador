@@ -49,6 +49,8 @@
   };
 
   const els = {};
+  // Los nombres de archivo vienen de Drive: todo texto que va a innerHTML se escapa.
+  const escapeHtml = window.AmadorShared.esc;
 
   function normalize(value) {
     return String(value || '')
@@ -290,11 +292,6 @@
 
   function syncEndpoint() {
     return ENDPOINT_RE.test(DRIVE_SYNC_ENDPOINT) ? DRIVE_SYNC_ENDPOINT : '';
-  }
-
-  // Los nombres de archivo vienen de Drive: todo texto que va a innerHTML se escapa.
-  function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   }
 
   // La ultima sincronizacion queda en el navegador para que al volver al modulo se vea

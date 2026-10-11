@@ -1,6 +1,5 @@
 (function () {
-  const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  const SHORT_MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const { MONTHS, SHORT_MONTHS, fmt } = window.AmadorShared;
   const METRICS = {
     investment: { key: 'investment', label: 'Inversion', unit: 'money', color: '#2563eb', fill: 'rgba(37,99,235,.10)', field: 'spend', reference: 'budget', referenceLabel: 'Presupuesto' },
     messages: { key: 'messages', label: 'Mensajes', unit: 'count', color: '#16a34a', fill: 'rgba(22,163,74,.10)', field: 'messages', reference: null, referenceLabel: null },
@@ -16,10 +15,8 @@
   // mantiene el costo por mensaje y la tasa de reserva del mes; asi cambiar de indicador conserva el escenario.
   const state = { ready: false, metric: 'investment', chart: null, projection: null, factor: 1, dragging: false };
 
-  const money = value => Number.isFinite(Number(value))
-    ? `S/. ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : '-';
-  const count = value => Number.isFinite(Number(value)) ? Number(value).toLocaleString('es-PE', { maximumFractionDigits: 0 }) : '-';
+  const money = fmt.money;
+  const count = fmt.count;
   const format = (value, unit) => (unit === 'money' ? money(value) : count(Math.round(Number(value) || 0)));
 
   function toDate(iso) {

@@ -47,14 +47,6 @@ function writeHtaccess(html) {
 function main() {
   let html = readFile('index.html');
   const css = readFile('css/dashboard.css');
-  const app = readFile('js/objectives.js');
-  const reservationGoals = readFile('js/reservation-goals.js');
-  const navigation = readFile('js/navigation.js');
-  const sidebar = readFile('js/sidebar.js');
-  const reportsArchive = readFile('js/reports-archive.js');
-  const projections = readFile('js/projections.js');
-  const bitacora = readFile('js/bitacora.js');
-  const usuarios = readFile('js/usuarios.js');
   const data = readFile('data/amador-ads-2026.json').replace(/</g, '\\u003c');
   const juneData = readFile('data/amador-june-sheet-2026.json').replace(/</g, '\\u003c');
   const julyData = readFile('data/amador-july-sheet-2026.json').replace(/</g, '\\u003c');
@@ -65,43 +57,10 @@ function main() {
   const bitacoraData = inlineJson('data/amador-bitacora-2026.json');
   const usuariosData = inlineJson('data/amador-usuarios-2026.json');
 
-  html = html.replace(
-    new RegExp('<link rel=\"stylesheet\" href=\"css/dashboard\\.css(?:\\?v=[^\"]+)?\">'),
-    `<style>${css}</style>`
-  );
-  html = html.replace(
-    new RegExp('<script src=\"js/objectives\\.js(?:\\?v=[^\"]+)?\"><\\/script>'),
-    `<script>${app}</script>`
-  );
-  html = html.replace(
-    new RegExp('<script src="js\\/reservation-goals\\.js(?:\\?v=[^"]+)?"><\\/script>'),
-    `<script>${reservationGoals}</script>`
-  );
-  html = html.replace(
-    new RegExp('<script src="js\\/navigation\\.js(?:\\?v=[^"]+)?"><\\/script>'),
-    `<script>${navigation}</script>`
-  );
-  html = html.replace(
-    new RegExp('<script src="js\\/sidebar\\.js(?:\\?v=[^"]+)?"><\\/script>'),
-    `<script>${sidebar}</script>`
-  );
-  html = html.replace(
-    new RegExp('<script src="js\\/projections\\.js(?:\\?v=[^"]+)?"><\\/script>'),
-    `<script>${projections}</script>`
-  );
-  html = html.replace(
-    new RegExp('<script src="js\\/reports-archive\\.js(?:\\?v=[^"]+)?"><\\/script>'),
-    `<script>${reportsArchive}</script>`
-  );
-  // Reemplazo con funcion: un $& o $' dentro del JS no debe interpretarse como patron de reemplazo.
-  html = html.replace(
-    new RegExp('<script src="js\\/bitacora\\.js(?:\\?v=[^"]+)?"><\\/script>'),
-    () => `<script>${bitacora}</script>`
-  );
-  html = html.replace(
-    new RegExp('<script src="js\\/usuarios\\.js(?:\\?v=[^"]+)?"><\\/script>'),
-    () => `<script>${usuarios}</script>`
-  );
+  // Reemplazos con funcion: una cadena de reemplazo interpretaria "$&" o "$'" dentro del codigo.
+  html = html.replace(/<link rel="stylesheet" href="css\/dashboard\.css(?:\?v=[^"]+)?">/, () => `<style>${css}</style>`);
+  // Se incrustan, en el orden de index.html, todos los js/ que carga: no hay otra lista que mantener.
+  html = html.replace(/<script src="js\/([\w-]+\.js)(?:\?v=[^"]+)?"><\/script>/g, (_, file) => `<script>${readFile(`js/${file}`)}</script>`);
   if (/<script src="js\//.test(html)) throw new Error('index.html carga un js/ que el build no incrusta');
   // La bitacora y el directorio de usuarios viajan incrustados: dist/ no lleva esos JSON.
   html = html.replace(

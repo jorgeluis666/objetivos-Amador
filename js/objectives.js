@@ -14,8 +14,7 @@
   const SHEET_SYNC_ENDPOINT = '';
   const SHEET_SYNC_ENDPOINT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
   const CHART_COLLAPSED_KEY = 'amador-chart-collapsed-v1';
-  const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const SHORT_MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const { MONTHS, SHORT_MONTHS, esc, safeUrl } = window.AmadorShared;
   const REQUIRED_HEADERS = ['Tipo','Campaña','Anuncio','Objetivo','Reservas','Objetivo Reservas','Mensajes','Costo por mensaje','Costo por reserva','Ratio de reservas','Estado','Fecha de inicio','Fecha de fin','Duración (días)','Días restantes','Importe diario','Presupuesto total x campaña','Gasto x Campaña','Saldo por campaña','Proyección real de gasto mesual'];
   const OPTIONAL_HEADERS = ['Nuevo ppto diario','Observaciones','Vista previa','Conjunto de anuncios'];
   const AD_BUDGET_HEADERS = ['Presupuesto total x anuncio','Presupuesto total x conjunto'];
@@ -38,10 +37,6 @@
     return `S/. ${Math.round(value)}`;
   };
 
-  // Los textos vienen del Google Sheet (editable por terceros): siempre se escapan antes de ir a innerHTML.
-  const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-  // Solo enlaces http(s); descarta javascript:, data:, etc.
-  const safeUrl = value => /^https?:\/\//i.test(String(value || '').trim()) ? esc(String(value).trim()) : '';
 
   function readGoals() {
     try { return JSON.parse(localStorage.getItem(GOALS_KEY) || '{}'); } catch { return {}; }
