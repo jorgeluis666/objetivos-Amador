@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.16.3`.
+Version actual: `v1.17.0`.
 
 ## Versionado
 
@@ -14,7 +14,8 @@ El proyecto usa la nomenclatura `vMAJOR.MINOR.PATCH`:
 
 ## Modulo activo
 
-- Gasto mensual total.
+- Gasto mensual total, con pestanas por mes y una pestana Anual (acumulado de los meses con datos).
+- Periodo y resumen ejecutivo en una tarjeta: inversion, mensajes, costo por mensaje, reservas y costo por reserva, con su variacion contra el mes anterior completo (en la vista anual, el promedio mensual de los meses cerrados).
 - Distribucion entre Branding y Ventas.
 - Campanas por mes.
 - Estado, objetivo, presupuesto, gasto, importe diario y URL de anuncios.
@@ -23,6 +24,8 @@ El proyecto usa la nomenclatura `vMAJOR.MINOR.PATCH`:
 - Archivo de Reportes: catalogo de los documentos guardados en la carpeta de Google Drive.
 - Bitacora: checklist mensual de cambios, comentarios y decisiones de la cuenta.
 - Usuarios y Claves: directorio de las cuentas con acceso al tablero, sin contrasenas (ver "Usuarios y Claves").
+
+La barra superior muestra el estado de los datos ("Datos de Septiembre | leidos ...", en ambar si se ve la copia guardada o no hay conexion con Google Sheets). Al pulsarla se abre el detalle: datos y su corte, ultima y proxima lectura, pestanas leidas, fuente y un aviso (sin conexion, copia guardada, Objetivo Reservas o mes en curso). Su boton **Actualizar** es el unico del tablero: relee la hoja y sincroniza el Archivo de Reportes con Drive.
 
 El panel lateral se puede minimizar con el boton de la barra superior: en escritorio queda una franja de iconos de 88px (con el nombre del modulo como tooltip) y en pantallas de 900px o menos se oculta por completo. El estado se recuerda en `localStorage` (`rb-sidebar-collapsed`).
 
@@ -106,7 +109,7 @@ La vista previa usa el visor de Drive (`/preview`), por lo que el usuario debe t
 
 ### Sincronizar con Drive
 
-El boton **Sincronizar con Drive** trae el contenido real de la carpeta y reemplaza en pantalla el catalogo
+El boton **Actualizar** de la barra superior (el mismo que relee la hoja) trae el contenido real de la carpeta y reemplaza en pantalla el catalogo
 publicado: la tabla, los KPIs y los filtros se rearman con lo que hay en Drive en ese momento y el resultado
 queda guardado en el navegador (`localStorage`, clave `amador-drive-reports-snapshot-v1`), asi que al volver
 al modulo se ve ese listado y no el del ultimo build. El modulo tambien sincroniza solo al abrirse; en ese
@@ -119,7 +122,7 @@ que la Web App responda, por lo que conviene refrescarlo de vez en cuando con el
 La consulta usa el Web App de solo lectura `scripts/drive-reports-sync.gs` (archivo `Validar Drive.gs`
 del proyecto de Apps Script "Distribucion Amador", implementado como Aplicacion web: ejecutar como el propietario,
 acceso "Cualquier usuario"). Su URL `/exec` va fija en `DRIVE_SYNC_ENDPOINT` (`js/reports-archive.js`); no se lee
-de la URL ni de localStorage. Sin ella, el modulo muestra el catalogo publicado y el boton avisa que falta configurarla.
+de la URL ni de localStorage. Sin ella, el modulo muestra el catalogo publicado y Actualizar avisa que falta configurarla.
 
 Medidas de seguridad del Web App: carpeta fija en el script (la peticion no puede pedir otra), solo la accion
 `listDriveFolder`, sin escritura, respuesta limitada a id/nombre/tipo/peso/fechas, maximo 30 peticiones por minuto,

@@ -4,42 +4,36 @@
     'view-obj': {
       title: 'Gasto publicitario 2026',
       caption: 'Agencia Lima Retail',
-      status: 'Datos al 17 de septiembre',
-      source: 'Fuente: Distribucion-amador / Septiembre actualizado',
+      source: 'Fuente: Distribucion-amador (Google Sheets)',
       footer: 'Sincronizado por Agencia Lima Retail',
     },
     'view-messages': {
       title: 'Proyecciones',
       caption: 'Cierre de mes y simulador de objetivo',
-      status: 'Proyección sobre datos reales',
       source: 'Fuente: Gasto publicitario / Distribucion-amador',
       footer: 'Proyección lineal según el ritmo del mes',
     },
     'view-history': {
       title: 'Histórico de Campañas',
       caption: 'Campañas finalizadas',
-      status: 'Datos al 17 de septiembre',
       source: 'Fuente: Distribucion-amador / Histórico consolidado',
       footer: 'Solo campañas finalizadas',
     },
     'view-reports': {
       title: 'Archivo de Reportes',
       caption: 'Documentos en Google Drive',
-      status: 'Catalogo al 17 de septiembre',
       source: 'Fuente: Carpeta compartida Reportes Amador / Google Drive',
       footer: 'Vista previa y descarga directa desde Drive',
     },
     'view-log': {
       title: 'Bitácora',
       caption: 'Checklist de cambios, comentarios y decisiones',
-      status: 'Editable',
       source: 'Fuente: Bitácora del equipo de Agencia Lima Retail',
       footer: 'Las ediciones quedan como borrador hasta exportar y publicar el archivo',
     },
     'view-users': {
       title: 'Usuarios y Claves',
       caption: 'Cuentas con acceso al tablero',
-      status: 'Editable',
       source: 'Fuente: Directorio de accesos de Agencia Lima Retail',
       footer: 'Las claves las valida el servidor; aqui no se guarda ninguna',
     },
@@ -75,7 +69,6 @@
 
     document.getElementById('topbar-title').textContent = meta.title;
     document.getElementById('topbar-caption').textContent = meta.caption;
-    document.getElementById('topbar-status').textContent = meta.status;
     document.getElementById('footer-source').textContent = meta.source;
     document.getElementById('footer-status').textContent = meta.footer;
     saveView(viewId);

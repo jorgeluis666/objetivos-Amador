@@ -40,7 +40,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar" id="sidebar">
-    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.16.3</span></div></div>
+    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.17.0</span></div></div>
     <div class="s-group-lbl">Modulos activos</div>
     <button class="s-item active" type="button" data-view-target="view-obj">
       <div class="s-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
@@ -69,24 +69,30 @@
     <div class="s-modulo-activo"><div class="s-ma-label">CUENTA</div><div class="s-ma-name">Amador</div><div class="s-ma-desc">Control de pauta digital</div></div>
   </aside>
   <main class="main">
-    <div class="topbar"><div class="topbar-left"><button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true" aria-label="Minimizar panel" title="Minimizar panel"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/><path class="sidebar-toggle-arrow" d="m16 15-3-3 3-3"/></svg></button><div><div class="topbar-title" id="topbar-title">Gasto publicitario 2026</div><div class="topbar-caption" id="topbar-caption">Agencia Lima Retail</div></div></div><div class="topbar-meta"><span class="topbar-pill sync ok"><span class="sync-dot"></span><span id="topbar-status">Datos al 17 de septiembre</span></span></div></div>
+    <div class="topbar"><div class="topbar-left"><button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true" aria-label="Minimizar panel" title="Minimizar panel"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/><path class="sidebar-toggle-arrow" d="m16 15-3-3 3-3"/></svg></button><div><div class="topbar-title" id="topbar-title">Gasto publicitario 2026</div><div class="topbar-caption" id="topbar-caption">Agencia Lima Retail</div></div></div><div class="topbar-meta"><div class="data-status" id="data-status"><button type="button" class="topbar-pill sync ok" id="data-status-btn" aria-expanded="false" aria-controls="data-status-card" title="Ver el detalle de la actualizacion"><span class="sync-dot"></span><span id="topbar-status">Cargando datos...</span><svg class="status-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><button type="button" class="refresh-sheet-btn" id="topbar-refresh-btn" data-amador-refresh title="Releer en este momento la hoja Distribucion-amador y la carpeta de reportes de Drive">Actualizar</button><div class="data-status-card" id="data-status-card" hidden><div class="data-status-head">Actualizacion de los datos</div><div class="data-status-row"><span>Datos</span><strong id="status-data">-</strong></div><div class="data-status-row"><span>Ultima lectura</span><strong id="status-last">-</strong></div><div class="data-status-row"><span>Proxima lectura</span><strong id="status-next">-</strong></div><div class="data-status-row"><span>Hoja</span><strong id="status-sheet">-</strong></div><div class="data-status-row"><span>Fuente</span><strong id="status-source">-</strong></div><p class="data-status-note" id="status-note" hidden></p></div></div></div></div>
     <div class="content">
       <section class="view visible" id="view-obj">
         <h1 class="section-title">Indicadores 2026 por mes</h1>
-        <p class="section-desc">Evolucion mensual de la inversion publicitaria, los mensajes y las reservas registradas.</p>
-        <div class="kpi-strip" id="kpi-strip" aria-label="KPIs generales"></div>
+        <p class="section-desc">Inversion publicitaria, mensajes y reservas de cada mes con su variacion contra el mes anterior completo, y el acumulado del año.</p>
+        <div class="month-tabs" id="month-tabs" role="group" aria-label="Mes de los indicadores"></div>
+        <div class="panel period-panel">
+          <div class="period-head">
+            <div class="period-title" id="period-title">Cargando datos...</div>
+            <div class="period-sub" id="period-sub"></div>
+          </div>
+          <div class="kpi-strip" id="kpi-strip" role="group" aria-label="Resumen ejecutivo"></div>
+        </div>
         <div class="panel chart-panel is-collapsed" id="chart-panel">
           <div class="panel-head chart-panel-head"><div><div class="panel-title" id="chart-title">Evolucion mensual | Inversion | 2026</div><div class="panel-sub">Indicadores reales registrados de enero a septiembre</div></div><div class="chart-controls"><button type="button" class="chart-toggle" id="chart-toggle-btn" aria-expanded="false" aria-controls="monthly-chart-body" title="Expandir grafico">+</button><div class="chart-series-toggles" id="chart-series-toggles" role="group" aria-label="Indicadores del grafico"><label class="series-toggle active" data-series="investment"><input type="checkbox" value="investment" checked>Inversion</label><label class="series-toggle" data-series="messages"><input type="checkbox" value="messages">Mensajes</label><label class="series-toggle" data-series="reservations"><input type="checkbox" value="reservations">Reservas</label></div><div class="chart-legend" id="chart-legend"></div></div></div>
           <div class="chart-wrap h-360" id="monthly-chart-body"><canvas id="chart-monthly"></canvas></div>
         </div>
-        <div class="month-tabs" id="month-tabs"></div>
-        <div class="panel campaigns-panel"><div class="panel-head campaigns-panel-head"><div><div class="panel-title" id="campaigns-title">Campanas de Junio 2026</div><div class="panel-sub" id="campaigns-sub"></div></div><button type="button" class="refresh-sheet-btn" id="campaigns-refresh-btn" title="Actualizar datos desde Google Sheets">Actualizar</button></div><div class="campaigns-note" id="campaigns-note"></div><div class="table-scroll"><table class="data-table campaigns-table"><thead><tr><th>Tipo</th><th>Campana</th><th>Anuncio</th><th>Objetivo</th><th>Reservas</th><th>Objetivo Reservas</th><th>Mensajes</th><th class="num">Costo por mensaje</th><th class="num">Costo por reserva</th><th class="num">Ratio de reservas</th><th>Estado</th><th>Fecha inicio</th><th>Fecha fin / dias restantes</th><th class="num">Duracion</th><th class="num">Importe diario</th><th class="num">Presupuesto x anuncio</th><th class="num">Gasto x anuncio</th><th class="num">Presupuesto x campana</th><th class="num">Gasto x campana</th><th class="num">Saldo x anuncio</th><th class="num">Saldo por campana</th><th class="num">Nuevo ppto diario</th><th>Observaciones</th></tr></thead><tbody id="campaigns-body"></tbody></table></div></div>
+        <div class="panel campaigns-panel"><div class="panel-head campaigns-panel-head"><div><div class="panel-title" id="campaigns-title">Campanas del mes</div><div class="panel-sub" id="campaigns-sub"></div></div></div><div class="campaigns-note" id="campaigns-note"></div><div class="table-scroll"><table class="data-table campaigns-table"><thead><tr><th>Tipo</th><th>Campana</th><th>Anuncio</th><th>Objetivo</th><th>Reservas</th><th>Objetivo Reservas</th><th>Mensajes</th><th class="num">Costo por mensaje</th><th class="num">Costo por reserva</th><th class="num">Ratio de reservas</th><th>Estado</th><th>Fecha inicio</th><th>Fecha fin / dias restantes</th><th class="num">Duracion</th><th class="num">Importe diario</th><th class="num">Presupuesto x anuncio</th><th class="num">Gasto x anuncio</th><th class="num">Presupuesto x campana</th><th class="num">Gasto x campana</th><th class="num">Saldo x anuncio</th><th class="num">Saldo por campana</th><th class="num">Nuevo ppto diario</th><th>Observaciones</th></tr></thead><tbody id="campaigns-body"></tbody></table></div></div>
       </section>
 
       <section class="view" id="view-messages">
         <h1 class="section-title">Proyecciones</h1>
         <p class="section-desc" id="projection-desc">Proyeccion al cierre de mes calculada con los datos reales del modulo Gasto publicitario.</p>
-        <div class="kpi-strip projection-kpis" id="projection-kpis" aria-label="KPIs de proyeccion"></div>
+        <div class="kpi-strip projection-kpis" id="projection-kpis" role="group" aria-label="KPIs de proyeccion"></div>
         <div class="panel projection-panel" id="projection-panel">
           <div class="panel-head projection-panel-head">
             <div>
@@ -129,7 +135,6 @@
               <div class="panel-title">Proyeccion al cierre del mes</div>
               <div class="panel-sub">Ritmo diario = acumulado real / dias con datos. La proyeccion mantiene ese ritmo hasta el ultimo dia del mes.</div>
             </div>
-            <button type="button" class="refresh-sheet-btn" id="projection-refresh-btn" title="Actualizar datos desde Google Sheets">Actualizar</button>
           </div>
           <div class="table-scroll">
             <table class="data-table projection-table">
@@ -144,7 +149,7 @@
       <section class="view" id="view-history">
         <h1 class="section-title">Histórico de Campañas</h1>
         <p class="section-desc">Registro acumulado de campañas finalizadas extraídas de todos los meses disponibles en el tablero.</p>
-        <div class="kpi-strip history-kpis" id="history-kpis" aria-label="KPIs historicos"></div>
+        <div class="kpi-strip history-kpis" id="history-kpis" role="group" aria-label="KPIs historicos"></div>
         <div class="panel history-panel">
           <div class="panel-head">
             <div>
@@ -164,7 +169,7 @@
       <section class="view" id="view-reports">
         <h1 class="section-title">Archivo de Reportes</h1>
         <p class="section-desc">Repositorio de los reportes, propuestas y materiales de Amador almacenados en la carpeta compartida de Google Drive. Cada documento se puede previsualizar sin salir del tablero, abrir en Drive o descargar.</p>
-        <div class="kpi-strip reports-kpis" id="reports-kpis" aria-label="KPIs del archivo de reportes"></div>
+        <div class="kpi-strip reports-kpis" id="reports-kpis" role="group" aria-label="KPIs del archivo de reportes"></div>
         <div class="panel reports-panel">
           <div class="panel-head reports-panel-head">
             <div>
@@ -172,7 +177,6 @@
               <div class="panel-sub" id="reports-count">Cargando documentos...</div>
             </div>
             <div class="reports-head-actions">
-              <button class="refresh-sheet-btn outline" id="reports-sync-btn" type="button">Sincronizar con Drive</button>
               <a class="refresh-sheet-btn" id="reports-folder-link" href="https://drive.google.com/drive/folders/1zqSfc2MlfsWYd3rfYgFWBgQwbrz6-R2b" target="_blank" rel="noopener">Abrir carpeta en Drive</a>
             </div>
           </div>

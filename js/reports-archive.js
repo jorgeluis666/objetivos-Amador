@@ -45,7 +45,7 @@
     reports: [],
     filters: { search: '', type: 'all', period: 'all', latestOnly: false },
     sort: 'recent',
-    syncing: false,
+    syncPromise: null,
   };
 
   const els = {};
@@ -392,20 +392,19 @@
     return parts.length ? ` (${parts.join(', ')})` : SIN_CAMBIOS;
   }
 
-  // El boton trae el contenido real de la carpeta y reemplaza lo que se esta mostrando.
-  async function syncNow(options) {
+  // Trae el contenido real de la carpeta y reemplaza lo que se esta mostrando. Una sincronizacion a la vez:
+  // pedir otra mientras corre devuelve la que esta en curso.
+  function syncNow(options) {
+    if (!state.syncPromise) state.syncPromise = runSync(options).finally(() => { state.syncPromise = null; });
+    return state.syncPromise;
+  }
+
+  async function runSync(options) {
     const silent = Boolean(options && options.silent);
-    if (state.syncing) return;
     const endpoint = syncEndpoint();
     if (!endpoint) {
       if (!silent) renderSyncStatus('warn', 'No hay Web App de Drive configurada, asi que se muestra el catalogo publicado. Ver README (Archivo de Reportes).');
       return;
-    }
-
-    state.syncing = true;
-    if (els.syncBtn) {
-      els.syncBtn.disabled = true;
-      els.syncBtn.textContent = 'Sincronizando...';
     }
 
     try {
@@ -424,13 +423,13 @@
       const message = `No se pudo sincronizar con Drive (${error.message}). Se mantiene el catalogo del ${formatLongDate(state.syncedAt)}.`;
       if (silent) console.warn('[reportes]', message);
       else renderSyncStatus('error', message);
-    } finally {
-      state.syncing = false;
-      if (els.syncBtn) {
-        els.syncBtn.disabled = false;
-        els.syncBtn.textContent = 'Sincronizar con Drive';
-      }
     }
+  }
+
+  // Boton Actualizar de la barra superior: si el modulo no se abrio todavia, lo carga (y sincroniza en silencio).
+  async function refresh() {
+    if (!state.ready) await init();
+    return syncNow();
   }
 
   function render() {
@@ -483,7 +482,6 @@
       const button = event.target.closest('[data-preview]');
       if (button) openPreview(button.dataset.preview);
     });
-    els.syncBtn?.addEventListener('click', () => syncNow());
     els.syncResult?.addEventListener('click', event => {
       if (event.target.closest('[data-close-sync]')) els.syncResult.hidden = true;
     });
@@ -515,7 +513,6 @@
     els.sortFilter = document.getElementById('reports-sort');
     els.latestOnly = document.getElementById('reports-latest-only');
     els.folderLink = document.getElementById('reports-folder-link');
-    els.syncBtn = document.getElementById('reports-sync-btn');
     els.syncResult = document.getElementById('reports-sync-result');
     els.modal = document.getElementById('reports-modal');
     els.modalTitle = document.getElementById('reports-modal-title');
@@ -546,5 +543,5 @@
     }
   }
 
-  window.ReportsArchive = { init };
+  window.ReportsArchive = { init, refresh };
 })();

@@ -4,7 +4,6 @@
   // data/amador-<mes>-sheet-2026.json como window.AMADOR_SHEET_MONTHS; esta lista solo se usa en desarrollo.
   const SHEET_FILES = ['june', 'july', 'august', 'september'].map(month => `data/amador-${month}-sheet-2026.json`);
   const SHEET_ID = '1Lj5rEepYZhHlf-VyGJwRYVMqnpWLu9lg3oL6wes3o-s';
-  const REFRESH_BUTTON_IDS = ['campaigns-refresh-btn', 'projection-refresh-btn'];
   const liveCsvUrl = sheetName => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
   const SYNC_INTERVAL_MS = 60 * 60 * 1000;
   // Al volver a la pestana del navegador solo se relee si la ultima lectura tiene mas de 5 minutos.
@@ -15,7 +14,18 @@
   const SHEET_SYNC_ENDPOINT = '';
   const SHEET_SYNC_ENDPOINT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
   const CHART_COLLAPSED_KEY = 'amador-chart-collapsed-v1';
-  const { MONTHS, SHORT_MONTHS, esc, safeUrl, limaParts, monthKey, daysInMonth } = window.AmadorShared;
+  const { MONTHS, SHORT_MONTHS, esc, safeUrl, fmt, change, limaParts, monthKey, daysInMonth, formatStamp, keepFocus } = window.AmadorShared;
+  // Pestana "Anual" junto a las de mes: acumula los meses del año con datos.
+  const YEAR_KEY = 'anual';
+  // Resumen ejecutivo. better: hacia donde una variacion es buena (null = neutra). perMonth: en la vista anual se
+  // muestra su promedio mensual.
+  const KPIS = [
+    { key: 'spend', label: 'Inversión', hint: 'Gasto total', better: null, format: 'money', perMonth: true },
+    { key: 'messages', label: 'Mensajes', hint: 'Conversaciones iniciadas', better: 'up', format: 'count', perMonth: true },
+    { key: 'costPerMessage', label: 'Costo por mensaje', hint: 'Inversión / mensajes', better: 'down', format: 'money' },
+    { key: 'reservations', label: 'Reservas', hint: 'Conversiones de reserva', better: 'up', format: 'count', perMonth: true },
+    { key: 'costPerReservation', label: 'Costo por reserva', hint: 'Inversión / reservas', better: 'down', format: 'money' },
+  ];
   const REQUIRED_HEADERS = ['Tipo','Campaña','Anuncio','Objetivo','Reservas','Objetivo Reservas','Mensajes','Costo por mensaje','Costo por reserva','Ratio de reservas','Estado','Fecha de inicio','Fecha de fin','Duración (días)','Días restantes','Importe diario','Presupuesto total x campaña','Gasto x Campaña','Saldo por campaña','Proyección real de gasto mesual'];
   const OPTIONAL_HEADERS = ['Nuevo ppto diario','Observaciones','Vista previa','Conjunto de anuncios'];
   const AD_BUDGET_HEADERS = ['Presupuesto total x anuncio','Presupuesto total x conjunto'];
@@ -27,7 +37,9 @@
     reservations: { label: 'Reservas', unit: 'count', color: '#ea580c', fill: 'rgba(234,88,12,.10)' },
   };
   const CHART_SERIES_KEY = 'amador-chart-series-v1';
-  const state = { data: null, types: readChartSeries(), month: null, chart: null, syncTimer: null, goals: readGoals(), chartCollapsed: readChartCollapsed(), lastSync: null, lastFetch: 0, loading: false, pendingManual: false, error: '' };
+  // monthKey: pestana elegida (YYYY-MM o anual); month: nombre del mes que muestran la tabla de campanas y sus
+  // ediciones locales. current: lectura en vivo en curso. liveSheets: pestanas leidas en la ultima lectura.
+  const state = { data: null, types: readChartSeries(), monthKey: null, month: null, chart: null, syncTimer: null, nextSync: 0, goals: readGoals(), chartCollapsed: readChartCollapsed(), lastSync: null, lastFetch: 0, current: null, liveSheets: [], error: '', goalNote: '' };
 
   const fmtMoney = value => Number.isFinite(Number(value)) ? `S/. ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
   const fmtCount = value => Number(value || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 });
@@ -348,33 +360,28 @@
       .filter(([year]) => year === state.data.year)
       .map(([, month]) => month);
   }
-  function setRefreshButtonState(isLoading) {
-    REFRESH_BUTTON_IDS.forEach(id => {
-      const button = document.getElementById(id);
-      if (!button) return;
-      button.disabled = Boolean(isLoading);
+  // ── Lectura en vivo y estado de los datos (barra superior) ───────────────
+  function refreshButtons() {
+    return [...document.querySelectorAll('[data-amador-refresh]')];
+  }
+  function setRefreshing(isLoading) {
+    refreshButtons().forEach(button => {
+      button.disabled = isLoading;
       button.textContent = isLoading ? 'Actualizando...' : 'Actualizar';
     });
   }
-  async function syncLiveSheet({ manual = false } = {}) {
-    if (state.loading) {
-      // Actualizar pulsado durante una lectura silenciosa: se repite en cuanto esta termina.
-      if (manual) {
-        state.pendingManual = true;
-        setRefreshButtonState(true);
-      }
-      return false;
-    }
-    state.loading = true;
-    if (manual) {
-      setRefreshButtonState(true);
-      updateSyncLabel('Actualizando datos desde Google Sheets...');
-    }
-    let ok = false;
+  // La proxima lectura automatica es una hora despues de la ultima, sea automatica o del boton.
+  function scheduleSync() {
+    clearTimeout(state.syncTimer);
+    state.nextSync = Date.now() + SYNC_INTERVAL_MS;
+    state.syncTimer = setTimeout(() => syncLiveSheet(), SYNC_INTERVAL_MS);
+  }
+  async function runSync(manual) {
+    if (manual) updateStatusLabel('Leyendo Google Sheets...');
     try {
       const months = (await Promise.all(liveMonthIndexes().map(fetchLiveMonth))).filter(Boolean);
       state.lastSync = new Date();
-      state.lastFetch = Date.now();
+      state.liveSheets = months.map(month => month.name);
       const before = signature();
       months.forEach(month => mergeSheetMonth({ ...month, readAt: state.lastSync.toISOString() }));
       decorate(state.data);
@@ -382,60 +389,234 @@
       state.error = '';
       // Una lectura silenciosa que trae lo mismo no repinta; Actualizar siempre publica.
       if (manual || hadError || signature() !== before) renderAll();
-      updateSyncLabel('Datos sincronizados desde Google Sheets');
-      ok = true;
+      return true;
     } catch (error) {
-      state.lastFetch = Date.now();
       state.error = String(error?.message || error);
       console.warn('[amador] No se pudo sincronizar Google Sheets:', error);
-      updateSyncLabel(manual ? 'No se pudo actualizar desde Google Sheets' : 'Datos locales, esperando sincronizacion');
       window.dispatchEvent(new CustomEvent('amador:data-error', { detail: { error: state.error } }));
+      return false;
     } finally {
-      state.loading = false;
+      state.lastFetch = Date.now();
+      scheduleSync();
+      updateStatusLabel();
     }
-    if (state.pendingManual) {
-      state.pendingManual = false;
-      return syncLiveSheet({ manual: true });
-    }
-    if (manual) setRefreshButtonState(false);
-    return ok;
   }
-  function updateSyncLabel(text) {
+  // Una lectura a la vez: una automatica pedida durante otra se une a esa; Actualizar espera y relee.
+  async function syncLiveSheet({ manual = false } = {}) {
+    if (state.current && !manual) return state.current;
+    while (state.current) await state.current;
+    state.current = runSync(manual).finally(() => { state.current = null; });
+    return state.current;
+  }
+  // Boton Actualizar de la barra superior: relee la hoja y sincroniza el Archivo de Reportes con Drive.
+  async function refreshAll() {
+    setRefreshing(true);
+    try {
+      await Promise.allSettled([syncLiveSheet({ manual: true }), window.ReportsArchive?.refresh?.()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+  function statusLabel() {
+    if (!state.data) return state.error ? 'Sin datos: no se pudo leer Google Sheets' : 'Cargando datos...';
+    const month = latestMonth();
+    const dataPart = month ? `Datos de ${month.name}` : 'Sin datos';
+    if (state.error) return `${dataPart} | sin conexion con Google Sheets`;
+    if (!state.lastSync) return `${dataPart} | copia guardada`;
+    return `${dataPart} | leidos ${formatStamp(state.lastSync)}`;
+  }
+  function updateStatusLabel(text) {
     const label = document.getElementById('topbar-status');
-    if (label && state.month === latestMonth()?.name) label.textContent = text;
+    if (label) label.textContent = text || statusLabel();
+    const pill = label?.closest('.topbar-pill');
+    if (pill) pill.classList.toggle('warn', !text && (Boolean(state.error) || !state.lastSync));
+    renderStatusCard();
   }
-  function renderKpis() {
-    const month = sourceMonth(state.month);
-    const host = document.getElementById('kpi-strip');
-    if (!host || !month) return;
-    const investment = Number(month.spend || 0);
-    const messages = Number(month.messages ?? valueFor(state.month, 'messages') ?? 0);
-    const reservations = Number(month.reservations ?? valueFor(state.month, 'reservations') ?? 0);
-    const costMessage = messages > 0 ? investment / messages : null;
-    const costReservation = reservations > 0 ? investment / reservations : null;
-    const cards = [
-      ['Inversión', fmtMoney(investment), 'Gasto total'],
-      ['Mensajes', fmtCount(messages), 'Conversaciones iniciadas'],
-      ['Costo por mensaje', fmtMoney(costMessage), 'Inversión / mensajes'],
-      ['Reservas', fmtCount(reservations), 'Conversiones de reserva'],
-      ['Costo por reserva', fmtMoney(costReservation), 'Inversión / reservas']
-    ];
-    host.innerHTML = cards.map(([label, value, meta]) => `<div class="kpi-pill"><span>${label}</span><strong>${value}</strong><small>${meta}</small></div>`).join('');
+  // Avisos del Objetivo Reservas: van a la nota del detalle de la actualizacion.
+  function setGoalNote(text) {
+    state.goalNote = text;
+    renderStatusCard();
+  }
+  function renderStatusCard() {
+    const card = document.getElementById('data-status-card');
+    if (!card || !state.data) return;
+    const month = latestMonth();
+    const year = state.data.year;
+    const set = (id, value) => {
+      const node = document.getElementById(id);
+      if (node) node.textContent = value || '-';
+    };
+    set('status-data', month ? (month.closed ? `${month.name} ${year} completo` : `1-${month.dataDay} ${month.name} ${year}`) : 'Sin meses con gasto');
+    set('status-last', state.lastSync ? formatStamp(state.lastSync) : 'sin lectura en vivo');
+    renderNextSync();
+    const sheets = state.liveSheets.length ? state.liveSheets : [month?.name].filter(Boolean);
+    set('status-sheet', `Distribucion-amador / ${sheets.join(' y ') || '-'}`);
+    set('status-source', state.lastSync ? (state.error ? 'ultima lectura en vivo' : 'Google Sheets en vivo') : 'copia guardada en el tablero');
+    const note = document.getElementById('status-note');
+    if (!note) return;
+    // Un solo aviso, por orden de gravedad: sin conexion, copia guardada, Objetivo Reservas o mes en curso.
+    let message = '';
+    if (state.error) message = `Sin conexion con Google Sheets: ${state.error}. Se muestran los ultimos datos leidos.`;
+    else if (!state.lastSync) message = 'Copia guardada en el tablero: todavia no llego la lectura en vivo.';
+    else if (state.goalNote) message = state.goalNote;
+    else if (month && !month.closed) message = `${month.name} sigue en curso: las cifras llegan hasta la ultima lectura.`;
+    note.textContent = message;
+    note.classList.toggle('error', Boolean(state.error));
+    note.hidden = !message;
+  }
+  function renderNextSync() {
+    const node = document.getElementById('status-next');
+    if (node) node.textContent = state.nextSync ? `${formatStamp(new Date(state.nextSync))} · cada hora con el tablero abierto` : '-';
+  }
+  function wireStatusCard() {
+    const button = document.getElementById('data-status-btn');
+    const card = document.getElementById('data-status-card');
+    if (!button || !card) return;
+    const close = () => {
+      card.hidden = true;
+      button.setAttribute('aria-expanded', 'false');
+    };
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      const open = card.hidden;
+      if (open) renderNextSync();
+      card.hidden = !open;
+      button.setAttribute('aria-expanded', String(open));
+    });
+    document.addEventListener('click', event => {
+      if (!card.hidden && !card.contains(event.target) && event.target !== button) close();
+    });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
+  }
+
+  // ── Pestanas de mes y periodo ────────────────────────────────────────────
+  const hasData = month => Number(month?.spend) > 0;
+  function monthByKey(key) {
+    return state.data?.months.find(month => month.key === key) || null;
+  }
+  function previousMonth(month) {
+    const index = MONTHS.indexOf(month?.name);
+    return index > 0 ? monthByKey(monthKey(state.data.year, index - 1)) : null;
+  }
+  const annualView = () => state.monthKey === YEAR_KEY && state.data.months.some(hasData);
+  function selectedMonth() {
+    const month = monthByKey(state.monthKey);
+    return hasData(month) ? month : latestMonth();
+  }
+  // Totales de uno o varios meses. Enero a mayo solo traen gasto: mensajes y reservas quedan en null si ningun mes
+  // los registra, y sus costos usan solo el gasto de los meses que si los registran.
+  function summarize(months) {
+    const sum = type => {
+      const values = months.map(month => valueFor(month.name, type)).filter(value => value != null);
+      return values.length ? values.reduce((total, value) => total + Number(value), 0) : null;
+    };
+    const spendWith = type => months.filter(month => valueFor(month.name, type) != null).reduce((total, month) => total + Number(month.spend || 0), 0);
+    const messages = sum('messages');
+    const reservations = sum('reservations');
+    return {
+      spend: months.reduce((total, month) => total + Number(month.spend || 0), 0),
+      messages,
+      reservations,
+      costPerMessage: messages > 0 ? spendWith('messages') / messages : null,
+      costPerReservation: reservations > 0 ? spendWith('reservations') / reservations : null,
+    };
+  }
+  // Periodo elegido: un mes (contra el mes anterior completo) o el acumulado del año.
+  function currentPeriod() {
+    if (!state.data) return null;
+    if (annualView()) {
+      const months = state.data.months.filter(hasData);
+      const first = months[0];
+      const last = months[months.length - 1];
+      return { annual: true, months, year: state.data.year, closed: today().year > state.data.year, label: `1 ${first.name} - ${last.dataDay} ${last.name}`, compare: null };
+    }
+    const month = selectedMonth();
+    if (!month) return null;
+    const previous = previousMonth(month);
+    return {
+      annual: false,
+      month,
+      months: [month],
+      year: state.data.year,
+      closed: month.closed,
+      label: `1-${month.dataDay} ${month.name}`,
+      compare: hasData(previous) ? { month: previous, months: [previous], label: `${previous.name} completo` } : null,
+    };
+  }
+  // "▲ 12.3% vs Agosto completo". El color depende de si subir es bueno para ese indicador.
+  function deltaHtml(current, previous, better, compareLabel) {
+    const variation = change(current, previous);
+    if (variation == null) return compareLabel ? `<small class="delta flat">Sin dato en ${esc(compareLabel)}</small>` : '';
+    const direction = Math.abs(variation) < 0.05 ? 'flat' : variation > 0 ? 'up' : 'down';
+    const tone = direction === 'flat' || !better ? 'flat' : direction === better ? 'good' : 'bad';
+    const arrow = direction === 'up' ? '&#9650;' : direction === 'down' ? '&#9660;' : '&#9679;';
+    return `<small class="delta ${tone}">${arrow} ${fmt.pct(Math.abs(variation))}${compareLabel ? ` vs ${esc(compareLabel)}` : ''}</small>`;
   }
   function renderTabs() {
     const host = document.getElementById('month-tabs');
-    host.innerHTML = MONTHS.map(name => {
-      const available = !!sourceMonth(name);
-      const selected = name === state.month;
-      return `<button type="button" class="month-tab ${selected ? 'active' : ''}" data-month="${name}" ${available ? '' : 'disabled'}>${name}${name === latestMonth()?.name ? '<span class="current-dot"></span>' : ''}</button>`;
-    }).join('');
-    host.querySelectorAll('.month-tab:not(:disabled)').forEach(button => {
-      button.addEventListener('click', () => {
-        state.month = button.dataset.month;
-        host.querySelectorAll('.month-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.month === state.month));
-        renderMonthView();
-      });
+    if (!host || !state.data) return;
+    const year = state.data.year;
+    const latest = latestMonth();
+    const annual = annualView();
+    const selected = annual ? null : selectedMonth()?.key;
+    keepFocus(host, () => {
+      host.innerHTML = MONTHS.map((name, index) => {
+        const key = monthKey(year, index);
+        const on = key === selected;
+        return `<button type="button" class="month-tab${on ? ' active' : ''}" data-month="${key}" aria-pressed="${on}"${hasData(monthByKey(key)) ? '' : ' disabled title="Sin datos en la hoja Distribucion-amador"'}>${name}${key === latest?.key ? '<span class="current-dot"></span>' : ''}</button>`;
+      }).join('') + `<button type="button" class="month-tab${annual ? ' active' : ''}" data-month="${YEAR_KEY}" aria-pressed="${annual}" title="Acumulado ${year} de los meses con datos"${latest ? '' : ' disabled'}>Anual</button>`;
     });
+  }
+  function renderPeriod(period) {
+    const title = document.getElementById('period-title');
+    const sub = document.getElementById('period-sub');
+    if (!title || !sub) return;
+    if (!period) {
+      title.textContent = 'Sin datos';
+      sub.textContent = 'No hay meses con gasto en la hoja Distribucion-amador.';
+      return;
+    }
+    if (period.annual) {
+      const count = period.months.length;
+      const withResults = period.months.filter(month => valueFor(month.name, 'messages') != null);
+      const partial = withResults.length && withResults.length < count ? ` Mensajes y reservas se registran desde ${withResults[0].name}; los meses anteriores solo traen gasto.` : '';
+      title.textContent = `Periodo: ${period.label} ${period.year}${period.closed ? '' : ' (año en curso)'}`;
+      sub.textContent = `Acumulado de ${count} ${count === 1 ? 'mes' : 'meses'} con datos (${period.months.map(month => SHORT_MONTHS[MONTHS.indexOf(month.name)]).join(', ')}).${partial} Sin año anterior para comparar.`;
+      return;
+    }
+    title.textContent = `Periodo: ${period.label} ${period.year}${period.closed ? '' : ' (mes en curso)'}`;
+    sub.textContent = period.compare ? `Comparacion vs ${period.compare.label}` : 'Sin mes anterior para comparar';
+  }
+  // Promedio por mes de la vista anual con los meses cerrados (un mes a medias lo bajaria) que registran cada indicador.
+  function monthlyAverage(period) {
+    const closed = period.months.filter(month => month.closed);
+    const months = closed.length ? closed : period.months;
+    const average = {};
+    KPIS.filter(kpi => kpi.perMonth).forEach(kpi => {
+      const counted = months.filter(month => summarize([month])[kpi.key] != null);
+      average[kpi.key] = counted.length ? {
+        value: counted.reduce((total, month) => total + summarize([month])[kpi.key], 0) / counted.length,
+        basis: `Promedio de ${counted.map(month => month.name).join(', ')}`,
+      } : null;
+    });
+    return average;
+  }
+  function renderKpis(period) {
+    const host = document.getElementById('kpi-strip');
+    if (!host) return;
+    if (!period) {
+      host.innerHTML = '';
+      return;
+    }
+    const current = summarize(period.months);
+    const previous = period.compare ? summarize(period.compare.months) : null;
+    const average = period.annual ? monthlyAverage(period) : null;
+    host.innerHTML = KPIS.map(kpi => {
+      let note = `<small>${kpi.hint}</small>`;
+      if (previous) note = deltaHtml(current[kpi.key], previous[kpi.key], kpi.better, period.compare.label);
+      else if (average?.[kpi.key]) note = `<small title="${esc(average[kpi.key].basis)}">Prom. mensual: ${fmt[kpi.format](average[kpi.key].value)}</small>`;
+      return `<div class="kpi-pill"><span>${kpi.label}</span><strong>${fmt[kpi.format](current[kpi.key])}</strong>${note}</div>`;
+    }).join('');
   }
   function statusClass(status) {
     const normalized = String(status || '').toLowerCase();
@@ -507,7 +688,7 @@
   async function pushGoalToSheet(input) {
     const endpoint = syncEndpoint();
     if (!endpoint) {
-      updateSyncLabel('Objetivo actualizado localmente; falta endpoint de escritura a Sheets');
+      setGoalNote('Objetivo Reservas guardado en este navegador: falta el endpoint de escritura a Google Sheets.');
       return;
     }
     const payload = {
@@ -518,7 +699,7 @@
       campaignLevel: input.dataset.ad === '__campaign__',
       value: input.value === '' ? '' : Number(input.value)
     };
-    updateSyncLabel('Enviando objetivo a Google Sheets...');
+    setGoalNote('Enviando el Objetivo Reservas a Google Sheets...');
     try {
       await fetch(endpoint, {
         method: 'POST',
@@ -526,20 +707,28 @@
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
       });
-      updateSyncLabel('Objetivo enviado a Google Sheets');
+      setGoalNote('Objetivo Reservas enviado a Google Sheets.');
       setTimeout(() => syncLiveSheet(), 1800);
     } catch (error) {
       console.warn('[amador] No se pudo enviar el objetivo a Google Sheets:', error);
-      updateSyncLabel('Cambio local; error al enviar a Google Sheets');
+      setGoalNote('Objetivo Reservas guardado en este navegador; no se pudo enviar a Google Sheets.');
     }
   }
-  function renderCampaigns() {
-    const month = sourceMonth(state.month);
+  function renderCampaigns(period) {
+    const body = document.getElementById('campaigns-body');
+    if (!period || period.annual) {
+      document.getElementById('campaigns-title').textContent = 'Campanas por mes';
+      document.getElementById('campaigns-sub').textContent = period ? 'Elige un mes para ver sus campanas y anuncios.' : '';
+      document.getElementById('campaigns-note')?.classList.remove('visible');
+      body.innerHTML = `<tr><td colspan="23" class="table-empty">${period ? 'La vista anual resume los indicadores; el detalle de campanas va por mes.' : 'Sin datos.'}</td></tr>`;
+      return;
+    }
+    const month = period.month;
     const baseCampaigns = month.campaigns || [];
     const monthCustom = getMonthCustom();
     const campaigns = [...baseCampaigns, ...monthCustom.campaigns];
     const active = baseCampaigns.filter(c => ['activa', 'activo'].includes(String(c.status || '').toLowerCase())).length;
-    document.getElementById('campaigns-title').textContent = `Campanas de ${month.name} 2026`;
+    document.getElementById('campaigns-title').textContent = `Campanas de ${month.name} ${state.data.year}`;
     document.getElementById('campaigns-sub').textContent = baseCampaigns.length ? `${active} activas de ${baseCampaigns.length} campanas registradas.` : 'Sin detalle de campanas en el archivo fuente.';
     const note = document.getElementById('campaigns-note');
     if (note) {
@@ -547,7 +736,6 @@
       note.textContent = observation ? `* ${observation}` : '';
       note.classList.toggle('visible', Boolean(observation));
     }
-    const body = document.getElementById('campaigns-body');
     if (!campaigns.length) { body.innerHTML = '<tr><td colspan="23" class="table-empty">Sin campanas registradas para este mes.</td></tr>'; return; }
     const rows = [];
     let totalReservas = 0;
@@ -738,17 +926,20 @@
     if (state.chart) state.chart.destroy();
     state.chart = new Chart(canvas, { type: 'line', data: { labels: SHORT_MONTHS, datasets }, options: chartOptions(selectedKeys), plugins: [{ id: 'valueLabels', afterDatasetsDraw(chart) { const ctx = chart.ctx; ctx.save(); ctx.font = '600 10px Inter, sans-serif'; ctx.textAlign = 'center'; chart.data.datasets.forEach((dataset, datasetIndex) => { const meta = chart.getDatasetMeta(datasetIndex); ctx.fillStyle = dataset.borderColor; meta.data.forEach((point, index) => { const value = dataset.data[index]; if (value == null) return; ctx.fillText(formatSeriesValue(value, SERIES[dataset.seriesKey], true), point.x, point.y - 13); }); }); ctx.restore(); } }] });
   }
-  // Cambiar de mes solo repinta lo que depende del mes; el grafico mensual y el Historico no.
+  // Cambiar de mes solo repinta lo que depende del mes: pestanas, periodo, KPIs y campanas.
   function renderMonthView() {
-    renderKpis();
-    renderCampaigns();
+    if (!annualView() && !hasData(monthByKey(state.monthKey))) state.monthKey = latestMonth()?.key || null;
+    state.month = (annualView() ? latestMonth() : selectedMonth())?.name || null;
+    const period = currentPeriod();
+    renderTabs();
+    renderPeriod(period);
+    renderKpis(period);
+    renderCampaigns(period);
   }
   // Datos nuevos: se repinta todo y se avisa a los modulos que dependen de estos datos (Proyecciones).
   function renderAll() {
-    if (!sourceMonth(state.month)) state.month = latestMonth()?.name || state.data.months[0]?.name;
     applyChartCollapsed();
     renderChart();
-    renderTabs();
     renderMonthView();
     renderHistory();
     window.dispatchEvent(new CustomEvent('amador:data-updated'));
@@ -763,8 +954,14 @@
       saveChartSeries();
       renderChart();
     });
-    REFRESH_BUTTON_IDS.forEach(id => {
-      document.getElementById(id)?.addEventListener('click', () => syncLiveSheet({ manual: true }));
+    // El unico boton Actualizar vive en la barra superior, junto al estado de los datos.
+    refreshButtons().forEach(button => button.addEventListener('click', refreshAll));
+    wireStatusCard();
+    document.getElementById('month-tabs')?.addEventListener('click', event => {
+      const button = event.target.closest('.month-tab:not(:disabled)');
+      if (!button || button.dataset.month === state.monthKey) return;
+      state.monthKey = button.dataset.month;
+      renderMonthView();
     });
     document.getElementById('chart-toggle-btn').addEventListener('click', () => {
       state.chartCollapsed = !state.chartCollapsed;
@@ -781,7 +978,7 @@
         state.goals[goalKey(input.dataset.campaign, input.dataset.ad)] = input.value;
         updateAdGoal(input.dataset.campaign, input.dataset.ad, input.value);
         saveGoals();
-        renderCampaigns();
+        renderCampaigns(currentPeriod());
         pushGoalToSheet(input);
         return;
       }
@@ -810,7 +1007,7 @@
           }
           return mc;
         });
-        renderCampaigns();
+        renderCampaigns(currentPeriod());
       }
     });
     document.getElementById('campaigns-body').addEventListener('click', event => {
@@ -822,7 +1019,7 @@
           mc.extraAds[cname].push({ _id: genId(), name: '', objective: '' });
           return mc;
         });
-        renderCampaigns();
+        renderCampaigns(currentPeriod());
         return;
       }
       const addCampBtn = event.target.closest('.add-campaign-btn');
@@ -831,7 +1028,7 @@
           mc.campaigns.push({ _id: genId(), name: '', type: '', status: 'Activo', ads: [] });
           return mc;
         });
-        renderCampaigns();
+        renderCampaigns(currentPeriod());
       }
     });
     document.addEventListener('visibilitychange', () => {
@@ -847,11 +1044,11 @@
       const sheetMonths = window.AMADOR_SHEET_MONTHS || await Promise.all(SHEET_FILES.map(url => fetch(url, { cache: 'no-store' }).then(response => response.json())));
       sheetMonths.forEach(month => mergeSheetMonth(month, state.data.source || 'Datos locales'));
       decorate(state.data);
-      state.month = latestMonth()?.name || MONTHS[0];
+      state.monthKey = latestMonth()?.key || null;
       wireEvents();
       renderAll();
+      updateStatusLabel('Leyendo Google Sheets...');
       syncLiveSheet();
-      state.syncTimer = setInterval(() => syncLiveSheet(), SYNC_INTERVAL_MS);
     } catch (error) { document.getElementById('view-obj').innerHTML = '<div class="data-notice error"><strong>No se pudo cargar la informacion de Amador.</strong></div>'; console.error(error); }
   }
   // Snapshot de solo lectura para los modulos que dependen de estos datos (Proyecciones).
