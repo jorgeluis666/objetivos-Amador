@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.20.1`.
+Version actual: `v1.20.2`.
 
 ## Versionado
 
@@ -87,19 +87,21 @@ archivo). Formato:
 
 - `type`: `cambio`, `comentario` o `decision` (otro valor se lee como `comentario`).
 - `platform`: clave de `PLATFORMS` en `js/bitacora.js` (`general`, `meta`); para agregar una plataforma se edita esa
-  lista, el select del formulario en `index.html` y su color en `css/dashboard.css` (`.log-tag.platform.<clave>`).
+  lista (el select del formulario se llena desde ella) y su color en `css/dashboard.css` (`.log-tag.platform.<clave>`).
 - `date` (`YYYY-MM-DD`) define el mes en que se agrupa el item; `done` marca la casilla.
 
 Flujo editar -> exportar -> publicar: lo que se agrega o edita en el tablero queda como borrador en ese navegador
 (`localStorage`, clave `amador-bitacora-draft`). **Exportar** descarga `amador-bitacora-2026.json` con `updatedAt` de hoy;
-para publicarlo se reemplaza el archivo en `data/`, se hace commit y se despliega. El borrador guarda el `updatedAt`
-sobre el que se hizo y se ignora cuando se publica una version nueva del archivo.
+para publicarlo se reemplaza el archivo en `data/`, se hace commit y se despliega. El borrador guarda el `updatedAt` y una
+huella del contenido sobre el que se hizo y se ignora cuando se publica una version nueva del archivo. Editar una fila no
+saca el foco del campo: la lista solo se redibuja si cambia el orden, el filtro o el conteo, y una fecha tecleada se
+reordena al salir del campo.
 
 ## Usuarios y Claves
 
-Directorio de quien tiene acceso al tablero (`js/usuarios.js`). Las claves las valida Apache (ver "Publicacion en el
-hosting de Lima Retail") y **nunca** se guardan en el repo ni en el HTML: esta vista solo lleva nombre, usuario de
-acceso, rol, fecha de alta y estado. La version publicada es `data/amador-usuarios-2026.json` (el build la incrusta
+Directorio de quien tiene acceso al tablero (`js/usuarios.js`). En GitHub Pages el tablero se abre con una sola clave
+compartida (secret `DASHBOARD_PASSWORD`, ver "Publicacion en GitHub Pages con clave") que **nunca** se guarda en el repo
+ni en el HTML: esta vista solo lleva nombre, usuario o correo, rol, fecha de alta y estado. La version publicada es `data/amador-usuarios-2026.json` (el build la incrusta
 como `window.AMADOR_USUARIOS`; dist/ no lleva ese archivo).
 
 ```json
@@ -109,10 +111,14 @@ como `window.AMADOR_USUARIOS`; dist/ no lleva ese archivo).
 ```
 
 - `role`: `cliente`, `equipo` o `admin` (otro valor se lee como `cliente`).
-- `status`: `activo` o `suspendido`. `user` se guarda en minusculas y sin espacios ni `:` (igual que un usuario de Basic Auth).
+- `status`: `activo` o `suspendido`. `user` se guarda en minusculas y sin espacios ni `:`; no puede quedar vacio ni repetirse.
 - Se edita igual que la Bitacora: borrador en `localStorage` (clave `amador-usuarios-draft`), **Exportar** descarga
   `amador-usuarios-2026.json`, se reemplaza el archivo en `data/`, commit y despliegue.
-- Dar, cambiar o quitar el acceso de verdad se hace en cPanel > Privacidad de directorios; la vista muestra los pasos.
+- Dar acceso es entregar la clave; cambiarla es editar el secret y volver a publicar (la vista muestra los pasos). Como la
+  clave es compartida, quitar el acceso a alguien obliga a cambiarla. En la publicacion alternativa del hosting cada cuenta
+  tiene su usuario en cPanel > Privacidad de directorios.
+- Bitacora y Usuarios comparten `js/draft-store.js`: el borrador guarda la fecha y una huella del archivo publicado, asi
+  que se descarta si se publica otra version (aunque sea del mismo dia).
 
 ## Archivo de Reportes (Google Drive)
 

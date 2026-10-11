@@ -13,7 +13,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar" id="sidebar">
-    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.20.1</span></div></div>
+    <div class="s-brand"><div class="s-title">Amador</div><div class="s-sub">BI Agencia Lima Retail <span class="app-version">v1.20.2</span></div></div>
     <div class="s-group-lbl">Modulos activos</div>
     <button class="s-item active" type="button" data-view-target="view-obj">
       <div class="s-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
@@ -35,7 +35,7 @@
       <div class="s-icon"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="15" height="18" rx="2"/><line x1="3" y1="8" x2="7" y2="8"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="3" y1="16" x2="7" y2="16"/><line x1="10" y1="8" x2="16" y2="8"/><line x1="10" y1="12" x2="16" y2="12"/></svg></div>
       <div class="s-text"><div class="s-title-nav">Bitácora</div><div class="s-desc-nav">Cambios, comentarios y decisiones</div></div>
     </button>
-    <button class="s-item" type="button" data-view-target="view-users">
+    <button class="s-item s-item-bottom" type="button" data-view-target="view-users">
       <div class="s-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
       <div class="s-text"><div class="s-title-nav">Usuarios y Claves</div><div class="s-desc-nav">Accesos al tablero</div></div>
     </button>
@@ -271,11 +271,11 @@
       </section>
       <section class="view" id="view-users">
         <h1 class="section-title">Usuarios y Claves</h1>
-        <p class="section-desc">Directorio de las cuentas con acceso al tablero. Las claves las valida el servidor y nunca se guardan aquí: esta lista solo registra quién tiene acceso. Se edita como borrador en este navegador hasta exportar el archivo para publicarlo.</p>
+        <p class="section-desc">Directorio de quién tiene acceso al tablero. El tablero se abre con una sola clave compartida que nunca se guarda aquí: esta lista solo registra a quién se le entregó. Se edita como borrador en este navegador hasta exportar el archivo para publicarlo.</p>
         <div class="panel log-panel">
           <form class="log-form users-form" id="users-form" autocomplete="off">
             <input class="log-text" type="text" name="name" placeholder="Nombre de la persona" aria-label="Nombre">
-            <input class="log-text" type="text" name="user" placeholder="Usuario de acceso" aria-label="Usuario de acceso" autocapitalize="none" spellcheck="false">
+            <input class="log-text" type="text" name="user" placeholder="Usuario o correo" aria-label="Usuario o correo" autocapitalize="none" spellcheck="false">
             <select class="log-tag" name="role" aria-label="Rol"><option value="cliente">Cliente</option><option value="equipo">Equipo Lima Retail</option><option value="admin">Administrador</option></select>
             <button class="refresh-sheet-btn" type="submit">Agregar</button>
           </form>
@@ -295,12 +295,12 @@
           <div id="users-list"></div>
         </div>
         <div class="panel users-guide">
-          <div class="panel-title">Cómo dar acceso o cambiar una clave</div>
+          <div class="panel-title">Cómo dar acceso o cambiar la clave</div>
           <ol>
-            <li>Agrega a la persona en esta lista, exporta el archivo y publícalo.</li>
-            <li>En cPanel &gt; <b>Privacidad de directorios</b> &gt; carpeta del tablero, crea el usuario con el mismo nombre de acceso y una clave larga y aleatoria. Ahí mismo se cambia la clave de una cuenta existente.</li>
-            <li>Para quitar el acceso, elimina el usuario en esa misma pantalla y marca a la persona como Suspendida.</li>
-            <li>Comparte la clave por un canal privado, nunca en el mismo mensaje que el enlace.</li>
+            <li><b>Dar acceso:</b> agrega a la persona en esta lista, exporta el archivo y publícalo. Después compártele la clave por un canal privado, nunca en el mismo mensaje que el enlace.</li>
+            <li>La clave es <b>una sola para todos</b> y vive en el secret <b>DASHBOARD_PASSWORD</b> de GitHub: no está en esta lista ni en el HTML publicado.</li>
+            <li><b>Cambiarla:</b> GitHub &gt; Settings &gt; Secrets and variables &gt; Actions &gt; editar <b>DASHBOARD_PASSWORD</b> (larga y aleatoria, 16 caracteres o más) y luego Actions &gt; "Publicar en GitHub Pages con clave" &gt; Run workflow.</li>
+            <li><b>Quitar acceso:</b> marca a la persona como Suspendida y cambia la clave, porque es compartida; luego pásale la nueva al resto.</li>
           </ol>
         </div>
       </section>
@@ -327,6 +327,7 @@
   </div>
 </div>
 <script src="js/shared.js"></script>
+<script src="js/draft-store.js"></script>
 <script src="js/objectives.js"></script>
 <script src="js/reports-archive.js"></script>
 <script src="js/projections.js"></script>
@@ -334,6 +335,6 @@
 <script src="js/usuarios.js"></script>
 <script src="js/navigation.js"></script>
 <script src="js/sidebar.js"></script>
-<!-- El acceso lo controla el servidor (deploy/.htaccess + HTTP Basic Auth). -->
+<!-- En GitHub Pages el tablero se publica cifrado con la clave de DASHBOARD_PASSWORD (scripts/protect-pages.js). -->
 </body>
 </html>

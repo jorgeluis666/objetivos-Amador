@@ -599,6 +599,12 @@
   .shell.sidebar-collapsed .s-item::after {
     display: none;
   }
+
+  /* Minimizado, Usuarios y Claves baja al fondo de la franja, lejos de los modulos de datos. */
+  .shell.sidebar-collapsed .s-item-bottom {
+    margin-top: auto;
+    margin-bottom: 0;
+  }
 }
 
 @media(max-width:900px) {

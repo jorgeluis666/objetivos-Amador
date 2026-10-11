@@ -35,7 +35,7 @@
       title: 'Usuarios y Claves',
       caption: 'Cuentas con acceso al tablero',
       source: 'Fuente: Directorio de accesos de Agencia Lima Retail',
-      footer: 'Las claves las valida el servidor; aqui no se guarda ninguna',
+      footer: 'La clave única descifra el tablero en el navegador; aquí no se guarda ninguna',
     },
   };
 
