@@ -30,9 +30,10 @@
     return date ? `${date.getDate()} de ${MONTHS[date.getMonth()].toLowerCase()} de ${date.getFullYear()}` : '-';
   }
 
-  // El mes proyectado es el ultimo con gasto: el mes en curso o, si aun no tiene gasto, el anterior.
+  // El mes proyectado es el ultimo con actividad (gasto, mensajes o reservas): el mes en curso o, si aun no tiene
+  // datos, el anterior.
   function pickMonth(months) {
-    const withData = months.filter(month => Number(month.spend) > 0);
+    const withData = months.filter(month => Number(month.spend) > 0 || Number(month.messages) > 0 || Number(month.reservations) > 0);
     return withData[withData.length - 1] || null;
   }
 
@@ -57,14 +58,17 @@
       const pace = actual / daysWithData;
       const projected = closed ? actual : pace * daysInMonth;
       const reference = metric.reference ? references[metric.reference] : null;
+      // Mes en curso con el gasto sin cargar: la inversion no se compara con el presupuesto.
+      const pending = metric.key === 'investment' && !closed && !(actual > 0);
       return {
         ...metric,
         actual,
         pace,
         projected,
         reference,
-        gap: reference == null ? null : reference - projected,
-        requiredPace: reference == null || daysLeft <= 0 ? null : Math.max(0, (reference - actual) / daysLeft),
+        pending,
+        gap: reference == null || pending ? null : reference - projected,
+        requiredPace: reference == null || pending || daysLeft <= 0 ? null : Math.max(0, (reference - actual) / daysLeft),
       };
     });
 
@@ -89,15 +93,17 @@
       budget: references.budget,
       budgetUsedPct: references.budget ? (byKey.investment.actual / references.budget) * 100 : null,
       budgetProjectedPct: references.budget ? (projectedSpend / references.budget) * 100 : null,
-      costPerMessage: byKey.messages.actual ? byKey.investment.actual / byKey.messages.actual : null,
-      costPerReservation: byKey.reservations.actual ? byKey.investment.actual / byKey.reservations.actual : null,
-      projectedCostPerMessage: projectedMessages ? projectedSpend / projectedMessages : null,
-      projectedCostPerReservation: projectedReservations ? projectedSpend / projectedReservations : null,
+      // Sin gasto cargado (inicio de mes) no hay costo: "-" en lugar de S/. 0.00.
+      costPerMessage: byKey.messages.actual && byKey.investment.actual > 0 ? byKey.investment.actual / byKey.messages.actual : null,
+      costPerReservation: byKey.reservations.actual && byKey.investment.actual > 0 ? byKey.investment.actual / byKey.reservations.actual : null,
+      projectedCostPerMessage: projectedMessages && projectedSpend > 0 ? projectedSpend / projectedMessages : null,
+      projectedCostPerReservation: projectedReservations && projectedSpend > 0 ? projectedSpend / projectedReservations : null,
     };
   }
 
+  // El escenario conserva el costo por mensaje y por reserva del mes: sin gasto cargado no hay costo que conservar.
   function canSimulate(projection, metric) {
-    return !projection.closed && projection.daysLeft > 0 && metric.projected > 0;
+    return !projection.closed && projection.daysLeft > 0 && projection.byKey.investment.actual > 0 && metric.projected > 0;
   }
 
   // El cierre objetivo nunca puede quedar por debajo de lo ya realizado.
@@ -141,9 +147,10 @@
     const investment = projection.byKey.investment;
     const messages = projection.byKey.messages;
     const reservations = projection.byKey.reservations;
-    const budgetHint = projection.budget
+    let budgetHint = projection.budget
       ? `${projection.budgetProjectedPct.toFixed(0)}% del presupuesto (${money(projection.budget)})`
       : 'Sin presupuesto registrado';
+    if (!projection.closed && !(investment.actual > 0)) budgetHint = 'La hoja todavía no trae el gasto del mes';
     const goalHint = reservations.reference
       ? `Objetivo ${count(reservations.reference)} | ${reservations.gap >= 0 ? `faltan ${count(Math.abs(Math.round(reservations.gap)))}` : `sobre el objetivo por ${count(Math.abs(Math.round(reservations.gap)))}`}`
       : 'Sin objetivo registrado';
@@ -169,7 +176,9 @@
     const body = document.getElementById('projection-body');
     if (!body) return;
     const rows = projection.metrics.map(metric => {
-      const gap = metric.gap == null
+      const gap = metric.pending
+        ? '<span class="no-data">Gasto sin cargar en la hoja</span>'
+        : metric.gap == null
         ? '<span class="no-data">Sin referencia</span>'
         : `<span class="projection-gap ${metric.gap >= 0 ? 'ok' : 'over'}">${metric.gap >= 0 ? '' : '+'}${format(Math.abs(metric.gap), metric.unit)} ${metric.gap >= 0 ? 'por debajo' : 'por encima'}</span>`;
       return `
@@ -368,9 +377,9 @@
     }
 
     if (!simulable) {
-      const reason = projection.closed || projection.daysLeft <= 0
-        ? 'El mes ya cerro: el simulador aplica al mes en curso.'
-        : `Todavia no hay ${metric.label.toLowerCase()} registrados para simular.`;
+      let reason = `Todavia no hay datos de ${metric.label.toLowerCase()} en el mes para simular.`;
+      if (projection.closed || projection.daysLeft <= 0) reason = 'El mes ya cerro: el simulador aplica al mes en curso.';
+      else if (!(projection.byKey.investment.actual > 0)) reason = 'La hoja todavía no trae el gasto del mes: el simulador necesita el costo por mensaje y por reserva.';
       if (sub) sub.textContent = reason;
       grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;min-height:120px"><strong>Simulador no disponible</strong>${reason}</div>`;
       if (note) note.textContent = '';
@@ -454,7 +463,7 @@
 
   function renderEmpty() {
     const panel = document.getElementById('projection-panel');
-    if (panel) panel.innerHTML = '<div class="empty-state"><strong>Sin datos para proyectar</strong>Todavia no hay gasto registrado en el mes en curso.</div>';
+    if (panel) panel.innerHTML = '<div class="empty-state"><strong>Sin datos para proyectar</strong>Todavia no hay datos en el mes en curso.</div>';
     const body = document.getElementById('projection-body');
     if (body) body.innerHTML = '<tr><td class="table-empty" colspan="6">Sin datos para proyectar.</td></tr>';
   }

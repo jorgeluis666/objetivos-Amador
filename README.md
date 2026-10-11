@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.20.4`.
+Version actual: `v1.20.5`.
 
 ## Versionado
 
@@ -34,7 +34,7 @@ El tablero solo muestra los modulos activos: los modulos pendientes (Comparativo
 
 La fuente normalizada del dashboard esta en `data/amador-ads-2026.json` (enero a mayo y la fecha de la ultima copia) y en una copia por pestana mensual de `Distribucion-amador` (`data/amador-<mes>-sheet-2026.json`: junio, julio, agosto y septiembre). El build incrusta todas las copias mensuales que haya en `data/`; en desarrollo se piden las de la lista `SHEET_FILES` de `js/objectives.js`. Junio, julio y agosto estan guardados con sus datos finales; la copia de septiembre es la del 17 de septiembre de 2026 (gasto S/1,778.94; 308 mensajes; 16 reservas) y la lectura en vivo la reemplaza por la pestana actual. Las pestanas de julio en adelante agrupan anuncios por `Conjunto de anuncios` (RTGT, P. Frio, P. Caliente, etc.), reflejado en el campo `adSet`.
 
-Lectura en vivo: al abrir el tablero, cada hora y con el boton Actualizar se leen el CSV publicado de la pestana del mes en curso y la del mes anterior (hora de Lima), por nombre de hoja (`Octubre`, `Septiembre`...). Si la pestana del mes todavia no existe, Google devuelve la primera hoja (Junio): el tablero la descarta porque la mayoria de sus fechas no cae en el mes pedido, y sigue mostrando el mes anterior. Al volver a la pestana del navegador solo se relee si la ultima lectura tiene mas de 5 minutos; una lectura que trae lo mismo no repinta. Si Google no responde en 30 s o falla, se mantienen los ultimos datos y se emite `amador:data-error` (`detail.error`). Las copias de `data/` solo hacen falta como respaldo: un mes nuevo aparece en cuanto existe su pestana.
+Lectura en vivo: al abrir el tablero, cada hora y con el boton Actualizar se leen el CSV publicado de la pestana del mes en curso y la del mes anterior (hora de Lima). La lista de pestanas (nombre y gid) sale de la vista publicada de la hoja (`/htmlview`); la del mes se reconoce sin importar espacios en los extremos, mayusculas ni tildes (la de octubre se llama "Octubre " con espacio final) y se pide por su gid. Si esa lista no se puede leer, se pide por nombre, con y sin espacio final. Si la pestana del mes todavia no existe, Google devuelve la primera hoja (Junio): el tablero la descarta porque la mayoria de sus fechas no cae en el mes pedido, y sigue mostrando el mes anterior. Una pestana que falla no impide leer la otra (el aviso queda en el detalle de la actualizacion). Al volver a la pestana del navegador solo se relee si la ultima lectura tiene mas de 5 minutos; una lectura que trae lo mismo no repinta. Si Google no responde en 30 s o falla, se mantienen los ultimos datos y se emite `amador:data-error` (`detail.error`). Las copias de `data/` solo hacen falta como respaldo: un mes nuevo aparece en cuanto existe su pestana.
 
 Fecha de corte: un mes cuyo ultimo dia ya paso en Lima esta cerrado y su corte es ese ultimo dia; el mes en curso corta en el dia de la ultima lectura en vivo (o en la fecha de `data/amador-ads-2026.json` si solo esta la copia guardada).
 
@@ -42,7 +42,8 @@ El spreadsheet esta compartido como "cualquier persona con el enlace / lector", 
 
 ## Gasto publicitario: campanas
 
-- **Solo lo que tuvo actividad**: campanas y conjuntos con gasto; anuncios con gasto propio, mensajes o reservas (sin heredar el gasto del conjunto). Lo demas no se muestra ni se menciona.
+- **Solo lo que tuvo actividad**: meses, campanas y conjuntos con gasto, mensajes o reservas; anuncios con gasto propio, mensajes o reservas (sin heredar el gasto del conjunto). Lo demas no se muestra ni se menciona. Al empezar el mes la hoja puede traer mensajes con el gasto en 0: el mes ya aparece, los costos salen "-" y la inversion dice "Gasto sin cargar en la hoja" en lugar de una variacion.
+- Hasta que se elige una pestana, la vista sigue al ultimo mes con datos: un mes nuevo que llega con la lectura en vivo se muestra solo.
 - **Objetivo (cuadro)**: el de la campana en la hoja (Reservas, Mensajes, Clics, Thruplays...). Junio lo trae por anuncio y en texto libre: cuenta la primera palabra ("Reservas/Mensajes" = Reservas) y, si los anuncios de una campana difieren, el de mayor gasto. Reservas va en naranja, Mensajes en verde y Branding (Reconocimiento, Thruplays) en violeta; otro objetivo toma un color fijo.
 - **Granularidad de la hoja**: desde julio el gasto viene por conjunto (en su primera fila) y las reservas, el objetivo y las fechas por campana; mensajes y estado por anuncio. Junio trae gasto y reservas por anuncio y no tiene conjuntos; marzo a mayo solo campanas; enero y febrero solo el gasto total. Por eso los conjuntos muestran gasto y mensajes, y desde julio los anuncios muestran "Por conjunto" / "Por campana" en gasto y reservas.
 - **Distribucion**: una fila por campana con mensajes, reservas, **Objetivo Reservas** editable, costos, gasto, % de la inversion, presupuesto, saldo, fin y dias restantes y nuevo presupuesto diario, mas la fila "Total actualizado". En la vista anual las campanas se juntan por nombre exacto y el objetivo es la suma de los meses.
@@ -63,7 +64,7 @@ El spreadsheet esta compartido como "cualquier persona con el enlace / lector", 
 El modulo Proyecciones lee los datos del modulo Gasto publicitario
 a traves de `window.AmadorObjectives.snapshot()` y proyecta el cierre del mes en curso.
 
-- El mes proyectado es el ultimo con gasto; si ya cerro (calendario de Lima) se muestra completo y el simulador no aplica.
+- El mes proyectado es el ultimo con actividad (gasto, mensajes o reservas); si ya cerro (calendario de Lima) se muestra completo y el simulador no aplica. Sin gasto cargado, la inversion no se puede simular y los costos salen "-".
 - Ritmo diario = acumulado real / dias con datos; la proyeccion mantiene ese ritmo hasta el ultimo dia del mes.
 - La linea de tiempo marca el dia de la ultima actualizacion y compara contra el presupuesto (inversion) o el objetivo de reservas.
 - Cada sincronizacion con Google Sheets emite el evento `amador:data-updated` y el modulo se recalcula solo; si llega durante el arrastre del nodo, se aplica al soltar. Si los datos no cargan, `amador:data-error` muestra el motivo.

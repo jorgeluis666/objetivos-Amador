@@ -4,7 +4,10 @@
   // data/amador-<mes>-sheet-2026.json como window.AMADOR_SHEET_MONTHS; esta lista solo se usa en desarrollo.
   const SHEET_FILES = ['june', 'july', 'august', 'september'].map(month => `data/amador-${month}-sheet-2026.json`);
   const SHEET_ID = '1Lj5rEepYZhHlf-VyGJwRYVMqnpWLu9lg3oL6wes3o-s';
-  const liveCsvUrl = sheetName => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+  // CSV de una pestana: por su gid (exacto) o, si no se pudo leer la lista de pestanas, por su nombre.
+  const liveCsvUrl = tab => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&${tab.gid ? `gid=${encodeURIComponent(tab.gid)}` : `sheet=${encodeURIComponent(tab.name)}`}`;
+  // Vista publicada de la hoja: trae el nombre y el gid de cada pestana.
+  const SHEET_LIST_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/htmlview`;
   const SYNC_INTERVAL_MS = 60 * 60 * 1000;
   // Al volver a la pestana del navegador solo se relee si la ultima lectura tiene mas de 5 minutos.
   const VISIBILITY_REFETCH_MS = 5 * 60 * 1000;
@@ -48,7 +51,7 @@
   const SHEET_SYNC_ENDPOINT = '';
   const SHEET_SYNC_ENDPOINT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
   const CHART_COLLAPSED_KEY = 'amador-chart-collapsed-v1';
-  const { MONTHS, SHORT_MONTHS, esc, safeUrl, fmt, change, hasActivity, hasSpend, limaParts, monthKey, daysInMonth, formatStamp, keepFocus } = window.AmadorShared;
+  const { MONTHS, SHORT_MONTHS, esc, safeUrl, fmt, change, hasActivity, limaParts, monthKey, daysInMonth, formatStamp, keepFocus } = window.AmadorShared;
   // Pestana "Anual" junto a las de mes: acumula los meses del año con datos.
   const YEAR_KEY = 'anual';
   // Resumen ejecutivo. better: hacia donde una variacion es buena (null = neutra). perMonth: en la vista anual se
@@ -75,8 +78,10 @@
   // ediciones locales. current: lectura en vivo en curso. liveSheets: pestanas leidas en la ultima lectura.
   const state = {
     // charts: graficos de Chart.js vivos ("global" y uno por cuadro, "block:<objetivo>").
-    data: null, types: readChartSeries(), monthKey: null, month: null, charts: new Map(), syncTimer: null, nextSync: 0, goals: {},
-    chartCollapsed: readChartCollapsed(), lastSync: null, lastFetch: 0, current: null, liveSheets: [], error: '', goalNote: '',
+    // monthPicked: el usuario eligio una pestana; si no, la vista sigue al ultimo mes con datos (uno nuevo que
+    // llega con la lectura en vivo se muestra solo).
+    data: null, types: readChartSeries(), monthKey: null, monthPicked: false, month: null, charts: new Map(), syncTimer: null, nextSync: 0, goals: {},
+    chartCollapsed: readChartCollapsed(), lastSync: null, lastFetch: 0, current: null, liveSheets: [], error: '', tabWarning: '', goalNote: '',
     // Tabla de anuncios: densidad, pantalla completa (las pestanas de mes vuelven a tabsHome) y filtro por objetivo.
     tableCompact: readFlag(TABLE_COMPACT_KEY), tableFullscreen: false, tabsHome: null, adsObjective: 'all',
     campaignBlocks: readBlockSettings(),
@@ -375,8 +380,10 @@
     data.latestKey = latest?.key || null;
     data.cutoff = latest?.cutoff || null;
   }
+  // Ultimo mes con actividad: gasto, mensajes o reservas (al empezar el mes la hoja puede traer mensajes y el
+  // gasto todavia en 0).
   function latestMonth(data = state.data) {
-    return (data?.months || []).filter(month => Number(month.spend) > 0).pop() || null;
+    return (data?.months || []).filter(hasActivity).pop() || null;
   }
   // Huella de los datos para no repintar si una lectura trae lo mismo (la hora de lectura no cuenta).
   function signature(data = state.data) {
@@ -396,12 +403,35 @@
       clearTimeout(timer);
     }
   }
-  // Una pestana que todavia no existe (el mes recien empieza) devuelve null, no un error.
-  async function fetchLiveMonth(index) {
+  // Lee un texto escapado de JavaScript ("Octubre ", "https:\/\/...\x3d...") tal como lo trae la vista publicada.
+  function unescapeJs(text) {
+    return String(text)
+      .replace(/\\x([0-9a-f]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+      .replace(/\\u([0-9a-f]{4})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+      .replace(/\\(.)/g, '$1');
+  }
+  // Nombre y gid de cada pestana. Si la vista publicada cambia de formato devuelve [] y se piden por nombre.
+  async function fetchSheetTabs() {
+    const html = await fetchText(`${SHEET_LIST_URL}?cacheBust=${Date.now()}`);
+    return [...html.matchAll(/\{name: "((?:[^"\\]|\\.)*)", pageUrl: "((?:[^"\\]|\\.)*)"/g)]
+      .map(([, name, url]) => ({ name: unescapeJs(name), gid: (unescapeJs(url).match(/[?&]gid=(\d+)/) || [])[1] || '' }))
+      .filter(tab => tab.gid);
+  }
+  // La pestana del mes se busca sin importar espacios en los extremos, mayusculas ni tildes ("Octubre " es Octubre)
+  // y se pide por su gid. Sin la lista de pestanas se prueba el nombre con y sin espacio final. Una pestana que no
+  // existe (el mes recien empieza) devuelve null, no un error.
+  async function fetchLiveMonth(index, tabs) {
     const sheetName = MONTHS[index];
-    const text = await fetchText(`${liveCsvUrl(sheetName)}&cacheBust=${Date.now()}`);
-    const { month, ranges } = sheetToMonthData(parseCsv(text), sheetName);
-    return belongsToMonth(ranges, monthKey(state.data.year, index)) ? month : null;
+    const candidates = tabs
+      ? tabs.filter(tab => normalizeHeader(tab.name) === normalizeHeader(sheetName))
+      : [{ name: sheetName }, { name: `${sheetName} ` }];
+    for (const tab of candidates) {
+      const text = await fetchText(`${liveCsvUrl(tab)}&cacheBust=${Date.now()}`);
+      const { month, ranges } = sheetToMonthData(parseCsv(text), sheetName);
+      // Un nombre o gid que no existe devuelve la primera hoja (Junio): se descarta por sus fechas.
+      if (belongsToMonth(ranges, monthKey(state.data.year, index))) return { month, tabName: tab.name.trim() || sheetName };
+    }
+    return null;
   }
   // Se leen en vivo el mes en curso (hora de Lima) y el anterior, que sigue recibiendo ajustes despues del
   // cierre. Solo meses del año del tablero.
@@ -431,11 +461,23 @@
   async function runSync(manual) {
     if (manual) updateStatusLabel('Leyendo Google Sheets...');
     try {
-      const months = (await Promise.all(liveMonthIndexes().map(fetchLiveMonth))).filter(Boolean);
+      let tabs = null;
+      try {
+        const listed = await fetchSheetTabs();
+        if (listed.length) tabs = listed;
+      } catch (error) {
+        console.warn('[amador] No se pudo leer la lista de pestanas; se piden por nombre:', error);
+      }
+      // Una pestana con problemas no impide leer la otra; si fallan todas es un error de lectura.
+      const results = await Promise.allSettled(liveMonthIndexes().map(index => fetchLiveMonth(index, tabs)));
+      const failed = results.filter(result => result.status === 'rejected');
+      if (failed.length && failed.length === results.length) throw failed[0].reason;
+      const read = results.filter(result => result.status === 'fulfilled' && result.value).map(result => result.value);
+      state.tabWarning = failed.length ? `No se pudo leer una pestaña de la hoja (${failed.map(result => result.reason?.message || result.reason).join('; ')}).` : '';
       state.lastSync = new Date();
-      state.liveSheets = months.map(month => month.name);
+      state.liveSheets = read.map(item => item.tabName);
       const before = signature();
-      months.forEach(month => mergeSheetMonth({ ...month, readAt: state.lastSync.toISOString() }));
+      read.forEach(({ month }) => mergeSheetMonth({ ...month, readAt: state.lastSync.toISOString() }));
       decorate(state.data);
       const hadError = Boolean(state.error);
       state.error = '';
@@ -498,7 +540,7 @@
       const node = document.getElementById(id);
       if (node) node.textContent = value || '-';
     };
-    set('status-data', month ? (month.closed ? `${month.name} ${year} completo` : `1-${month.dataDay} ${month.name} ${year}`) : 'Sin meses con gasto');
+    set('status-data', month ? (month.closed ? `${month.name} ${year} completo` : `1-${month.dataDay} ${month.name} ${year}`) : 'Sin meses con datos');
     set('status-last', state.lastSync ? formatStamp(state.lastSync) : 'sin lectura en vivo');
     renderNextSync();
     const sheets = state.liveSheets.length ? state.liveSheets : [month?.name].filter(Boolean);
@@ -506,11 +548,14 @@
     set('status-source', state.lastSync ? (state.error ? 'ultima lectura en vivo' : 'Google Sheets en vivo') : 'copia guardada en el tablero');
     const note = document.getElementById('status-note');
     if (!note) return;
-    // Un solo aviso, por orden de gravedad: sin conexion, copia guardada, Objetivo Reservas o mes en curso.
+    // Un solo aviso, por orden de gravedad: sin conexion, copia guardada, pestana sin leer, Objetivo Reservas, mes
+    // sin gasto o mes en curso.
     let message = '';
     if (state.error) message = `Sin conexion con Google Sheets: ${state.error}. Se muestran los ultimos datos leidos.`;
     else if (!state.lastSync) message = 'Copia guardada en el tablero: todavia no llego la lectura en vivo.';
+    else if (state.tabWarning) message = state.tabWarning;
     else if (state.goalNote) message = state.goalNote;
+    else if (month && !month.closed && !(Number(month.spend) > 0)) message = `La hoja todavía no trae el gasto de ${month.name}: se ven sus mensajes y reservas, y los costos aparecen cuando se cargue el gasto.`;
     else if (month && !month.closed) message = `${month.name} sigue en curso: las cifras llegan hasta la ultima lectura.`;
     note.textContent = message;
     note.classList.toggle('error', Boolean(state.error));
@@ -542,7 +587,8 @@
   }
 
   // ── Pestanas de mes y periodo ────────────────────────────────────────────
-  const hasData = month => Number(month?.spend) > 0;
+  // Un mes con datos tuvo gasto, mensajes o reservas.
+  const hasData = month => Boolean(month) && hasActivity(month);
   function monthByKey(key) {
     return state.data?.months.find(month => month.key === key) || null;
   }
@@ -562,15 +608,20 @@
       const values = months.map(month => valueFor(month.name, type)).filter(value => value != null);
       return values.length ? values.reduce((total, value) => total + Number(value), 0) : null;
     };
-    const spendWith = type => months.filter(month => valueFor(month.name, type) != null).reduce((total, month) => total + Number(month.spend || 0), 0);
-    const messages = sum('messages');
-    const reservations = sum('reservations');
+    // El costo usa solo los meses con gasto cargado: al empezar el mes la hoja trae mensajes con el gasto en 0 y
+    // contarlos bajaria el costo del acumulado. Sin gasto no hay costo ("-").
+    const priced = months.filter(month => Number(month.spend) > 0);
+    const pricedWith = type => priced.filter(month => valueFor(month.name, type) != null);
+    const cost = type => ratio(
+      pricedWith(type).reduce((total, month) => total + Number(month.spend), 0),
+      pricedWith(type).reduce((total, month) => total + Number(valueFor(month.name, type)), 0),
+    );
     return {
       spend: months.reduce((total, month) => total + Number(month.spend || 0), 0),
-      messages,
-      reservations,
-      costPerMessage: messages > 0 ? spendWith('messages') / messages : null,
-      costPerReservation: reservations > 0 ? spendWith('reservations') / reservations : null,
+      messages: sum('messages'),
+      reservations: sum('reservations'),
+      costPerMessage: cost('messages'),
+      costPerReservation: cost('reservations'),
     };
   }
   // Periodo elegido: un mes (contra el mes anterior completo) o el acumulado del año.
@@ -596,6 +647,8 @@
       compare: hasData(previous) ? { month: previous, months: [previous], label: `${previous.name} completo`, detail: (previous.campaigns || []).length > 0 } : null,
     };
   }
+  // Mes en curso cuya pestana todavia no trae el gasto (trae mensajes o reservas con el gasto en 0).
+  const spendPending = period => Boolean(period) && !period.annual && !period.closed && !(Number(period.month.spend) > 0);
   // "▲ 12.3% vs Agosto completo". El color depende de si subir es bueno para ese indicador.
   function deltaHtml(current, previous, better, compareLabel) {
     const variation = change(current, previous);
@@ -626,7 +679,7 @@
     if (!title || !sub) return;
     if (!period) {
       title.textContent = 'Sin datos';
-      sub.textContent = 'No hay meses con gasto en la hoja Distribucion-amador.';
+      sub.textContent = 'No hay meses con datos en la hoja Distribucion-amador.';
       return;
     }
     if (period.annual) {
@@ -638,7 +691,8 @@
       return;
     }
     title.textContent = `Periodo: ${period.label} ${period.year}${period.closed ? '' : ' (mes en curso)'}`;
-    sub.textContent = period.compare ? `Comparacion vs ${period.compare.label}` : 'Sin mes anterior para comparar';
+    const noSpend = Number(period.month.spend) > 0 ? '' : `. La hoja todavía no trae el gasto de ${period.month.name}`;
+    sub.textContent = `${period.compare ? `Comparacion vs ${period.compare.label}` : 'Sin mes anterior para comparar'}${noSpend}`;
   }
   // Promedio por mes de la vista anual con los meses cerrados (un mes a medias lo bajaria) que registran cada indicador.
   function monthlyAverage(period) {
@@ -666,7 +720,9 @@
     const average = period.annual ? monthlyAverage(period) : null;
     host.innerHTML = KPIS.map(kpi => {
       let note = `<small>${kpi.hint}</small>`;
-      if (previous) note = deltaHtml(current[kpi.key], previous[kpi.key], kpi.better, period.compare.label);
+      // Con el gasto del mes en curso sin cargar, "▼ 100%" o "Sin dato en Septiembre" se leerian mal.
+      if (['spend', 'costPerMessage', 'costPerReservation'].includes(kpi.key) && spendPending(period)) note = '<small>Gasto sin cargar en la hoja</small>';
+      else if (previous) note = deltaHtml(current[kpi.key], previous[kpi.key], kpi.better, period.compare.label);
       else if (average?.[kpi.key]) note = `<small title="${esc(average[kpi.key].basis)}">Prom. mensual: ${fmt[kpi.format](average[kpi.key].value)}</small>`;
       return `<div class="kpi-pill"><span>${kpi.label}</span><strong>${fmt[kpi.format](current[kpi.key])}</strong>${note}</div>`;
     }).join('');
@@ -699,6 +755,8 @@
 
   // ── Campanas: objetivos, conjuntos y anuncios ────────────────────────────
   const addNullable = (a, b) => (a == null && b == null ? null : Number(a || 0) + Number(b || 0));
+  // Costo por resultado; sin gasto o sin resultados no hay costo ("-" en lugar de S/. 0.00).
+  const ratio = (spend, count) => (count > 0 && spend > 0 ? spend / count : null);
   const normalize = normalizeHeader;
 
   // El objetivo es el cuadro de cada campana. Desde julio viene en la campana; junio lo trae por anuncio y en texto
@@ -800,24 +858,33 @@
     const saved = state.goals[goalStoreKey(entry.monthKey, entry.name)];
     return saved === '' || saved == null ? entry.sheetGoal : Number(saved);
   }
-  const costs = item => ({
-    costPerMessage: item.messages > 0 ? item.spend / item.messages : null,
-    costPerReservation: item.reservations > 0 ? item.spend / item.reservations : null,
-  });
+  // Base del costo: solo lo que tiene gasto cargado (al empezar el mes la hoja trae mensajes con el gasto en 0 y
+  // contarlos bajaria el costo). Las filas anuales traen su propia base, sumada mes a mes.
+  const costBase = item => item.costBase || (item.spend > 0
+    ? { spend: item.spend, messages: item.messages ?? null, reservations: item.reservations ?? null }
+    : { spend: 0, messages: null, reservations: null });
+  const addBase = (a, b) => ({ spend: a.spend + b.spend, messages: addNullable(a.messages, b.messages), reservations: addNullable(a.reservations, b.reservations) });
+  const costs = item => {
+    const base = costBase(item);
+    return { costPerMessage: ratio(base.spend, base.messages), costPerReservation: ratio(base.spend, base.reservations) };
+  };
   // Totales de varias campanas: los costos usan solo el gasto de las campanas que registran ese resultado.
   function totalsOf(entries) {
-    const spendWith = field => entries.filter(entry => entry[field] != null).reduce((sum, entry) => sum + entry.spend, 0);
-    const messages = entries.reduce((sum, entry) => addNullable(sum, entry.messages), null);
-    const reservations = entries.reduce((sum, entry) => addNullable(sum, entry.reservations), null);
+    const bases = entries.map(costBase);
+    const cost = field => {
+      const priced = bases.filter(base => base[field] != null);
+      return ratio(priced.reduce((sum, base) => sum + base.spend, 0), priced.reduce((sum, base) => sum + Number(base[field]), 0));
+    };
     return {
       spend: entries.reduce((sum, entry) => sum + entry.spend, 0),
-      messages,
-      reservations,
-      costPerMessage: messages > 0 ? spendWith('messages') / messages : null,
-      costPerReservation: reservations > 0 ? spendWith('reservations') / reservations : null,
+      messages: entries.reduce((sum, entry) => addNullable(sum, entry.messages), null),
+      reservations: entries.reduce((sum, entry) => addNullable(sum, entry.reservations), null),
+      costPerMessage: cost('messages'),
+      costPerReservation: cost('reservations'),
     };
   }
-  // Objetivos del periodo con gasto, de mayor a menor. Los nombres de campana salen solo de las que tuvieron gasto.
+  // Objetivos del periodo con actividad, de mayor a menor gasto. Los nombres de campana salen solo de las que la tuvieron.
+  // share es null si el periodo no tiene gasto.
   function objectivesOf(entries) {
     const total = entries.reduce((sum, entry) => sum + entry.spend, 0);
     const groups = new Map();
@@ -828,25 +895,26 @@
     return [...groups.values()]
       .map(items => {
         const sums = totalsOf(items);
-        return { key: items[0].group, label: items[0].groupLabel, color: items[0].color, campaigns: [...new Set(items.filter(hasSpend).map(item => item.name))], share: total > 0 ? (sums.spend / total) * 100 : 0, ...sums };
+        return { key: items[0].group, label: items[0].groupLabel, color: items[0].color, campaigns: [...new Set(items.filter(hasActivity).map(item => item.name))], share: total > 0 ? (sums.spend / total) * 100 : null, ...sums };
       })
-      .filter(hasSpend)
+      .filter(hasActivity)
       .sort((a, b) => b.spend - a.spend);
   }
-  // Una fila por campana con gasto. En la vista anual se juntan por nombre exacto (como en Meta: una campana
+  // Una fila por campana con actividad. En la vista anual se juntan por nombre exacto (como en Meta: una campana
   // renombrada sale en dos filas).
   function distributionRows(entries, annual) {
     const total = entries.reduce((sum, entry) => sum + entry.spend, 0);
-    let rows = entries.map(entry => ({ ...entry, goal: entryGoal(entry), months: entry.spend > 0 ? [entry.month] : [] }));
+    let rows = entries.map(entry => ({ ...entry, goal: entryGoal(entry), months: hasActivity(entry) ? [entry.month] : [] }));
     if (annual) {
       const byName = new Map();
       rows.forEach(entry => {
         const row = byName.get(entry.name);
         if (!row) {
-          byName.set(entry.name, { ...entry, months: [...entry.months] });
+          byName.set(entry.name, { ...entry, months: [...entry.months], costBase: costBase(entry) });
           return;
         }
         Object.assign(row, { group: entry.group, groupLabel: entry.groupLabel, color: entry.color, type: entry.type || row.type });
+        row.costBase = addBase(row.costBase, costBase(entry));
         row.spend += entry.spend;
         row.messages = addNullable(row.messages, entry.messages);
         row.reservations = addNullable(row.reservations, entry.reservations);
@@ -855,7 +923,7 @@
       });
       rows = [...byName.values()];
     }
-    return rows.filter(hasSpend).map(row => ({ ...row, ...costs(row), share: total > 0 ? (row.spend / total) * 100 : 0 })).sort((a, b) => b.spend - a.spend);
+    return rows.filter(hasActivity).map(row => ({ ...row, ...costs(row), share: total > 0 ? (row.spend / total) * 100 : null })).sort((a, b) => (b.spend - a.spend) || (Number(b.messages) - Number(a.messages)));
   }
   // Conjuntos de un objetivo: su nombre dentro del objetivo, para compararlo con el mes anterior aunque cambie la
   // campana. Solo traen gasto y mensajes: las reservas vienen por campana.
@@ -880,12 +948,12 @@
           adCount: new Set(active.map(row => normalize(row.ad))).size,
           spend,
           messages,
-          costPerMessage: messages > 0 ? spend / messages : null,
-          share: total > 0 ? (spend / total) * 100 : 0,
+          costPerMessage: messages > 0 && spend > 0 ? spend / messages : null,
+          share: total > 0 ? (spend / total) * 100 : null,
         };
       })
-      .filter(hasSpend)
-      .sort((a, b) => b.spend - a.spend);
+      .filter(set => set.spend > 0 || set.messages > 0)
+      .sort((a, b) => (b.spend - a.spend) || (b.messages - a.messages));
   }
   // Anuncios con actividad (gasto propio, mensajes o reservas). En la vista anual se suman los meses.
   function adsOf(rows) {
@@ -963,7 +1031,7 @@
     if (sub && !period.annual && !(period.month.campaigns || []).length) {
       sub.textContent = `${periodName(period)} | ${period.month.name} no trae detalle de campañas: solo el gasto total.`;
     } else if (sub) {
-      const parts = [`${periodName(period)} | ${rows.length} ${rows.length === 1 ? 'campaña' : 'campañas'} con gasto.`];
+      const parts = [`${periodName(period)} | ${rows.length} ${rows.length === 1 ? 'campaña' : 'campañas'} con gasto, mensajes o reservas.`];
       if (branding > 0) parts.push(`Ventas ${fmt.money(total - branding)} y Branding ${fmt.money(branding)}.`);
       if (withoutDetail.length) parts.push(`${withoutDetail.map(month => month.name).join(' y ')} no ${withoutDetail.length === 1 ? 'trae' : 'traen'} detalle de campañas.`);
       sub.textContent = parts.join(' ');
@@ -979,7 +1047,7 @@
         <td class="goal-col">${period.annual ? `<span class="goal-sum">${fmt.count(row.goal)}</span>` : goalInput(row)}${renderTrend(row.reservations, row.goal)}</td>
         <td class="num">${fmt.money(row.costPerReservation)}</td>
         <td class="num"><b>${fmt.money(row.spend)}</b></td>
-        <td class="share-col"><div class="share-bar" style="--campaign-color:${row.color}"><span style="width:${Math.min(100, row.share).toFixed(1)}%"></span></div><b class="share-value">${fmt.pct(row.share)}</b></td>
+        <td class="share-col"><div class="share-bar" style="--campaign-color:${row.color}"><span style="width:${Math.min(100, row.share || 0).toFixed(1)}%"></span></div><b class="share-value">${fmt.pct(row.share)}</b></td>
         <td class="num">${period.annual ? '-' : fmt.money(row.budget)}</td>
         <td class="num">${period.annual ? '-' : fmt.money(row.balance)}</td>
         <td class="date-col deadline-cell">${period.annual ? '-' : renderDeadline(row.endDate, row.daysRemaining)}</td>
@@ -1008,14 +1076,14 @@
         <td class="goal-col">${goal != null ? `<span class="goal-sum">${fmt.count(goal)}</span>` : ''}${renderTrend(sums.reservations, goal)}</td>
         <td class="num">${fmt.money(sums.costPerReservation)}</td>
         <td class="num">${fmt.money(month ? month.spend : sums.spend)}</td>
-        <td><b class="share-value">100%</b></td>
+        <td><b class="share-value">${(month ? Number(month.spend) : sums.spend) > 0 ? '100%' : '-'}</b></td>
         <td class="num">${month ? fmt.money(month.budgetTotal) : '-'}</td>
         <td class="num">${month ? fmt.money(month.balanceTotal) : '-'}</td>
         <td></td>
         <td class="num">${month ? fmt.money(month.newDailyTotal) : '-'}</td>
       </tr>`);
     } else if (!custom?.campaigns.length) {
-      const empty = period.annual || (period.month.campaigns || []).length ? `Sin campañas con gasto en ${esc(periodName(period))}.` : `${esc(period.month.name)} no trae detalle de campañas en la hoja.`;
+      const empty = period.annual || (period.month.campaigns || []).length ? `Sin campañas con actividad en ${esc(periodName(period))}.` : `${esc(period.month.name)} no trae detalle de campañas en la hoja.`;
       html.unshift(`<tr><td class="table-empty" colspan="14">${empty}</td></tr>`);
     }
     keepFocus(body, () => { body.innerHTML = html.join(''); });
@@ -1192,7 +1260,7 @@
   function objectiveMonthValue(month, key, metric) {
     if (!hasData(month)) return null;
     const entries = campaignEntries(month).filter(entry => entry.group === key);
-    if (!entries.some(hasSpend)) return null;
+    if (!entries.some(hasActivity)) return null;
     if (metric === 'spend') return entries.reduce((sum, entry) => sum + entry.spend, 0);
     return entries.reduce((sum, entry) => addNullable(sum, entry[metric]), null);
   }
@@ -1221,7 +1289,7 @@
   }
   // Meses del año en que corrio un objetivo (vista anual, en lugar de la comparacion con el mes anterior).
   function objectiveMonths(period, entries, key) {
-    const months = period.months.filter(month => entries.some(entry => entry.group === key && entry.monthKey === month.key && entry.spend > 0));
+    const months = period.months.filter(month => entries.some(entry => entry.group === key && entry.monthKey === month.key && hasActivity(entry)));
     const withDetail = period.months.filter(month => (month.campaigns || []).length);
     if (months.length === withDetail.length) return `Activo en los ${months.length} ${months.length === 1 ? 'mes' : 'meses'} con detalle`;
     return `Activo en ${months.map(shortMonth).join(', ') || 'ningún mes'}`;
@@ -1255,10 +1323,10 @@
           ${compare ? `<td class="num">${before ? fmt.count(before.messages) : '<span class="no-data">-</span>'}</td><td class="num">${variationCell(set.messages, before?.messages)}</td>` : ''}
           <td class="num">${fmt.money(set.costPerMessage)}</td>
           <td class="num">${fmt.money(set.spend)}</td>
-          <td class="share-col"><div class="share-bar"><span style="width:${Math.min(100, set.share).toFixed(1)}%"></span></div><b class="share-value">${fmt.pct(set.share)}</b></td>
+          <td class="share-col"><div class="share-bar"><span style="width:${Math.min(100, set.share || 0).toFixed(1)}%"></span></div><b class="share-value">${fmt.pct(set.share)}</b></td>
         </tr>`;
-    }).join('') || `<tr><td class="table-empty" colspan="${columns.length}">Sin conjuntos con gasto en el periodo.</td></tr>`;
-    let note = `${sets.length} ${sets.length === 1 ? 'conjunto' : 'conjuntos'} con gasto en ${esc(periodName(period))}`;
+    }).join('') || `<tr><td class="table-empty" colspan="${columns.length}">Sin conjuntos con actividad en el periodo.</td></tr>`;
+    let note = `${sets.length} ${sets.length === 1 ? 'conjunto' : 'conjuntos'} con gasto o mensajes en ${esc(periodName(period))}`;
     if (compare) note += `. Mensajes contra ${esc(period.compare.label)}`;
     else if (period.compare) note += `. ${esc(period.compare.month.name)} no agrupaba por conjunto`;
     return `${head}<div class="panel-sub">${note}. Las reservas se registran por campaña.</div></div>
@@ -1277,12 +1345,12 @@
     else if (period.compare && !period.compare.detail) comparison = `. ${period.compare.month.name} no trae detalle de campañas`;
     else if (period.compare) comparison = before ? ` vs ${period.compare.label}` : `. Nueva: no corría en ${period.compare.month.name}`;
     const kpis = BLOCK_KPIS.map(kpi => `
-      <div><dt>${kpi.label}</dt><dd>${fmt[kpi.format](objective[kpi.key])}${before ? deltaHtml(objective[kpi.key], before[kpi.key], kpi.better) : ''}</dd></div>`).join('');
+      <div><dt>${kpi.label}</dt><dd>${fmt[kpi.format](objective[kpi.key])}${before && !(kpi.key === 'spend' && spendPending(period)) ? deltaHtml(objective[kpi.key], before[kpi.key], kpi.better) : ''}</dd></div>`).join('');
     return `
       <section class="campaign-block${settings.collapsed ? ' is-collapsed' : ''}" id="campaign-${key}" data-objective="${key}" style="--campaign-color:${objective.color}">
         <div class="panel-head chart-panel-head">
           <div>
-            <div class="campaign-block-title"><i class="campaign-dot"></i>Campaña ${esc(objective.label)}<em>${fmt.pct(objective.share)} de la inversión</em></div>
+            <div class="campaign-block-title"><i class="campaign-dot"></i>Campaña ${esc(objective.label)}${objective.share == null ? '' : `<em>${fmt.pct(objective.share)} de la inversión</em>`}</div>
             <div class="panel-sub">${esc(objective.campaigns.join(' / '))} | ${esc(periodName(period))}${esc(comparison)}</div>
           </div>
           <div class="chart-controls">
@@ -1500,7 +1568,7 @@
     return index * 100 + Number(match[1]);
   }
   // ── Historico de campanas ────────────────────────────────────────────────
-  // Una fila por campana (nombre exacto) con gasto en algun mes. Finalizada: la hoja la marca apagada (OFF,
+  // Una fila por campana (nombre exacto) con actividad en algun mes. Finalizada: la hoja la marca apagada (OFF,
   // Finalizada, Desactiva) o ya no aparece en el ultimo mes con datos.
   function campaignHistory() {
     const latestKey = latestMonth()?.key || '';
@@ -1511,7 +1579,7 @@
     }));
     return [...byName.entries()]
       .map(([name, entries]) => {
-        const active = entries.filter(hasSpend);
+        const active = entries.filter(hasActivity);
         if (!active.length) return null;
         const last = entries[entries.length - 1];
         return {
@@ -1544,7 +1612,7 @@
   function historyMonth() {
     if (state.historyMonth === HISTORY_ALL) return null;
     const month = monthByKey(state.historyMonth);
-    return month && campaignEntries(month).some(hasSpend) ? month : null;
+    return month && campaignEntries(month).some(hasActivity) ? month : null;
   }
   function renderHistoryTabs(month) {
     const host = document.getElementById('history-month-tabs');
@@ -1555,18 +1623,18 @@
       host.innerHTML = MONTHS.map((name, index) => {
         const key = monthKey(year, index);
         const item = monthByKey(key);
-        const available = Boolean(item) && campaignEntries(item).some(hasSpend);
+        const available = Boolean(item) && campaignEntries(item).some(hasActivity);
         const on = month?.key === key;
-        return `<button type="button" class="month-tab${on ? ' active' : ''}" data-month="${key}" aria-pressed="${on}"${available ? '' : ' disabled title="Sin campañas con gasto en la hoja"'}>${name}${key === latest?.key ? '<span class="current-dot"></span>' : ''}</button>`;
+        return `<button type="button" class="month-tab${on ? ' active' : ''}" data-month="${key}" aria-pressed="${on}"${available ? '' : ' disabled title="Sin campañas con actividad en la hoja"'}>${name}${key === latest?.key ? '<span class="current-dot"></span>' : ''}</button>`;
       }).join('') + `<button type="button" class="month-tab${month ? '' : ' active'}" data-month="${HISTORY_ALL}" aria-pressed="${!month}" title="Todas las campañas de la hoja">Todos</button>`;
     });
   }
   const matchesStatus = (item, key) => key === 'todas' || (key === 'activas' ? !item.finished : item.finished);
-  // Con un mes elegido quedan las campanas con gasto ese mes, con sus cifras de ese mes.
+  // Con un mes elegido quedan las campanas con actividad ese mes, con sus cifras de ese mes.
   function historyEntries(all, month) {
     if (!month) return all.map(item => ({ item, stats: item, entries: item.entries }));
     return all
-      .map(item => ({ item, entries: item.entries.filter(entry => entry.monthKey === month.key && entry.spend > 0) }))
+      .map(item => ({ item, entries: item.entries.filter(entry => entry.monthKey === month.key && hasActivity(entry)) }))
       .filter(scope => scope.entries.length)
       .map(scope => ({ ...scope, stats: totalsOf(scope.entries) }))
       .sort((a, b) => b.stats.spend - a.stats.spend);
@@ -1633,13 +1701,13 @@
     renderHistoryStatus(scoped);
     const rows = scoped.filter(scope => matchesStatus(scope.item, state.historyStatus));
     renderHistoryKpis(rows, month);
-    const months = month ? [] : state.data.months.filter(item => campaignEntries(item).some(hasSpend));
+    const months = month ? [] : state.data.months.filter(item => campaignEntries(item).some(hasActivity));
     head.innerHTML = `<tr><th>Campaña</th><th>Objetivo</th><th>Estado</th>${months.map(item => `<th class="num" title="${esc(`${item.name} ${state.data.year}`)}">${shortMonth(item)}${item.closed ? '' : ` (al ${item.dataDay})`}</th>`).join('')}<th class="num">${month ? `Gasto ${shortMonth(month)}` : 'Gasto total'}</th><th class="num">Mensajes</th><th class="num">Reservas</th><th class="num th-wrap">Costo por reserva</th><th>Anuncios</th>${month ? '<th>Fechas</th><th class="num" title="Gasto de la campaña en todos los meses">Gasto acumulado</th>' : '<th>Periodo</th>'}</tr>`;
     const status = HISTORY_STATUS.find(item => item.key === state.historyStatus);
     const sub = document.getElementById('history-sub');
     if (sub) {
-      if (!rows.length) sub.textContent = `Ninguna ${status.one} ${month ? `con gasto en ${month.name} ${state.data.year}` : 'en la hoja Distribucion-amador'}.`;
-      else if (month) sub.textContent = `${rows.length} ${rows.length === 1 ? status.one : status.many} con gasto en ${month.name} ${state.data.year}.`;
+      if (!rows.length) sub.textContent = `Ninguna ${status.one} ${month ? `con actividad en ${month.name} ${state.data.year}` : 'en la hoja Distribucion-amador'}.`;
+      else if (month) sub.textContent = `${rows.length} ${rows.length === 1 ? status.one : status.many} con actividad en ${month.name} ${state.data.year}.`;
       else sub.textContent = `${rows.length} ${rows.length === 1 ? status.one : status.many} de ${months[0].name} a ${months[months.length - 1].name} ${state.data.year}. Cada mes es el gasto de su pestaña en la hoja.`;
     }
     const columns = head.querySelectorAll('th').length;
@@ -1711,7 +1779,7 @@
   }
   // Cambiar de mes solo repinta lo que depende del mes: pestanas, periodo, KPIs y campanas.
   function renderMonthView() {
-    if (!annualView() && !hasData(monthByKey(state.monthKey))) state.monthKey = latestMonth()?.key || null;
+    if (!state.monthPicked || (!annualView() && !hasData(monthByKey(state.monthKey)))) state.monthKey = latestMonth()?.key || null;
     state.month = (annualView() ? latestMonth() : selectedMonth())?.name || null;
     const period = currentPeriod();
     renderTabs();
@@ -1744,6 +1812,7 @@
       const button = event.target.closest('.month-tab:not(:disabled)');
       if (!button || button.dataset.month === state.monthKey) return;
       state.monthKey = button.dataset.month;
+      state.monthPicked = true;
       renderMonthView();
     });
     document.getElementById('chart-toggle-btn').addEventListener('click', () => {
