@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.20.5`.
+Version actual: `v1.20.6`.
 
 ## Versionado
 
@@ -32,7 +32,7 @@ El tablero solo muestra los modulos activos: los modulos pendientes (Comparativo
 
 ## Datos
 
-La fuente normalizada del dashboard esta en `data/amador-ads-2026.json` (enero a mayo y la fecha de la ultima copia) y en una copia por pestana mensual de `Distribucion-amador` (`data/amador-<mes>-sheet-2026.json`: junio, julio, agosto y septiembre). El build incrusta todas las copias mensuales que haya en `data/`; en desarrollo se piden las de la lista `SHEET_FILES` de `js/objectives.js`. Junio, julio y agosto estan guardados con sus datos finales; la copia de septiembre es la del 17 de septiembre de 2026 (gasto S/1,778.94; 308 mensajes; 16 reservas) y la lectura en vivo la reemplaza por la pestana actual. Las pestanas de julio en adelante agrupan anuncios por `Conjunto de anuncios` (RTGT, P. Frio, P. Caliente, etc.), reflejado en el campo `adSet`.
+La fuente normalizada del dashboard esta en `data/amador-ads-2026.json` (enero a mayo y la fecha de la ultima copia) y en una copia por pestana mensual de `Distribucion-amador` (`data/amador-<mes>-sheet-2026.json`: junio, julio, agosto y septiembre). El build incrusta todas las copias mensuales que haya en `data/`; en desarrollo se piden las de la lista `SHEET_FILES` de `js/objectives.js`. Junio, julio, agosto y septiembre estan guardados con sus datos finales (septiembre se cerro el 12 de octubre de 2026: gasto S/3,662.40; 451 mensajes; 30 reservas); la lectura en vivo los reemplaza por la pestana actual. Las pestanas de julio en adelante agrupan anuncios por `Conjunto de anuncios` (RTGT, P. Frio, P. Caliente, etc.), reflejado en el campo `adSet`.
 
 Lectura en vivo: al abrir el tablero, cada hora y con el boton Actualizar se leen el CSV publicado de la pestana del mes en curso y la del mes anterior (hora de Lima). La lista de pestanas (nombre y gid) sale de la vista publicada de la hoja (`/htmlview`); la del mes se reconoce sin importar espacios en los extremos, mayusculas ni tildes (la de octubre se llama "Octubre " con espacio final) y se pide por su gid. Si esa lista no se puede leer, se pide por nombre, con y sin espacio final. Si la pestana del mes todavia no existe, Google devuelve la primera hoja (Junio): el tablero la descarta porque la mayoria de sus fechas no cae en el mes pedido, y sigue mostrando el mes anterior. Una pestana que falla no impide leer la otra (el aviso queda en el detalle de la actualizacion). Al volver a la pestana del navegador solo se relee si la ultima lectura tiene mas de 5 minutos; una lectura que trae lo mismo no repinta. Si Google no responde en 30 s o falla, se mantienen los ultimos datos y se emite `amador:data-error` (`detail.error`). Las copias de `data/` solo hacen falta como respaldo: un mes nuevo aparece en cuanto existe su pestana.
 
@@ -138,7 +138,7 @@ publicado: la tabla, los KPIs y los filtros se rearman con lo que hay en Drive e
 queda guardado en el navegador (`localStorage`, clave `amador-drive-reports-snapshot-v1`), asi que al volver
 al modulo se ve ese listado y no el del ultimo build. El modulo tambien sincroniza solo al abrirse; en ese
 caso el aviso verde aparece unicamente si hubo altas o bajas. Si Drive no responde, se mantiene lo que ya
-estaba y se avisa en rojo.
+estaba y el conteo de documentos dice "no se pudo releer la carpeta" (con Actualizar, ademas, el aviso en rojo).
 
 `data/amador-drive-reports.json` sigue siendo el catalogo de respaldo: es lo que ve quien abre el tablero sin
 que la Web App responda, por lo que conviene refrescarlo de vez en cuando con el listado de la carpeta.

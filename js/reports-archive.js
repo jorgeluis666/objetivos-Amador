@@ -47,6 +47,8 @@
     filters: { search: '', type: 'all', period: 'all', latestOnly: false },
     sort: 'recent',
     syncPromise: null,
+    // Motivo de la ultima sincronizacion fallida con Drive ('' si la ultima salio bien).
+    syncError: '',
     lastFocus: null,
   };
 
@@ -288,9 +290,14 @@
     if (!els.body) return;
     const rows = visibleReports();
 
+    // Si la ultima lectura de Drive fallo (tambien la automatica al abrir el modulo), se dice junto al conteo.
+    const stamp = state.syncError
+      ? ` | no se pudo releer la carpeta; catalogo del ${formatLongDate(state.syncedAt)}`
+      : ` sincronizados el ${formatLongDate(state.syncedAt)}`;
     els.count.textContent = rows.length === state.reports.length
-      ? `${state.reports.length} documentos sincronizados el ${formatLongDate(state.syncedAt)}`
-      : `${rows.length} de ${state.reports.length} documentos`;
+      ? `${state.reports.length} documentos${stamp}`
+      : `${rows.length} de ${state.reports.length} documentos${state.syncError ? ' | no se pudo releer la carpeta' : ''}`;
+    els.count.title = state.syncError ? `Drive: ${state.syncError}` : '';
 
     if (!rows.length) {
       els.body.innerHTML = '<tr><td class="table-empty" colspan="7">No hay documentos que coincidan con el filtro.</td></tr>';
@@ -439,6 +446,7 @@
     try {
       const listing = await fetchDriveListing(endpoint);
       const before = state.reports.map(report => report.id);
+      state.syncError = '';
       applyCatalog({ folder: state.folder, syncedAt: listing.checkedAt, files: listing.files });
       saveSnapshot(listing);
       render();
@@ -450,14 +458,18 @@
       }
     } catch (error) {
       const message = `No se pudo sincronizar con Drive (${error.message}). Se mantiene el catalogo del ${formatLongDate(state.syncedAt)}.`;
+      state.syncError = String(error.message || error);
+      renderTable();
       if (silent) console.warn('[reportes]', message);
       else renderSyncStatus('error', message);
     }
   }
 
-  // Boton Actualizar de la barra superior: si el modulo no se abrio todavia, lo carga (y sincroniza en silencio).
+  // Boton Actualizar de la barra superior: carga el modulo si hace falta y relee la carpeta con aviso. Si ya corre
+  // la sincronizacion silenciosa de la apertura, se espera a que termine y se lee otra vez, ahora con aviso.
   async function refresh() {
     if (!state.ready) await init();
+    if (state.syncPromise) await state.syncPromise;
     return syncNow();
   }
 

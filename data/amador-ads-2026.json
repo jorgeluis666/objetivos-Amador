@@ -1,8 +1,8 @@
 {
   "account": "Amador",
   "year": 2026,
-  "cutoff": "2026-09-17",
-  "source": "Distribucion-amador / Septiembre (sincronizacion Google Sheets)",
+  "cutoff": "2026-09-30",
+  "source": "Distribucion-amador / Septiembre (cierre del mes en Google Sheets)",
   "months": [
     {
       "name": "Enero",
@@ -1243,55 +1243,55 @@
     },
     {
       "name": "Septiembre",
-      "spend": 1778.94,
-      "messages": 308,
-      "reservations": 16,
-      "adSpendTotal": 1778.94,
-      "budgetTotal": 7260,
-      "balanceTotal": 5481.06,
+      "spend": 3662.4,
+      "messages": 451,
+      "reservations": 30,
+      "adSpendTotal": 3662.4,
+      "budgetTotal": 4160,
+      "balanceTotal": 497.6,
       "reservationGoalTotal": null,
-      "newDailyTotal": null,
+      "newDailyTotal": 0,
       "totalObservation": "",
       "spendBreakdown": {
-        "sales": 1778.94,
+        "sales": 3662.4,
         "branding": 0
       },
       "campaigns": [
         {
           "name": "Reservas Web Almuerzos | LR - Gasto total",
-          "type": null,
-          "status": "Activo",
+          "type": "",
+          "status": "OFF",
           "objective": "Reservas",
-          "budget": 6180,
-          "spent": 1117.22,
-          "balance": 5062.78,
+          "budget": 2080,
+          "spent": 2001.2,
+          "balance": 78.8,
           "realBalance": null,
           "reservationGoal": 26,
-          "reservas": 15,
-          "messages": 152,
+          "reservas": 25,
+          "messages": 283,
           "ads": [
             {
               "name": "P. Caliente · Video 1",
               "adSet": "P. Caliente",
               "objective": "Reservas",
-              "status": "Activo",
-              "reservas": 15,
+              "status": "OFF",
+              "reservas": 25,
               "reservationGoal": 26,
-              "messages": 80,
-              "costPerMessage": 8.22,
-              "costPerReservation": 74.48,
-              "reservationRatio": 9.87,
+              "messages": 134,
+              "costPerMessage": 7.63,
+              "costPerReservation": 80.05,
+              "reservationRatio": 8.83,
               "startDate": "01-Sep",
               "endDate": "30-Sep",
-              "duration": 30,
-              "daysRemaining": 13,
+              "duration": null,
+              "daysRemaining": null,
               "dailyAmount": null,
               "budget": null,
-              "spent": 934.48,
+              "spent": 1506.85,
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248710492290145&h=AQL7KJWvLopQ-TotMpMOnEQ3nWA"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248710492290145&h=AQL7KJWvLopQ-TotMpMOnEQ3Giw"
             },
             {
               "name": "P. Caliente · Video 2",
@@ -1300,10 +1300,10 @@
               "status": "Activo",
               "reservas": 0,
               "reservationGoal": null,
-              "messages": 46,
-              "costPerMessage": 6.01,
+              "messages": 28,
+              "costPerMessage": 6.47,
               "costPerReservation": null,
-              "reservationRatio": null,
+              "reservationRatio": 0,
               "startDate": null,
               "endDate": null,
               "duration": null,
@@ -1314,7 +1314,30 @@
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120247302367410145&h=AQIz5elIrpAch7jfh6MGOMiFUqs"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120249175577730145&h=AQIU1q6spPDBsMNxUbJeOoj6CEg"
+            },
+            {
+              "name": "P. Caliente · Video 3",
+              "adSet": "P. Caliente",
+              "objective": null,
+              "status": "OFF",
+              "reservas": 0,
+              "reservationGoal": null,
+              "messages": 49,
+              "costPerMessage": 6.19,
+              "costPerReservation": null,
+              "reservationRatio": 0,
+              "startDate": null,
+              "endDate": null,
+              "duration": null,
+              "daysRemaining": null,
+              "dailyAmount": null,
+              "budget": null,
+              "spent": null,
+              "balance": null,
+              "newDailyAmount": null,
+              "observation": null,
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120247302367410145&h=AQIz5elIrpAch7jfh6MGOMiFReI"
             },
             {
               "name": "P. Frío · Video 1",
@@ -1323,27 +1346,50 @@
               "status": "Activo",
               "reservas": 0,
               "reservationGoal": null,
-              "messages": 26,
-              "costPerMessage": 7.03,
+              "messages": 34,
+              "costPerMessage": 6.95,
               "costPerReservation": null,
-              "reservationRatio": null,
+              "reservationRatio": 0,
               "startDate": null,
               "endDate": null,
               "duration": null,
               "daysRemaining": null,
               "dailyAmount": null,
               "budget": null,
-              "spent": 182.74,
+              "spent": 494.35,
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248710667840145&h=AQLSE7NXvJqSoAVEYTtjgiknqAQ"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120249175542120145&h=AQJHUBxgozB1Z7Hl4cy7jrXaKkY"
+            },
+            {
+              "name": "P. Frío · Video 2",
+              "adSet": "P. Frío",
+              "objective": null,
+              "status": "OFF",
+              "reservas": 0,
+              "reservationGoal": null,
+              "messages": 38,
+              "costPerMessage": 6.79,
+              "costPerReservation": null,
+              "reservationRatio": 0,
+              "startDate": null,
+              "endDate": null,
+              "duration": null,
+              "daysRemaining": null,
+              "dailyAmount": null,
+              "budget": null,
+              "spent": null,
+              "balance": null,
+              "newDailyAmount": null,
+              "observation": null,
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248710667840145&h=AQLSE7NXvJqSoAVEYTtjgikn968"
             }
           ]
         },
         {
           "name": "Mensajes IG - eventos",
-          "type": null,
+          "type": "",
           "status": "OFF",
           "objective": "Mensajes",
           "budget": 1080,
@@ -1367,15 +1413,15 @@
               "reservationRatio": 0.64,
               "startDate": "03-Sep",
               "endDate": "18-Sep",
-              "duration": 16,
-              "daysRemaining": 1,
+              "duration": null,
+              "daysRemaining": null,
               "dailyAmount": null,
               "budget": null,
               "spent": 586.92,
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248970638540145&h=AQI8SyDAYjqsd3HBlQvZk92f0SU"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248970638540145&h=AQI8SyDAYjqsd3HBlQvZk92fppo"
             },
             {
               "name": "RTGT - 2 · Video 2",
@@ -1387,7 +1433,7 @@
               "messages": 5,
               "costPerMessage": 2.99,
               "costPerReservation": null,
-              "reservationRatio": null,
+              "reservationRatio": 0,
               "startDate": null,
               "endDate": null,
               "duration": null,
@@ -1398,7 +1444,7 @@
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248970638550145&h=AQLVe9NNp_WO9jOsF1kELbGKIn4"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248970638550145&h=AQLVe9NNp_WO9jOsF1kELbGKLJQ"
             },
             {
               "name": "RTGT - 2 · Video 3",
@@ -1410,7 +1456,7 @@
               "messages": 60,
               "costPerMessage": 3.39,
               "costPerReservation": null,
-              "reservationRatio": null,
+              "reservationRatio": 0,
               "startDate": null,
               "endDate": null,
               "duration": null,
@@ -1421,7 +1467,7 @@
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248877813020145&h=AQLunoK5AFbnOt4grIhg_F7ur_Y"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248877813020145&h=AQLunoK5AFbnOt4grIhg_F7uHsA"
             },
             {
               "name": "RTGT - 2 · Video 4",
@@ -1433,7 +1479,7 @@
               "messages": 32,
               "costPerMessage": 3.9,
               "costPerReservation": null,
-              "reservationRatio": null,
+              "reservationRatio": 0,
               "startDate": null,
               "endDate": null,
               "duration": null,
@@ -1444,7 +1490,7 @@
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248970638560145&h=AQLrCFZV2aiDEHwQeL1_u0G-0tw"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248970638560145&h=AQLrCFZV2aiDEHwQeL1_u0G-pt8"
             },
             {
               "name": "RTGT - 2 · Imagen 1",
@@ -1456,7 +1502,7 @@
               "messages": 40,
               "costPerMessage": 5.15,
               "costPerReservation": null,
-              "reservationRatio": null,
+              "reservationRatio": 0,
               "startDate": null,
               "endDate": null,
               "duration": null,
@@ -1467,7 +1513,7 @@
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878368000145&h=AQLjC3v12pCeZXYtO9oFexMtsA4"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878368000145&h=AQLjC3v12pCeZXYtO9oFexMtzvQ"
             },
             {
               "name": "P. Frío - 2 · Video 1",
@@ -1490,7 +1536,7 @@
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248970605710145&h=AQLWMYs6M8qcMzm34buHxqW2iMU"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248970605710145&h=AQLWMYs6M8qcMzm34buHxqW2wNM"
             },
             {
               "name": "P. Frío - 2 · Video 2",
@@ -1513,7 +1559,7 @@
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248970622700145&h=AQLdrPKrT-nSvnZtiGVHDuK1axI"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248970622700145&h=AQLdrPKrT-nSvnZtiGVHDuK1AI4"
             },
             {
               "name": "P. Frío - 2 · Video 3",
@@ -1525,7 +1571,7 @@
               "messages": 3,
               "costPerMessage": 2.99,
               "costPerReservation": null,
-              "reservationRatio": null,
+              "reservationRatio": 0,
               "startDate": null,
               "endDate": null,
               "duration": null,
@@ -1536,7 +1582,7 @@
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878343220145&h=AQKPI8wZqUzz2ZjmbhJMlEjJibA"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878343220145&h=AQKPI8wZqUzz2ZjmbhJMlEjJYyg"
             },
             {
               "name": "P. Frío - 2 · Video 4",
@@ -1548,7 +1594,7 @@
               "messages": 2,
               "costPerMessage": 1.18,
               "costPerReservation": null,
-              "reservationRatio": null,
+              "reservationRatio": 0,
               "startDate": null,
               "endDate": null,
               "duration": null,
@@ -1559,7 +1605,7 @@
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248970457230145&h=AQJhO1XpzoMe3-Ug73RWfGgX8Gs"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248970457230145&h=AQJhO1XpzoMe3-Ug73RWfGgX52Y"
             },
             {
               "name": "P. Frío - 2 · Imagen 1",
@@ -1571,7 +1617,7 @@
               "messages": 4,
               "costPerMessage": 15.46,
               "costPerReservation": null,
-              "reservationRatio": null,
+              "reservationRatio": 0,
               "startDate": null,
               "endDate": null,
               "duration": null,
@@ -1582,7 +1628,91 @@
               "balance": null,
               "newDailyAmount": null,
               "observation": null,
-              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878044560145&h=AQLhGxuR84oHtETQJ-f7YtKXZUQ"
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120248878044560145&h=AQLhGxuR84oHtETQJ-f7YtKXTjA"
+            }
+          ]
+        },
+        {
+          "name": "corporativos",
+          "type": "",
+          "status": "OFF",
+          "objective": "Mensajes",
+          "budget": 1000,
+          "spent": 999.48,
+          "balance": 0.52,
+          "realBalance": null,
+          "reservationGoal": null,
+          "reservas": 4,
+          "messages": 12,
+          "ads": [
+            {
+              "name": "Conjunto Corporativos - PF · Video 1",
+              "adSet": "Conjunto Corporativos - PF",
+              "objective": "Mensajes",
+              "status": "OFF",
+              "reservas": 4,
+              "reservationGoal": null,
+              "messages": 8,
+              "costPerMessage": 85.51,
+              "costPerReservation": 249.87,
+              "reservationRatio": 33.33,
+              "startDate": "23-Sep",
+              "endDate": "30-Sep",
+              "duration": null,
+              "daysRemaining": null,
+              "dailyAmount": null,
+              "budget": null,
+              "spent": 750.44,
+              "balance": null,
+              "newDailyAmount": null,
+              "observation": null,
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120249189899930145&h=AQLDG8ZkxaSEkg4y52MDVV0902o"
+            },
+            {
+              "name": "Conjunto Corporativos - PF · Video 2",
+              "adSet": "Conjunto Corporativos - PF",
+              "objective": null,
+              "status": "OFF",
+              "reservas": 0,
+              "reservationGoal": null,
+              "messages": 2,
+              "costPerMessage": 33.18,
+              "costPerReservation": null,
+              "reservationRatio": 0,
+              "startDate": null,
+              "endDate": null,
+              "duration": null,
+              "daysRemaining": null,
+              "dailyAmount": null,
+              "budget": null,
+              "spent": null,
+              "balance": null,
+              "newDailyAmount": null,
+              "observation": null,
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120249190088070145&h=AQJ93FxxZKFG4otP_SU3lusvlx4"
+            },
+            {
+              "name": "Conjunto Corporativos - PC · Video 1",
+              "adSet": "Conjunto Corporativos - PC",
+              "objective": null,
+              "status": "OFF",
+              "reservas": 0,
+              "reservationGoal": null,
+              "messages": 2,
+              "costPerMessage": 124.52,
+              "costPerReservation": null,
+              "reservationRatio": 0,
+              "startDate": null,
+              "endDate": null,
+              "duration": null,
+              "daysRemaining": null,
+              "dailyAmount": null,
+              "budget": null,
+              "spent": 249.04,
+              "balance": null,
+              "newDailyAmount": null,
+              "observation": null,
+              "adUrl": "https://www.facebook.com/?feed_demo_ad=120249190098570145&h=AQKu3o0ZkqmQLalcD_7Z5lKcbbs"
             }
           ]
         }

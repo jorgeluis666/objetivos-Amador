@@ -251,7 +251,7 @@
 }
 
 .messages-btn.secondary:hover {
-  border-color: #fca5a5;
+  border-color: var(--brand);
   color: var(--brand);
   background: var(--brand-soft);
 }
@@ -657,9 +657,9 @@
   color: #fff;
 }
 
+/* Deshabilitado: la opacidad de .refresh-sheet-btn:disabled sobre el contorno de marca. */
 .refresh-sheet-btn.outline:disabled {
-  border-color: #fecaca;
-  color: #fca5a5;
+  color: var(--brand);
   background: #fff;
 }
 
@@ -872,8 +872,8 @@
 }
 
 .report-btn.primary:hover {
-  border-color: #991b1b;
-  background: #991b1b;
+  border-color: var(--brand-dark);
+  background: var(--brand-dark);
   color: #fff;
 }
 
