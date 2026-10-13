@@ -131,6 +131,9 @@ async function main() {
   writeHtaccess(html);
 
   console.log(`[build] Meta: ${meta ? `${(meta.months || []).length} meses, barrido ${meta.sweptAt}` : 'sin barrido'}`);
+  // Estado de cada mes del barrido (filas o error), sin cifras: un mes con error o sin filas sale de la hoja.
+  (meta?.months || []).forEach(month => console.log(`[build]   ${month.name} ${month.year}: ${month.error ? `ERROR ${month.error}` : `${(month.rows || []).length} filas`}${(month.duplicates || []).length ? ', con duplicados' : ''}`));
+  (meta?.ignored || []).forEach(item => console.log(`[build]   ignorado: ${item.reason}`));
   console.log(`[build] escrito dist/index.html (${(fs.statSync(DIST_HTML).size / 1024).toFixed(1)} KB)`);
 }
 
