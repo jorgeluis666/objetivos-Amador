@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.22.0`.
+Version actual: `v1.22.1`.
 
 ## Versionado
 
@@ -187,7 +187,7 @@ Configuracion unica:
 3. Implementar > Nueva implementacion > **Aplicacion web**, ejecutar como **Yo**, acceso **Cualquier persona**. La URL `/exec` es un secreto (quien la tenga lee los numeros): solo va como secret `DATA_ENDPOINT` en GitHub.
 4. Cada cambio al `.gs`: pegarlo y Implementar > Administrar implementaciones > editar > **Nueva version** (la URL no cambia). Un cambio de columnas o de la suma exige subir `SWEEP_VERSION`.
 
-Cada mes: subir la descarga como Hoja de calculo de Google (Archivo > Guardar como Hojas de calculo de Google; un `.xlsx` se ignora) con el nombre `Amador - <Mes> <Año>`, un solo archivo por mes (si hay dos, se usa el editado mas recientemente y el detalle de la actualizacion lo avisa). La descarga tiene que estar en español: las columnas se reconocen por su nombre ("Dia", "Monto gastado (PEN)" o "Importe gastado (PEN)", "Nombre de la campaña"...).
+Cada mes: subir la descarga como Hoja de calculo de Google (Archivo > Guardar como Hojas de calculo de Google; un `.xlsx` se ignora) con el nombre `Amador - <Mes> <Año>`, un solo archivo por mes (si hay dos, se usa el editado mas recientemente y el detalle de la actualizacion lo avisa). Tiene que ser el mismo informe que los demas meses (a nivel de anuncio, desglosado por Dia, Edad y Sexo): un informe por conjunto o sin la columna "Dia" no se puede leer, el detalle de la actualizacion lo avisa en ambar y ese mes sale de la hoja. La descarga tiene que estar en español: las columnas se reconocen por su nombre ("Dia", "Monto gastado (PEN)" o "Importe gastado (PEN)", "Nombre de la campaña"...).
 
 ## Desarrollo
 

@@ -830,7 +830,8 @@
     const label = document.getElementById('topbar-status');
     if (label) label.textContent = text || statusLabel();
     const pill = label?.closest('.topbar-pill');
-    if (pill) pill.classList.toggle('warn', !text && (Boolean(state.error || state.metaError) || !state.lastSync));
+    const metaFailed = (state.meta?.months || []).some(item => item.error && liveMonths().some(live => live.year === item.year && live.index === item.month - 1));
+    if (pill) pill.classList.toggle('warn', !text && (Boolean(state.error || state.metaError) || !state.lastSync || metaFailed));
     renderStatusCard();
   }
   // Avisos del Objetivo Reservas: van a la nota del detalle de la actualizacion.
@@ -861,10 +862,13 @@
     // sin gasto o mes en curso.
     const errors = [state.metaError && `Meta: ${state.metaError}`, state.error && `Google Sheets: ${state.error}`].filter(Boolean);
     const metaMonth = month?.meta;
+    // Descarga del mes en curso o del anterior que el barrido no pudo leer (otro informe, columnas faltantes).
+    const metaFailed = (state.meta?.months || []).filter(item => item.error && liveMonths().some(live => live.year === item.year && live.index === item.month - 1)).pop();
     let message = '';
     if (errors.length) message = `Sin conexion con ${offlineSources()} (${errors.join('; ')}). Se muestran los ultimos datos leidos.`;
     else if (!state.lastSync) message = 'Copia guardada en el tablero: todavia no llego la lectura en vivo.';
     else if (state.tabWarning) message = state.tabWarning;
+    else if (metaFailed) message = `La descarga de ${metaFailed.name} ${metaFailed.year} en la carpeta de Meta no se pudo leer (${metaFailed.error}). Tiene que ser el informe por día, edad, sexo y anuncio, como los otros meses; mientras tanto ${metaFailed.name} sale de la hoja.`;
     else if (metaMonth?.duplicates.length) message = `Hay otro archivo de ${month.name} en la carpeta de Meta (${metaMonth.duplicates.join(', ')}): se usa el editado más recientemente.`;
     else if (state.tabMissing) message = metaMonth
       ? `La hoja todavía no tiene la pestaña de ${state.tabMissing}: el gasto y los mensajes salen de Meta y las reservas aparecen cuando se cree la pestaña.`
