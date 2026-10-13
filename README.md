@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.21.0`.
+Version actual: `v1.22.0`.
 
 ## Versionado
 
@@ -32,6 +32,13 @@ El tablero solo muestra los modulos activos: los modulos pendientes (Comparativo
 
 ## Datos
 
+Desde la v1.22.0 el modulo Gasto publicitario combina dos fuentes:
+
+- **Descargas de Meta Ads** (carpeta de Drive "Meta Files - Amador"): un Google Sheet por mes con el "Raw Data Report" de Meta (una fila por dia x edad x sexo x anuncio), llamado `Amador - <Mes> <Año>`. De ahi salen el gasto, los mensajes ("Conversaciones con mensajes iniciadas"), impresiones, alcance, clics, el objetivo y los anuncios con sus fechas. Las lee el Web App de `scripts/meta-drive-sync.gs` (ver "Descargas de Meta (Web App)").
+- **Hoja `Distribucion-amador`** (carpeta "Excel madre distribucion - Amador"): las **reservas**, el tipo, el presupuesto, las fechas planificadas y el Objetivo Reservas de cada campana. Se cruzan con Meta por nombre de campana: Meta antepone "Campaña " y a veces no deja espacio antes de "|" ("Campaña Mensajes - Fiestas patrias| LR" es "Mensajes - Fiestas patrias | LR" en la hoja). Las reservas de campanas de la hoja que no aparecen en Meta (por ejemplo, junio, con otros nombres) van en una fila "Reservas de la hoja sin campaña en Meta"; el total del mes siempre es el de la hoja.
+
+Cuadros por objetivo de Meta: Ventas, Clientes potenciales y Trafico van a **Reservas**; Interaccion a **Mensajes**; Reconocimiento y Alcance a **Branding**. Una campana es **Activa** si gasto en los dos ultimos dias con datos o sigue con gasto el mes siguiente; si no, **Finalizada**. El mes en curso llega hasta el ultimo dia con gasto de su descarga ("Datos al 12 de octubre"). Los meses sin descarga de Meta (enero a mayo de 2026) y cualquier mes si no hay barrido salen enteros de la hoja, como antes. Los meses de la descarga reemplazan los de la hoja aunque cambie el total de gasto: el archivo de junio de 2026 empieza el 15 y hay que reemplazarlo por la descarga del mes completo.
+
 La fuente normalizada del dashboard esta en `data/amador-ads-2026.json` (enero a mayo y la fecha de la ultima copia) y en una copia por pestana mensual de `Distribucion-amador` (`data/amador-<mes en ingles>-sheet-<año>.json`: junio, julio, agosto y septiembre de 2026). El build incrusta todas las copias mensuales que haya en `data/`, de cualquier año, cada una con su año; en desarrollo se piden las de la lista `SHEET_FILES` de `js/objectives.js`. Junio, julio, agosto y septiembre estan guardados con sus datos finales (septiembre se cerro el 12 de octubre de 2026: gasto S/3,662.40; 451 mensajes; 30 reservas); la lectura en vivo los reemplaza por la pestana actual. Las pestanas de julio en adelante agrupan anuncios por `Conjunto de anuncios` (RTGT, P. Frio, P. Caliente, etc.), reflejado en el campo `adSet`.
 
 Lectura en vivo: al abrir el tablero, cada hora y con el boton Actualizar se leen el CSV publicado de la pestana del mes en curso y la del mes anterior (hora de Lima), tambien entre diciembre y enero. La lista de pestanas (nombre y gid) sale de la vista publicada de la hoja (`/htmlview`); la del mes se reconoce sin importar espacios en los extremos, mayusculas ni tildes (la de octubre se llama "Octubre " con espacio final; "Setiembre" tambien vale) y se pide por su gid. Si esa lista no se puede leer, se pide por nombre: con el año y, si el mes admite nombre sin año, sin el y con espacio final.
@@ -58,7 +65,7 @@ El spreadsheet esta compartido como "cualquier persona con el enlace / lector", 
 ## Historico de Campanas
 
 - Una fila por campana (nombre exacto) con gasto en algun mes. En **Todos** lleva una columna de gasto por mes ("Oct (al 11)" si el mes sigue en curso), gasto total, mensajes, reservas, costo por reserva, anuncios y periodo; con un **mes** elegido quedan las campanas con gasto ese mes, con sus cifras de ese mes, sus fechas y el gasto acumulado al final.
-- Estado: **Finalizada** si la hoja la marca apagada (OFF, Finalizada, Desactiva) o ya no aparece en el ultimo mes con datos; si no, **Activa**. El filtro Todas / Activas / Finalizadas muestra cuantas hay de cada una y los KPIs siguen los dos filtros.
+- Estado: **Finalizada** si dejo de gastar en Meta (o, en los meses de la hoja, si la hoja la marca apagada: OFF, Finalizada, Desactiva) o ya no aparece en el ultimo mes con datos; si no, **Activa**. El filtro Todas / Activas / Finalizadas muestra cuantas hay de cada una y los KPIs siguen los dos filtros.
 - Los anuncios van plegados (marzo a mayo solo traen enlaces de vista previa) y siguen abiertos tras una actualizacion.
 
 ## Proyecciones
@@ -169,12 +176,27 @@ El tablero puede leer el CSV publicado de Google Sheets, pero necesita un puente
 
 Desde ese momento, los cambios en `Objetivo Reservas` se actualizan localmente y se envian al Sheet.
 
+## Descargas de Meta (Web App)
+
+`scripts/meta-drive-sync.gs` es un proyecto independiente de Apps Script (no vinculado a una hoja), publicado por una cuenta con acceso a la carpeta "Meta Files - Amador". Barre la carpeta una vez al dia (10:00 de Lima) y cuando se pulsa Actualizar (`?action=data&fresh=1`, como maximo una vez por minuto); suma edad y sexo por dia, campana, conjunto y anuncio, y guarda el resultado en un JSON de Mi unidad ("Amador - barrido del tablero.json"). Los meses cerrados cuyo archivo no cambio no se vuelven a leer; el mes en curso y el anterior, siempre.
+
+Configuracion unica:
+
+1. script.google.com > Nuevo proyecto > pegar `scripts/meta-drive-sync.gs`. Configuracion del proyecto: zona horaria **America/Lima** y, en Propiedades del script, `DATA_FOLDER_ID` con el ID de la carpeta de descargas (no va en el repo, que es publico).
+2. Ejecutar una vez `installSweepTriggers()`: pide los permisos (Drive, Hojas, Script; "Google no ha verificado esta app" se acepta), crea el disparador diario y hace el primer barrido. `probarBarrido()` escribe en el registro filas, gasto, mensajes y fechas de cada mes.
+3. Implementar > Nueva implementacion > **Aplicacion web**, ejecutar como **Yo**, acceso **Cualquier persona**. La URL `/exec` es un secreto (quien la tenga lee los numeros): solo va como secret `DATA_ENDPOINT` en GitHub.
+4. Cada cambio al `.gs`: pegarlo y Implementar > Administrar implementaciones > editar > **Nueva version** (la URL no cambia). Un cambio de columnas o de la suma exige subir `SWEEP_VERSION`.
+
+Cada mes: subir la descarga como Hoja de calculo de Google (Archivo > Guardar como Hojas de calculo de Google; un `.xlsx` se ignora) con el nombre `Amador - <Mes> <Año>`, un solo archivo por mes (si hay dos, se usa el editado mas recientemente y el detalle de la actualizacion lo avisa). La descarga tiene que estar en español: las columnas se reconocen por su nombre ("Dia", "Monto gastado (PEN)" o "Importe gastado (PEN)", "Nombre de la campaña"...).
+
 ## Desarrollo
 
 ```bash
 npm install
 npm run dev
 ```
+
+En desarrollo el barrido de Meta se lee de `data/amador-meta.json` (copia local, fuera de git), que deja el build cuando corre con `DATA_ENDPOINT=<url /exec> npm run build`. Sin esa copia el tablero muestra solo la hoja.
 
 ## Build
 
@@ -183,6 +205,7 @@ npm run build
 ```
 
 El resultado se genera en `dist/`: `index.html` (CSS, JS y datos incrustados), `assets/`, `data/amador-drive-reports.json` y `.htaccess`.
+Con `DATA_ENDPOINT` el build baja el barrido de Meta (dos intentos), lo guarda en `data/amador-meta.json` y lo incrusta junto con la URL; en GitHub Actions, si no lo puede leer, falla y Pages conserva el deploy anterior. Sin `DATA_ENDPOINT` usa la copia local si existe y, si no, publica solo con la hoja (el workflow lo avisa con un warning).
 Nada mas: `data/csv-backups`, `scripts/` y el resto del repo nunca se publican.
 
 ## Publicacion en GitHub Pages con clave (actual)
@@ -205,7 +228,8 @@ y agrega un `robots.txt` que bloquea buscadores.
 
 Configuracion unica en GitHub:
 
-1. Settings > Secrets and variables > Actions > **New repository secret**: `DASHBOARD_PASSWORD` con la clave.
+1. Settings > Secrets and variables > Actions > **New repository secret**: `DASHBOARD_PASSWORD` con la clave y
+   `DATA_ENDPOINT` con la URL `/exec` del Web App de Meta.
 2. Settings > Pages > Build and deployment > Source: **GitHub Actions**. Asi deja de publicarse la raiz del repo.
 3. Settings > Pages > Custom domain: `amador.limaretail.com` > Save; cuando GitHub emita el certificado,
    marcar **Enforce HTTPS** (la pagina de acceso necesita https para descifrar).

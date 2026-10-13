@@ -16,6 +16,21 @@
   const liveCsvUrl = tab => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&${tab.gid ? `gid=${encodeURIComponent(tab.gid)}` : `sheet=${encodeURIComponent(tab.name)}`}`;
   // Vista publicada de la hoja: trae el nombre y el gid de cada pestana.
   const SHEET_LIST_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/htmlview`;
+  // Gasto, mensajes y anuncios salen de las descargas de Meta (un Google Sheet por mes en Drive) que barre el Web App
+  // de scripts/meta-drive-sync.gs; las reservas siguen saliendo de la hoja. El build incrusta el ultimo barrido
+  // (window.AMADOR_META_DATA) y la URL del Web App (window.AMADOR_DATA_ENDPOINT, secret DATA_ENDPOINT). Sin barrido
+  // los meses salen enteros de la hoja, como antes. En desarrollo se lee la copia local data/amador-meta.json.
+  const META_DATA_URL = 'data/amador-meta.json';
+  const META_ENDPOINT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
+  const META_ENDPOINT = META_ENDPOINT_RE.test(String(window.AMADOR_DATA_ENDPOINT || '')) ? window.AMADOR_DATA_ENDPOINT : '';
+  // Columna "Objetivo" de Meta -> cuadro del tablero (Reservas, Mensajes, Branding). Uno que no esta aqui arma su cuadro.
+  const META_OBJECTIVE_GROUPS = [
+    { label: 'Reservas', match: /^(ventas|clientes potenciales|trafico|conversiones|reservas?)$/ },
+    { label: 'Mensajes', match: /^(interaccion|mensajes?)$/ },
+    { label: 'Branding', match: /^(reconocimiento|alcance|notoriedad|reproducciones de video)$/ },
+  ];
+  // Reservas de la hoja cuya campana no aparece en Meta (nombre distinto): se suman en una sola fila del mes.
+  const UNMATCHED_RESERVATIONS = 'Reservas de la hoja sin campaña en Meta';
   const SYNC_INTERVAL_MS = 60 * 60 * 1000;
   // Al volver a la pestana del navegador solo se relee si la ultima lectura tiene mas de 5 minutos.
   const VISIBILITY_REFETCH_MS = 5 * 60 * 1000;
@@ -89,6 +104,9 @@
     // monthPicked: el usuario eligio una pestana; si no, la vista sigue al ultimo mes con datos (uno nuevo que
     // llega con la lectura en vivo se muestra solo). year: año de la vista anual. month: clave del mes de la tabla de
     // campanas (para sus filas agregadas a mano). chartYear: año que dibuja el grafico mensual de la cuenta.
+    // sheetData: meses de la hoja (copias y lectura en vivo); meta: ultimo barrido de Meta; data: lo que se muestra,
+    // los meses del barrido con las reservas de la hoja y el resto tal como viene de la hoja (composeData).
+    sheetData: null, meta: null, metaError: '', metaSync: null,
     data: null, types: readChartSeries(), monthKey: null, monthPicked: false, year: null, month: null, chartYear: null, charts: new Map(), syncTimer: null, nextSync: 0, goals: {},
     chartCollapsed: readChartCollapsed(), lastSync: null, lastFetch: 0, current: null, liveSheets: [], error: '', tabWarning: '', tabMissing: '', goalNote: '',
     // Tabla de anuncios: densidad, pantalla completa (las pestanas de mes vuelven a tabsHome) y filtro por objetivo.
@@ -370,7 +388,7 @@
   // Clave YYYY-MM de un mes; los que no traen año (copias de data/ anteriores) son del año del archivo base.
   const keyOfMonth = (month, fallbackYear) => monthKey(month.year ?? fallbackYear, MONTHS.indexOf(month.name));
   function mergeSheetMonth(monthData, source = 'Google Sheets') {
-    const data = cloneData(state.data);
+    const data = cloneData(state.sheetData);
     const incoming = { ...monthData, year: monthData.year ?? data.year };
     const key = keyOfMonth(incoming, data.year);
     const index = data.months.findIndex(month => keyOfMonth(month, data.year) === key);
@@ -378,7 +396,205 @@
     else data.months.push(incoming);
     data.months.sort((a, b) => keyOfMonth(a, data.year).localeCompare(keyOfMonth(b, data.year)));
     data.source = source;
-    state.data = data;
+    state.sheetData = data;
+  }
+
+  // ── Meses desde el barrido de Meta ───────────────────────────────────────
+  // Nombre de campana para cruzar la hoja con Meta: Meta antepone "Campaña " y no siempre deja espacio antes de "|"
+  // ("Campaña Mensajes - Fiestas patrias| LR" es "Mensajes - Fiestas patrias | LR" en la hoja).
+  const campaignMatchKey = name => normalizeHeader(name).replace(/^campana\s+/, '').replace(/\s*\|\s*/g, ' | ').trim();
+  // "2026-10-07" -> "07-Oct", el formato de fecha de la hoja.
+  const isoLabel = iso => { const [y, m, d] = String(iso || '').split('-'); return d ? dateLabel(`${Number(d)}/${Number(m)}/${y}`) : null; };
+  function metaGroup(objective) {
+    const text = normalizeHeader(objective);
+    return META_OBJECTIVE_GROUPS.find(group => group.match.test(text))?.label || objective || '';
+  }
+  // Meses del barrido que se leyeron bien y traen filas; uno con error queda como lo trae la hoja.
+  function metaMonthsOf(snapshot) {
+    return (snapshot?.months || []).filter(month => !month.error && Array.isArray(month.rows) && month.rows.length && Array.isArray(month.columns));
+  }
+  // Un mes de Meta en la forma de un mes de la hoja: campanas con sus anuncios (gasto, mensajes y fechas de Meta) y,
+  // de la hoja, las reservas, el tipo, el presupuesto y el Objetivo Reservas de cada campana (cruzadas por nombre).
+  function metaToMonth(meta, sheet) {
+    const index = name => meta.columns.indexOf(name);
+    const num = (row, name) => (index(name) < 0 ? 0 : Number(row[index(name)]) || 0);
+    const text = (row, name) => (index(name) < 0 ? '' : String(row[index(name)] ?? '').trim());
+    const round2 = value => Math.round(Number(value) * 100) / 100;
+    const rows = meta.rows.map(row => ({
+      day: text(row, 'day'), campaign: text(row, 'campaign'), adSet: text(row, 'adSet'), ad: text(row, 'ad'),
+      objective: text(row, 'objective'), resultType: text(row, 'resultType'), preview: text(row, 'preview'),
+      spend: num(row, 'spend'), impressions: num(row, 'impressions'), reach: num(row, 'reach'), clicks: num(row, 'clicks'),
+      results: num(row, 'results'), messages: num(row, 'messages'), purchases: num(row, 'purchases'),
+    })).filter(row => row.day && row.campaign);
+    const active = row => row.spend > 0 || row.impressions > 0;
+    const lastDay = rows.filter(active).map(row => row.day).sort().pop() || `${monthKey(meta.year, meta.month - 1)}-01`;
+    // Activa: gasto en los dos ultimos dias con datos (Meta deja dias sueltos sin entrega). composeData tambien marca
+    // activa la que sigue con gasto el mes siguiente.
+    const recent = day => Boolean(day) && (Date.parse(lastDay) - Date.parse(day)) / 86400000 <= 1;
+    const sumOf = (items, field) => items.reduce((total, row) => total + row[field], 0);
+    // Campanas de la hoja por su nombre normalizado.
+    const sheetCampaigns = new Map((sheet?.campaigns || []).map(campaign => [campaignMatchKey(campaign.name), campaign]));
+    const matched = new Set();
+    const byCampaign = new Map();
+    rows.forEach(row => {
+      if (!byCampaign.has(row.campaign)) byCampaign.set(row.campaign, []);
+      byCampaign.get(row.campaign).push(row);
+    });
+    const campaigns = [...byCampaign.entries()].map(([name, items]) => {
+      // El objetivo de la campana es el de su mayor gasto (en Meta es uno por campana).
+      const spendByObjective = new Map();
+      items.forEach(row => spendByObjective.set(row.objective, (spendByObjective.get(row.objective) || 0) + row.spend + 1e-9));
+      const objective = metaGroup([...spendByObjective.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]);
+      const days = items.filter(active).map(row => row.day).sort();
+      const status = recent(days[days.length - 1]) ? 'Activa' : 'Finalizada';
+      const byAd = new Map();
+      items.forEach(row => {
+        const key = `${row.adSet}\u0000${row.ad}`;
+        if (!byAd.has(key)) byAd.set(key, []);
+        byAd.get(key).push(row);
+      });
+      const ads = [...byAd.values()].map(adItems => {
+        const first = adItems[0];
+        const adDays = adItems.filter(active).map(row => row.day).sort();
+        const spent = round2(sumOf(adItems, 'spend'));
+        const messages = sumOf(adItems, 'messages');
+        return {
+          name: first.adSet ? `${first.adSet} · ${first.ad}` : first.ad,
+          adSet: first.adSet || null,
+          objective,
+          status: recent(adDays[adDays.length - 1]) ? 'Activa' : 'Finalizada',
+          reservas: null,
+          reservationGoal: null,
+          messages,
+          costPerMessage: messages > 0 && spent > 0 ? spent / messages : null,
+          costPerReservation: null,
+          reservationRatio: null,
+          // Fin: el ultimo dia con gasto de un anuncio que ya termino; uno activo no tiene fin.
+          startDate: isoLabel(adDays[0]),
+          endDate: recent(adDays[adDays.length - 1]) ? null : isoLabel(adDays[adDays.length - 1]),
+          duration: null, daysRemaining: null, dailyAmount: null, budget: null, balance: null, newDailyAmount: null, observation: null,
+          spent,
+          impressions: sumOf(adItems, 'impressions'),
+          reach: sumOf(adItems, 'reach'),
+          clicks: sumOf(adItems, 'clicks'),
+          results: sumOf(adItems, 'results'),
+          purchases: sumOf(adItems, 'purchases'),
+          resultType: adItems.find(row => row.resultType)?.resultType || null,
+          adUrl: adItems.find(row => /^https:\/\//.test(row.preview))?.preview || null,
+        };
+      });
+      const key = campaignMatchKey(name);
+      const fromSheet = sheetCampaigns.get(key);
+      if (fromSheet) matched.add(key);
+      const sheetAds = fromSheet?.ads || [];
+      const sheetGoals = sheetAds.map(ad => ad.reservationGoal).filter(value => value != null);
+      // Fechas planificadas de la hoja (inicio y fin de sus anuncios) si la campana esta en la hoja.
+      const key0 = monthKey(meta.year, meta.month - 1);
+      const planStarts = sheetAds.map(ad => ad.startDate).filter(date => dateOrderValue(date, key0) != null).sort((a, b) => dateOrderValue(a, key0) - dateOrderValue(b, key0));
+      const planEnd = sheetAds.filter(ad => dateOrderValue(ad.endDate, key0) != null).sort((a, b) => dateOrderValue(b.endDate, key0) - dateOrderValue(a.endDate, key0))[0];
+      const spent = round2(sumOf(items, 'spend'));
+      const budget = fromSheet?.budget ?? null;
+      return {
+        name,
+        type: fromSheet?.type || null,
+        status,
+        objective,
+        budget,
+        spent,
+        balance: budget != null ? round2(budget - spent) : null,
+        realBalance: null,
+        reservationGoal: fromSheet?.reservationGoal ?? (sheetGoals.length ? sheetGoals.reduce((total, value) => total + Number(value), 0) : null),
+        // Sin pestana del mes en la hoja no hay reservas que mostrar ("-"); con pestana, las de su campana (0 si no esta).
+        reservas: sheet ? Number(fromSheet?.reservas || 0) : null,
+        messages: sumOf(items, 'messages'),
+        observation: fromSheet?.observation || null,
+        sheetName: fromSheet?.name || null,
+        plan: planStarts.length || planEnd ? { startDate: planStarts[0] || null, endDate: planEnd?.endDate || null, daysRemaining: planEnd?.daysRemaining ?? null } : null,
+        // Sin fechas en la hoja: primer dia con gasto y, si ya termino, el ultimo.
+        metaDates: { startDate: isoLabel(days[0]), endDate: status === 'Activa' ? null : isoLabel(days[days.length - 1]) },
+        ads,
+      };
+    });
+    // Reservas de campanas de la hoja que no aparecen en Meta (otro nombre): una fila del mes, sin gasto.
+    const unmatched = (sheet?.campaigns || []).filter(campaign => !matched.has(campaignMatchKey(campaign.name)) && Number(campaign.reservas) > 0);
+    if (unmatched.length) {
+      campaigns.push({
+        name: UNMATCHED_RESERVATIONS,
+        type: 'Hoja',
+        status: '',
+        objective: 'Reservas',
+        budget: null, spent: 0, balance: null, realBalance: null, reservationGoal: null,
+        reservas: unmatched.reduce((total, campaign) => total + Number(campaign.reservas || 0), 0),
+        messages: null,
+        observation: `En la hoja: ${unmatched.map(campaign => campaign.name).join(', ')}`,
+        sheetName: null,
+        ads: [],
+      });
+    }
+    const spend = round2(sumOf(rows, 'spend'));
+    const brandingSpend = round2(campaigns.filter(campaign => campaign.objective === 'Branding').reduce((total, campaign) => total + campaign.spent, 0));
+    const budgetTotal = sheet?.budgetTotal ?? null;
+    return {
+      name: meta.name,
+      year: meta.year,
+      spend,
+      messages: sumOf(rows, 'messages'),
+      // Las reservas son las de la hoja (todas sus campanas); sin pestana del mes, null.
+      reservations: sheet ? campaigns.reduce((total, campaign) => total + Number(campaign.reservas || 0), 0) : null,
+      impressions: sumOf(rows, 'impressions'),
+      reach: sumOf(rows, 'reach'),
+      clicks: sumOf(rows, 'clicks'),
+      purchases: sumOf(rows, 'purchases'),
+      adSpendTotal: spend,
+      budgetTotal,
+      balanceTotal: budgetTotal != null ? round2(budgetTotal - spend) : null,
+      reservationGoalTotal: sheet?.reservationGoalTotal ?? null,
+      newDailyTotal: null,
+      totalObservation: sheet?.totalObservation || '',
+      spendBreakdown: { sales: round2(spend - brandingSpend), branding: brandingSpend },
+      campaigns,
+      headers: [],
+      // Ultimo dia con gasto o impresiones: el corte del mes en curso.
+      lastDataDay: Number(lastDay.slice(8, 10)),
+      meta: { fileName: meta.fileName, modifiedTime: meta.modifiedTime, lastDay, duplicates: meta.duplicates || [] },
+      sheetTab: sheet ? (sheet.tabName || sheet.name) : null,
+      readAt: sheet?.readAt,
+      source: `Meta / ${meta.fileName}${sheet ? ` + Distribucion-amador / ${sheet.tabName || sheet.name}` : ''}`,
+    };
+  }
+  // Lo que se muestra: cada mes del barrido de Meta (con las reservas de su pestana) y el resto de la hoja.
+  function composeData() {
+    const data = cloneData(state.sheetData);
+    metaMonthsOf(state.meta).forEach(meta => {
+      const key = monthKey(meta.year, meta.month - 1);
+      const index = data.months.findIndex(month => keyOfMonth(month, data.year) === key);
+      const month = metaToMonth(meta, index >= 0 ? data.months[index] : null);
+      if (index >= 0) data.months[index] = month;
+      else data.months.push(month);
+    });
+    data.months.sort((a, b) => keyOfMonth(a, data.year).localeCompare(keyOfMonth(b, data.year)));
+    // Una campana (o anuncio) de Meta que sigue con gasto el mes siguiente no habia terminado.
+    data.months.forEach((month, index) => {
+      const next = data.months[index + 1];
+      if (!month.meta || !next?.meta) return;
+      const nextCampaigns = new Map(next.campaigns.map(campaign => [campaign.name, new Set(campaign.ads.map(ad => ad.name))]));
+      month.campaigns.forEach(campaign => {
+        const nextAds = nextCampaigns.get(campaign.name);
+        if (!nextAds) return;
+        campaign.status = 'Activa';
+        if (campaign.metaDates) campaign.metaDates.endDate = null;
+        campaign.ads.forEach(ad => {
+          if (!nextAds.has(ad.name)) return;
+          ad.status = 'Activa';
+          ad.endDate = null;
+        });
+      });
+    });
+    return data;
+  }
+  function recompose() {
+    state.data = composeData();
+    decorate(state.data);
   }
   // Mes de hoy en hora de Lima: decide que meses se leen en vivo y cuales ya cerraron.
   function today() {
@@ -398,7 +614,9 @@
       month.closed = month.key < now.key;
       let day = month.days;
       if (!month.closed) {
-        if (month.readAt) day = limaParts(new Date(month.readAt)).day;
+        // Un mes de Meta llega hasta su ultimo dia con gasto; uno de la hoja, hasta su lectura.
+        if (month.lastDataDay) day = month.lastDataDay;
+        else if (month.readAt) day = limaParts(new Date(month.readAt)).day;
         else if (fileCutoff.startsWith(month.key)) day = Number(fileCutoff.slice(8, 10));
         else day = now.day;
       }
@@ -426,7 +644,7 @@
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return await response.text();
     } catch (error) {
-      if (error?.name === 'AbortError') throw new Error('Google Sheets no respondio a tiempo');
+      if (error?.name === 'AbortError') throw new Error('Google no respondio a tiempo');
       throw error;
     } finally {
       clearTimeout(timer);
@@ -502,40 +720,74 @@
     state.nextSync = Date.now() + SYNC_INTERVAL_MS;
     state.syncTimer = setTimeout(() => syncLiveSheet(), SYNC_INTERVAL_MS);
   }
-  async function runSync(manual) {
-    if (manual) updateStatusLabel('Leyendo Google Sheets...');
+  // Pestanas del mes en curso y el anterior. Una pestana con problemas no impide leer la otra; si fallan todas es
+  // un error de lectura.
+  async function readSheetTabs() {
+    let tabs = null;
     try {
-      let tabs = null;
-      try {
-        const listed = await fetchSheetTabs();
-        if (listed.length) tabs = listed;
-      } catch (error) {
-        console.warn('[amador] No se pudo leer la lista de pestanas; se piden por nombre:', error);
-      }
-      // Una pestana con problemas no impide leer la otra; si fallan todas es un error de lectura.
-      const results = await Promise.allSettled(liveMonths().map(item => fetchLiveMonth(item.year, item.index, tabs)));
-      const failed = results.filter(result => result.status === 'rejected');
-      if (failed.length && failed.length === results.length) throw failed[0].reason;
-      const read = results.filter(result => result.status === 'fulfilled' && result.value).map(result => result.value);
-      state.tabWarning = failed.length ? `No se pudo leer una pestaña de la hoja (${failed.map(result => result.reason?.message || result.reason).join('; ')}).` : '';
-      // Mes en curso sin pestana (o con una que no es de ese mes): se avisa con el nombre que se espera.
-      const current = liveMonths().pop();
-      const found = read.some(item => item.month.year === current?.year && MONTHS.indexOf(item.month.name) === current?.index);
-      const failedCurrent = results.length && results[results.length - 1].status === 'rejected';
-      state.tabMissing = current && !found && !failedCurrent ? `${MONTHS[current.index]} ${current.year}` : '';
-      state.lastSync = new Date();
-      state.liveSheets = read.map(item => item.tabName);
+      const listed = await fetchSheetTabs();
+      if (listed.length) tabs = listed;
+    } catch (error) {
+      console.warn('[amador] No se pudo leer la lista de pestanas; se piden por nombre:', error);
+    }
+    const results = await Promise.allSettled(liveMonths().map(item => fetchLiveMonth(item.year, item.index, tabs)));
+    const failed = results.filter(result => result.status === 'rejected');
+    if (failed.length && failed.length === results.length) throw failed[0].reason;
+    const read = results.filter(result => result.status === 'fulfilled' && result.value).map(result => result.value);
+    // Mes en curso sin pestana (o con una que no es de ese mes): se avisa con el nombre que se espera.
+    const current = liveMonths().pop();
+    const found = read.some(item => item.month.year === current?.year && MONTHS.indexOf(item.month.name) === current?.index);
+    const failedCurrent = results.length && results[results.length - 1].status === 'rejected';
+    return {
+      read,
+      warning: failed.length ? `No se pudo leer una pestaña de la hoja (${failed.map(result => result.reason?.message || result.reason).join('; ')}).` : '',
+      missing: current && !found && !failedCurrent ? `${MONTHS[current.index]} ${current.year}` : '',
+    };
+  }
+  // Ultimo barrido del Web App de Meta; Actualizar pide uno en el momento (fresh=1). Sin URL no hay nada que leer.
+  async function readMeta(manual) {
+    if (!META_ENDPOINT) return null;
+    const payload = JSON.parse(await fetchText(`${META_ENDPOINT}?action=data${manual ? '&fresh=1' : ''}`));
+    if (!payload?.ok || !Array.isArray(payload.months)) throw new Error(payload?.error || 'respuesta sin meses');
+    return payload;
+  }
+  async function runSync(manual) {
+    if (manual) updateStatusLabel(META_ENDPOINT ? 'Leyendo Meta y la hoja...' : 'Leyendo Google Sheets...');
+    try {
+      const [sheet, meta] = await Promise.allSettled([readSheetTabs(), readMeta(manual)]);
       const before = signature();
-      read.forEach(({ month }) => mergeSheetMonth({ ...month, readAt: state.lastSync.toISOString() }));
-      decorate(state.data);
-      const hadError = Boolean(state.error);
-      state.error = '';
+      const hadError = Boolean(state.error || state.metaError);
+      if (sheet.status === 'fulfilled') {
+        const { read, warning, missing } = sheet.value;
+        state.tabWarning = warning;
+        state.tabMissing = missing;
+        state.lastSync = new Date();
+        state.liveSheets = read.map(item => item.tabName);
+        read.forEach(({ month }) => mergeSheetMonth({ ...month, readAt: state.lastSync.toISOString() }));
+        state.error = '';
+      } else {
+        state.error = String(sheet.reason?.message || sheet.reason);
+        console.warn('[amador] No se pudo sincronizar Google Sheets:', sheet.reason);
+      }
+      if (meta.status === 'fulfilled') {
+        if (meta.value) {
+          state.meta = meta.value;
+          state.metaSync = new Date();
+        }
+        state.metaError = '';
+      } else {
+        state.metaError = String(meta.reason?.message || meta.reason);
+        console.warn('[amador] No se pudo leer el barrido de Meta:', meta.reason);
+      }
+      recompose();
+      // Sin ninguna lectura nueva, Proyecciones muestra el aviso de error.
+      if (state.error && (state.metaError || !META_ENDPOINT)) window.dispatchEvent(new CustomEvent('amador:data-error', { detail: { error: state.error } }));
       // Una lectura silenciosa que trae lo mismo no repinta; Actualizar siempre publica.
       if (manual || hadError || signature() !== before) renderAll();
-      return true;
+      return !state.error && !state.metaError;
     } catch (error) {
       state.error = String(error?.message || error);
-      console.warn('[amador] No se pudo sincronizar Google Sheets:', error);
+      console.warn('[amador] No se pudo actualizar los datos:', error);
       window.dispatchEvent(new CustomEvent('amador:data-error', { detail: { error: state.error } }));
       return false;
     } finally {
@@ -560,11 +812,17 @@
       setRefreshing(false);
     }
   }
+  // Fuente sin conexion para la pildora y la nota: Meta, la hoja o las dos.
+  function offlineSources() {
+    const names = [state.metaError && 'Meta', state.error && 'Google Sheets'].filter(Boolean);
+    return names.join(' ni con ');
+  }
   function statusLabel() {
     if (!state.data) return state.error ? 'Sin datos: no se pudo leer Google Sheets' : 'Cargando datos...';
     const month = latestMonth();
-    const dataPart = month ? `Datos de ${month.name}` : 'Sin datos';
-    if (state.error) return `${dataPart} | sin conexion con Google Sheets`;
+    // Un mes de Meta llega hasta su ultimo dia con gasto: "Datos al 12 de octubre".
+    const dataPart = !month ? 'Sin datos' : month.meta && !month.closed ? `Datos al ${month.dataDay} de ${month.name.toLowerCase()}` : `Datos de ${month.name}`;
+    if (state.error || state.metaError) return `${dataPart} | sin conexion con ${offlineSources()}`;
     if (!state.lastSync) return `${dataPart} | copia guardada`;
     return `${dataPart} | leidos ${formatStamp(state.lastSync)}`;
   }
@@ -572,7 +830,7 @@
     const label = document.getElementById('topbar-status');
     if (label) label.textContent = text || statusLabel();
     const pill = label?.closest('.topbar-pill');
-    if (pill) pill.classList.toggle('warn', !text && (Boolean(state.error) || !state.lastSync));
+    if (pill) pill.classList.toggle('warn', !text && (Boolean(state.error || state.metaError) || !state.lastSync));
     renderStatusCard();
   }
   // Avisos del Objetivo Reservas: van a la nota del detalle de la actualizacion.
@@ -592,23 +850,31 @@
     set('status-data', month ? (month.closed ? `${month.name} ${year} completo` : `1-${month.dataDay} ${month.name} ${year}`) : 'Sin meses con datos');
     set('status-last', state.lastSync ? formatStamp(state.lastSync) : 'sin lectura en vivo');
     renderNextSync();
-    const sheets = state.liveSheets.length ? state.liveSheets : [month?.name].filter(Boolean);
-    set('status-sheet', `Distribucion-amador / ${sheets.join(' y ') || '-'}`);
-    set('status-source', state.lastSync ? (state.error ? 'ultima lectura en vivo' : 'Google Sheets en vivo') : 'copia guardada en el tablero');
+    const sheets = state.liveSheets.length ? state.liveSheets : [month?.sheetTab || month?.name].filter(Boolean);
+    const hasMeta = metaMonthsOf(state.meta).length > 0;
+    set('status-sheet', `Distribucion-amador / ${sheets.join(' y ') || '-'}${hasMeta ? ' (reservas)' : ''}`);
+    set('status-meta', month?.meta ? `${month.meta.fileName} | barrido ${state.meta?.sweptAt ? formatStamp(new Date(state.meta.sweptAt)) : '-'}` : (META_ENDPOINT || hasMeta ? 'Sin archivo del mes' : 'Sin conectar: el gasto sale de la hoja'));
+    set('status-source', state.lastSync ? (state.error || state.metaError ? 'ultima lectura en vivo' : `${hasMeta ? 'Meta y ' : ''}Google Sheets en vivo`) : 'copia guardada en el tablero');
     const note = document.getElementById('status-note');
     if (!note) return;
     // Un solo aviso, por orden de gravedad: sin conexion, copia guardada, pestana sin leer, Objetivo Reservas, mes
     // sin gasto o mes en curso.
+    const errors = [state.metaError && `Meta: ${state.metaError}`, state.error && `Google Sheets: ${state.error}`].filter(Boolean);
+    const metaMonth = month?.meta;
     let message = '';
-    if (state.error) message = `Sin conexion con Google Sheets: ${state.error}. Se muestran los ultimos datos leidos.`;
+    if (errors.length) message = `Sin conexion con ${offlineSources()} (${errors.join('; ')}). Se muestran los ultimos datos leidos.`;
     else if (!state.lastSync) message = 'Copia guardada en el tablero: todavia no llego la lectura en vivo.';
     else if (state.tabWarning) message = state.tabWarning;
-    else if (state.tabMissing) message = `La hoja todavía no tiene la pestaña de ${state.tabMissing} (puede llamarse «${state.tabMissing}»): se muestra el último mes con datos.`;
+    else if (metaMonth?.duplicates.length) message = `Hay otro archivo de ${month.name} en la carpeta de Meta (${metaMonth.duplicates.join(', ')}): se usa el editado más recientemente.`;
+    else if (state.tabMissing) message = metaMonth
+      ? `La hoja todavía no tiene la pestaña de ${state.tabMissing}: el gasto y los mensajes salen de Meta y las reservas aparecen cuando se cree la pestaña.`
+      : `La hoja todavía no tiene la pestaña de ${state.tabMissing} (puede llamarse «${state.tabMissing}»): se muestra el último mes con datos.`;
     else if (state.goalNote) message = state.goalNote;
     else if (month && !month.closed && !(Number(month.spend) > 0)) message = `La hoja todavía no trae el gasto de ${month.name}: se ven sus mensajes y reservas, y los costos aparecen cuando se cargue el gasto.`;
+    else if (metaMonth && !month.closed) message = `${month.name} sigue en curso: el gasto llega hasta el ${month.dataDay} (última descarga de Meta en la carpeta) y las reservas, hasta la última lectura de la hoja.`;
     else if (month && !month.closed) message = `${month.name} sigue en curso: las cifras llegan hasta la ultima lectura.`;
     note.textContent = message;
-    note.classList.toggle('error', Boolean(state.error));
+    note.classList.toggle('error', errors.length > 0);
     note.hidden = !message;
   }
   function renderNextSync() {
@@ -739,7 +1005,7 @@
       host.innerHTML = yearTabsHtml(year) + MONTHS.map((name, index) => {
         const key = monthKey(year, index);
         const on = key === selected;
-        return `<button type="button" class="month-tab${on ? ' active' : ''}" data-month="${key}" aria-pressed="${on}"${hasData(monthByKey(key)) ? '' : ' disabled title="Sin datos en la hoja Distribucion-amador"'}>${name}${key === latest?.key ? '<span class="current-dot"></span>' : ''}</button>`;
+        return `<button type="button" class="month-tab${on ? ' active' : ''}" data-month="${key}" aria-pressed="${on}"${hasData(monthByKey(key)) ? '' : ' disabled title="Sin datos en Meta ni en la hoja"'}>${name}${key === latest?.key ? '<span class="current-dot"></span>' : ''}</button>`;
       }).join('') + `<button type="button" class="month-tab${annual ? ' active' : ''}" data-month="${YEAR_KEY}" aria-pressed="${annual}" title="Acumulado ${year} de los meses con datos"${latest ? '' : ' disabled'}>Anual</button>`;
     });
   }
@@ -749,7 +1015,7 @@
     if (!title || !sub) return;
     if (!period) {
       title.textContent = 'Sin datos';
-      sub.textContent = 'No hay meses con datos en la hoja Distribucion-amador.';
+      sub.textContent = 'No hay meses con datos en Meta ni en la hoja Distribucion-amador.';
       return;
     }
     if (period.annual) {
@@ -859,7 +1125,9 @@
 
   // Campanas del mes con las cifras de la campana en la hoja (su gasto es el de la hoja, no la suma de anuncios).
   function campaignEntries(month) {
-    const perAd = !byAdSet(month);
+    // Meta trae el gasto por anuncio; las reservas de la hoja quedan por campana.
+    const perAd = Boolean(month.meta) || !byAdSet(month);
+    const reservasByCampaign = Boolean(month.meta);
     return (month.campaigns || []).map(campaign => {
       const objective = campaignObjective(campaign);
       const ads = campaign.ads || [];
@@ -878,6 +1146,7 @@
         groupLabel: objective.label,
         color: objective.color,
         perAd,
+        reservasByCampaign,
         spend: Number(campaign.spent) || 0,
         messages: campaign.messages ?? null,
         reservations: campaign.reservas ?? null,
@@ -885,9 +1154,10 @@
         balance: campaign.balance ?? null,
         // Desde julio el objetivo de reservas viene en la campana; en junio, por anuncio.
         sheetGoal: campaign.reservationGoal ?? (adGoals.length ? adGoals.reduce((sum, value) => sum + Number(value), 0) : null),
-        startDate: starts[0] || null,
-        endDate: last.endDate || null,
-        daysRemaining: last.daysRemaining ?? null,
+        // Un mes de Meta toma las fechas planificadas de la hoja o, sin ellas, las de Meta.
+        startDate: campaign.plan?.startDate || campaign.metaDates?.startDate || starts[0] || null,
+        endDate: campaign.plan ? campaign.plan.endDate : campaign.metaDates ? campaign.metaDates.endDate : last.endDate || null,
+        daysRemaining: campaign.plan ? campaign.plan.daysRemaining : campaign.metaDates ? null : last.daysRemaining ?? null,
         newDaily: newDaily.length ? newDaily.reduce((sum, value) => sum + Number(value), 0) : null,
         ads,
         // Marzo a mayo no traen anuncios, solo los enlaces de vista previa de la campana.
@@ -910,6 +1180,7 @@
         adSet,
         ad: name,
         perAd: entry.perAd,
+        reservasByCampaign: entry.reservasByCampaign,
         spend: Number(ad.spent) || 0,
         messages: Number(ad.messages) || 0,
         reservations: Number(ad.reservas) || 0,
@@ -1045,6 +1316,7 @@
           messages: sum('messages'),
           reservations: sum('reservations'),
           perAd: items.every(row => row.perAd),
+          reservasByCampaign: items.some(row => row.reservasByCampaign),
           startDate: starts[0] || last.startDate,
           endDate: ends[0] || last.endDate,
           observation: [...items].reverse().find(row => row.observation)?.observation || null,
@@ -1528,10 +1800,13 @@
     });
     const rows = state.adsObjective === 'all' ? all : all.filter(ad => ad.group === state.adsObjective);
     const bySet = all.some(ad => !ad.perAd);
+    const fromMeta = all.some(ad => ad.reservasByCampaign);
+    const sourceNote = bySet ? ' Desde julio el gasto se registra por conjunto y las reservas por campaña: van en su cuadro y en la distribución.'
+      : fromMeta ? ' El gasto y los mensajes de cada anuncio vienen de Meta; las reservas, de la hoja por campaña: van en su cuadro y en la distribución.' : '';
     if (title) title.textContent = `Anuncios | ${periodName(period)}${period.annual ? '' : ` ${period.year}`}`;
     if (sub) {
       sub.textContent = model.rows.length
-        ? `${rows.length} ${rows.length === 1 ? 'anuncio' : 'anuncios'} ordenados por mensajes dentro de cada objetivo. La estrella marca al líder de cada objetivo.${bySet ? ' Desde julio el gasto se registra por conjunto y las reservas por campaña: van en su cuadro y en la distribución.' : ''}`
+        ? `${rows.length} ${rows.length === 1 ? 'anuncio' : 'anuncios'} ordenados por mensajes dentro de cada objetivo. La estrella marca al líder de cada objetivo.${sourceNote}`
         : `La hoja no trae el detalle de anuncios de ${period.annual ? 'este periodo' : period.month.name}.`;
     }
     if (prevHead) prevHead.textContent = compare ? `Mensajes ${period.compare.month.name}` : 'Mes anterior';
@@ -1556,7 +1831,7 @@
           <td class="num">${compare ? variationCell(ad.messages, before?.messages) : '<span class="no-data">-</span>'}</td>
           <td class="num">${ad.perAd ? fmt.money(ad.messages > 0 ? ad.spend / ad.messages : null) : '<span class="no-data">-</span>'}</td>
           <td class="num">${ad.perAd ? fmt.money(ad.spend) : '<span class="no-data" title="El gasto se registra por conjunto">Por conjunto</span>'}</td>
-          <td class="num">${ad.perAd ? fmt.count(ad.reservations) : '<span class="no-data" title="Las reservas se registran por campaña">Por campaña</span>'}</td>
+          <td class="num">${ad.perAd && !ad.reservasByCampaign ? fmt.count(ad.reservations) : '<span class="no-data" title="Las reservas se registran por campaña">Por campaña</span>'}</td>
           <td class="date-col">${esc(ad.startDate || '-')}</td>
           <td class="date-col deadline-cell">${period.annual ? esc(ad.endDate || '-') : renderDeadline(ad.endDate, ad.daysRemaining)}</td>
           <td class="num">${fmt.money(ad.daily)}</td>
@@ -1654,8 +1929,8 @@
     .sort((a, b) => direction * (dateOrderValue(a[field], a.monthKey) - dateOrderValue(b[field], b.monthKey)))
     .map(item => item[field]);
   // ── Historico de campanas ────────────────────────────────────────────────
-  // Una fila por campana (nombre exacto) con actividad en algun mes. Finalizada: la hoja la marca apagada (OFF,
-  // Finalizada, Desactiva) o ya no aparece en el ultimo mes con datos.
+  // Una fila por campana (nombre exacto) con actividad en algun mes. Finalizada: dejo de gastar en Meta o la hoja la
+  // marca apagada (OFF, Finalizada, Desactiva), o ya no aparece en el ultimo mes con datos.
   function campaignHistory() {
     const latestKey = latestMonth()?.key || '';
     const byName = new Map();
@@ -1717,7 +1992,7 @@
         const available = Boolean(item) && campaignEntries(item).some(hasActivity);
         const on = month?.key === key;
         return `<button type="button" class="month-tab${on ? ' active' : ''}" data-month="${key}" aria-pressed="${on}"${available ? '' : ' disabled title="Sin campañas con actividad en la hoja"'}>${name}${key === latest?.key ? '<span class="current-dot"></span>' : ''}</button>`;
-      }).join('') + `<button type="button" class="month-tab${month ? '' : ' active'}" data-month="${HISTORY_ALL}" aria-pressed="${!month}" title="Todas las campañas de la hoja">Todos</button>`;
+      }).join('') + `<button type="button" class="month-tab${month ? '' : ' active'}" data-month="${HISTORY_ALL}" aria-pressed="${!month}" title="Todas las campañas">Todos</button>`;
     });
   }
   const matchesStatus = (item, key) => key === 'todas' || (key === 'activas' ? !item.finished : item.finished);
@@ -1805,7 +2080,7 @@
       const first = months[0];
       const last = months[months.length - 1];
       const range = first && last ? (multiYear ? `de ${first.name} ${first.year} a ${last.name} ${last.year}` : `de ${first.name} a ${last.name} ${last.year}`) : '';
-      if (!rows.length) sub.textContent = `Ninguna ${status.one} ${month ? `con actividad en ${month.name} ${month.year}` : 'en la hoja Distribucion-amador'}.`;
+      if (!rows.length) sub.textContent = `Ninguna ${status.one} ${month ? `con actividad en ${month.name} ${month.year}` : 'en los datos'}.`;
       else if (month) sub.textContent = `${rows.length} ${rows.length === 1 ? status.one : status.many} con actividad en ${month.name} ${month.year}.`;
       else sub.textContent = `${rows.length} ${rows.length === 1 ? status.one : status.many} ${range}. Cada mes es el gasto de su pestaña en la hoja.`;
     }
@@ -2084,22 +2359,25 @@
   }
   async function init() {
     try {
-      if (window.AMADOR_ADS_DATA) state.data = cloneData(window.AMADOR_ADS_DATA);
-      else { const response = await fetch(DATA_URL, { cache: 'no-store' }); if (!response.ok) throw new Error(`HTTP ${response.status}`); state.data = await response.json(); }
+      if (window.AMADOR_ADS_DATA) state.sheetData = cloneData(window.AMADOR_ADS_DATA);
+      else { const response = await fetch(DATA_URL, { cache: 'no-store' }); if (!response.ok) throw new Error(`HTTP ${response.status}`); state.sheetData = await response.json(); }
       // La fecha del archivo es la de la copia guardada del mes en curso, no la de hoy.
-      state.data.fileCutoff = state.data.cutoff;
+      state.sheetData.fileCutoff = state.sheetData.cutoff;
       // Los meses del archivo base son de su año.
-      state.data.months.forEach(month => { month.year = month.year ?? state.data.year; });
+      state.sheetData.months.forEach(month => { month.year = month.year ?? state.sheetData.year; });
       const sheetMonths = window.AMADOR_SHEET_MONTHS || await Promise.all(SHEET_FILES.map(file => fetch(file.url, { cache: 'no-store' })
         .then(response => response.json())
         .then(month => ({ year: file.year, ...month }))));
-      sheetMonths.forEach(month => mergeSheetMonth(month, state.data.source || 'Datos locales'));
-      decorate(state.data);
+      sheetMonths.forEach(month => mergeSheetMonth(month, state.sheetData.source || 'Datos locales'));
+      // El build siempre define AMADOR_META_DATA (null sin barrido); en desarrollo se lee la copia local si existe.
+      if ('AMADOR_META_DATA' in window) state.meta = window.AMADOR_META_DATA;
+      else state.meta = await fetch(META_DATA_URL, { cache: 'no-store' }).then(response => (response.ok ? response.json() : null)).catch(() => null);
+      recompose();
       loadGoals();
       state.monthKey = latestMonth()?.key || null;
       wireEvents();
       renderAll();
-      updateStatusLabel('Leyendo Google Sheets...');
+      updateStatusLabel(META_ENDPOINT ? 'Leyendo Meta y la hoja...' : 'Leyendo Google Sheets...');
       syncLiveSheet();
     } catch (error) {
       document.getElementById('view-obj').innerHTML = '<div class="data-notice error"><strong>No se pudo cargar la informacion de Amador.</strong></div>';

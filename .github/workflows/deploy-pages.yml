@@ -29,8 +29,11 @@ jobs:
       - name: Build y cifrado
         env:
           DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
+          # URL /exec del Web App de scripts/meta-drive-sync.gs (descargas de Meta en Drive).
+          DATA_ENDPOINT: ${{ secrets.DATA_ENDPOINT }}
         run: |
           if [ -z "$DASHBOARD_PASSWORD" ]; then echo "::error::Falta el secret DASHBOARD_PASSWORD"; exit 1; fi
+          if [ -z "$DATA_ENDPOINT" ]; then echo "::warning::Falta el secret DATA_ENDPOINT: Gasto publicitario sale solo de la hoja"; fi
           node scripts/build.js
           node scripts/protect-pages.js
 

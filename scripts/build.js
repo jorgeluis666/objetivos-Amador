@@ -44,7 +44,46 @@ function writeHtaccess(html) {
   fs.writeFileSync(path.join(DIST_DIR, '.htaccess'), output, 'utf8');
 }
 
-function main() {
+// Barrido de Meta (scripts/meta-drive-sync.gs). Con DATA_ENDPOINT se baja del Web App y se guarda como copia local
+// (data/amador-meta.json, fuera de git); sin el, se usa esa copia si existe. Sin barrido el tablero muestra la hoja.
+const META_FILE = 'data/amador-meta.json';
+const DATA_ENDPOINT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
+async function fetchMeta(endpoint) {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const response = await fetch(`${endpoint}?action=data`, { redirect: 'follow', signal: AbortSignal.timeout(120000) });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      if (!payload.ok || !Array.isArray(payload.months)) throw new Error(payload.error || 'respuesta sin meses');
+      return payload;
+    } catch (error) {
+      console.warn(`[build] intento ${attempt}: no se pudo leer el barrido de Meta (${error.message})`);
+    }
+  }
+  return null;
+}
+async function loadMeta() {
+  const endpoint = (process.env.DATA_ENDPOINT || '').trim();
+  if (endpoint && !DATA_ENDPOINT_RE.test(endpoint)) throw new Error('DATA_ENDPOINT no es una URL /exec de script.google.com');
+  const local = path.join(ROOT, META_FILE);
+  if (endpoint) {
+    const fresh = await fetchMeta(endpoint);
+    if (fresh) {
+      fs.writeFileSync(local, JSON.stringify(fresh), 'utf8');
+      return { endpoint, meta: fresh };
+    }
+    // En GitHub Actions no se publica sin datos de Meta: Pages conserva el deploy anterior.
+    if (process.env.CI) throw new Error('no se pudo leer el barrido de Meta');
+  } else {
+    console.warn('[build] sin DATA_ENDPOINT: el modulo Gasto publicitario usa la copia local de Meta o solo la hoja');
+  }
+  const meta = fs.existsSync(local) ? JSON.parse(fs.readFileSync(local, 'utf8')) : null;
+  return { endpoint, meta };
+}
+
+async function main() {
+  const { endpoint, meta } = await loadMeta();
+  const metaData = JSON.stringify(meta).replace(/</g, '\\u003c');
   let html = readFile('index.html');
   const css = readFile('css/dashboard.css');
   const data = readFile('data/amador-ads-2026.json').replace(/</g, '\\u003c');
@@ -71,7 +110,7 @@ function main() {
   // La bitacora y el directorio de usuarios viajan incrustados: dist/ no lleva esos JSON.
   html = html.replace(
     '</head>',
-    () => `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_SHEET_MONTHS = [${sheetMonths.join(',')}];window.AMADOR_DRIVE_REPORTS = ${driveReports};window.AMADOR_BITACORA = ${bitacoraData};window.AMADOR_USUARIOS = ${usuariosData};</script></head>`
+    () => `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_SHEET_MONTHS = [${sheetMonths.join(',')}];window.AMADOR_DRIVE_REPORTS = ${driveReports};window.AMADOR_BITACORA = ${bitacoraData};window.AMADOR_USUARIOS = ${usuariosData};window.AMADOR_META_DATA = ${metaData};window.AMADOR_DATA_ENDPOINT = ${JSON.stringify(endpoint)};</script></head>`
   );
 
   // El navegador convierte CRLF en LF antes de calcular el hash CSP de cada <script>; si el HTML
@@ -91,12 +130,11 @@ function main() {
   fs.cpSync(path.join(ROOT, 'assets'), path.join(DIST_DIR, 'assets'), { recursive: true });
   writeHtaccess(html);
 
+  console.log(`[build] Meta: ${meta ? `${(meta.months || []).length} meses, barrido ${meta.sweptAt}` : 'sin barrido'}`);
   console.log(`[build] escrito dist/index.html (${(fs.statSync(DIST_HTML).size / 1024).toFixed(1)} KB)`);
 }
 
-try {
-  main();
-} catch (error) {
+main().catch(error => {
   console.error('[build] error:', error.message);
   process.exit(1);
-}
+});
