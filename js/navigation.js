@@ -2,7 +2,8 @@
   const VIEW_KEY = 'amador-active-view';
   const VIEW_META = {
     'view-obj': {
-      title: 'Gasto publicitario 2026',
+      // El año es el que se esta viendo (js/objectives.js lo actualiza al cambiar de año).
+      title: () => `Gasto publicitario ${window.AmadorObjectives?.viewYear?.() || new Date().getFullYear()}`,
       caption: 'Agencia Lima Retail',
       source: 'Fuente: Distribucion-amador (Google Sheets)',
       footer: 'Sincronizado por Agencia Lima Retail',
@@ -67,7 +68,7 @@
       button.setAttribute('aria-current', active ? 'page' : 'false');
     });
 
-    document.getElementById('topbar-title').textContent = meta.title;
+    document.getElementById('topbar-title').textContent = typeof meta.title === 'function' ? meta.title() : meta.title;
     document.getElementById('topbar-caption').textContent = meta.caption;
     document.getElementById('footer-source').textContent = meta.source;
     document.getElementById('footer-status').textContent = meta.footer;

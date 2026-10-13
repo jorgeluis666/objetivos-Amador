@@ -52,12 +52,16 @@ function main() {
   const inlineJson = file => JSON.stringify(JSON.parse(readFile(file))).replace(/</g, '\\u003c');
   const bitacoraData = inlineJson('data/amador-bitacora-2026.json');
   const usuariosData = inlineJson('data/amador-usuarios-2026.json');
-  // Copias de las pestanas mensuales de la hoja: se incrustan todas las que haya en data/, en orden de mes.
+  // Copias de las pestanas mensuales de la hoja (data/amador-<mes en ingles>-sheet-<año>.json): se incrustan todas,
+  // en orden de año y mes, cada una con su año.
   const MONTH_FILES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
-  const sheetMonths = MONTH_FILES
-    .map(month => `data/amador-${month}-sheet-2026.json`)
-    .filter(file => fs.existsSync(path.join(ROOT, file)))
-    .map(inlineJson);
+  const SHEET_FILE_RE = new RegExp(`^amador-(${MONTH_FILES.join('|')})-sheet-(\\d{4})\\.json$`);
+  const sheetMonths = fs.readdirSync(path.join(ROOT, 'data'))
+    .map(file => file.match(SHEET_FILE_RE))
+    .filter(Boolean)
+    .map(([file, month, year]) => ({ file: `data/${file}`, year: Number(year), index: MONTH_FILES.indexOf(month) }))
+    .sort((a, b) => (a.year - b.year) || (a.index - b.index))
+    .map(({ file, year }) => JSON.stringify({ year, ...JSON.parse(readFile(file)) }).replace(/</g, '\\u003c'));
 
   // Reemplazos con funcion: una cadena de reemplazo interpretaria "$&" o "$'" dentro del codigo.
   html = html.replace(/<link rel="stylesheet" href="css\/dashboard\.css(?:\?v=[^"]+)?">/, () => `<style>${css}</style>`);

@@ -42,7 +42,7 @@
     if (!month) return null;
 
     const monthIndex = MONTHS.indexOf(month.name);
-    const year = snapshot.year || new Date().getFullYear();
+    const year = month.year || snapshot.year || new Date().getFullYear();
     const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
     // Cierre y dia de corte del mes segun el calendario de Lima (los marca el modulo Gasto publicitario).
     const cutoffDate = toDate(month.cutoff || snapshot.cutoff);

@@ -2327,3 +2327,9 @@ body.amador-table-fullscreen {
   touch-action: none;
 }
 
+/* Con datos de mas de un año, los años van en su propia fila encima de los meses. */
+.year-tabs {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 7px;
+}
