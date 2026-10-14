@@ -1877,26 +1877,6 @@ button.topbar-pill[aria-expanded="true"] .status-chevron {
   background: #f8fafc;
 }
 
-.add-ad-picker {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-right: 10px;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.add-ad-picker select {
-  height: 28px;
-  max-width: 280px;
-  padding: 0 8px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  color: var(--ink);
-  background: #fff;
-  font-size: 11px;
-}
 
 /* ===== Cuadro de cada objetivo ===== */
 /* Van dentro del panel de distribucion, debajo de su tabla, separados por una linea fina.
@@ -2056,8 +2036,101 @@ button.topbar-pill[aria-expanded="true"] .status-chevron {
 
 /* ===== Tabla de anuncios: cabecera fija, columnas ancladas, pantalla completa ===== */
 
-#view-obj .campaigns-panel {
-  margin-top: 0;
+/* ===== Modulo Anuncios (view-ads): periodo, Top 3 y tabla ===== */
+
+.ads-period-panel .period-head {
+  margin-bottom: 0;
+}
+
+#view-ads .ad-top-panel,
+#view-ads .campaigns-panel {
+  margin-top: 20px;
+}
+
+.ad-top {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.ad-top-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.ad-top-rank {
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.ad-top-name {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.ad-top-meta {
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.ad-top-meta small {
+  display: block;
+  color: #94a3b8;
+}
+
+.ad-top-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: auto;
+  color: var(--ink);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+
+.ad-top-value span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.ad-top-detail {
+  color: #475569;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.ad-top-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* Anuncios de cada objetivo, al final de su cuadro en Gasto publicitario. */
+.camp-ads-table {
+  min-width: 1240px;
+}
+
+.camp-ads-table .campaign-name {
+  min-width: 200px;
+  max-width: 260px;
+  overflow-wrap: anywhere;
 }
 
 .table-tools {
@@ -2109,16 +2182,16 @@ button.topbar-pill[aria-expanded="true"] .status-chevron {
 }
 
 .campaigns-table {
-  min-width: 1600px;
+  min-width: 1900px;
 }
 
 /* Sin periodo de comparacion (vista anual o primer mes): fuera "Mes anterior" y "Variacion". */
-.campaigns-panel.no-compare .campaigns-table :is(th, td):is(:nth-child(6), :nth-child(7)) {
+.campaigns-panel.no-compare .cmp-col {
   display: none;
 }
 
 .campaigns-panel.no-compare .campaigns-table {
-  min-width: 1440px;
+  min-width: 1740px;
 }
 
 .campaigns-table thead th {
@@ -2196,26 +2269,52 @@ button.topbar-pill[aria-expanded="true"] .status-chevron {
   font-size: 9px;
 }
 
-.observation-col {
-  min-width: 160px;
-  color: #475569;
-  font-size: 10px;
-}
-
 .leader-star {
   color: #f59e0b;
 }
 
-.preview-link {
-  color: #2563eb;
-  font-size: 10px;
-  font-weight: 700;
+/* El nombre del anuncio es el enlace a su vista previa en Meta. */
+.ad-link {
+  color: inherit;
   text-decoration: none;
-  white-space: nowrap;
 }
 
-.preview-link:hover {
+.ad-link span {
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.ad-link:hover {
+  color: #2563eb;
   text-decoration: underline;
+}
+
+/* Tipo de resultado y notas bajo una cifra. */
+.result-type-col {
+  min-width: 150px;
+  color: #475569;
+  font-size: 10px;
+  white-space: normal;
+}
+
+.result-type-col small,
+.cell-sub {
+  display: block;
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: normal;
+}
+
+.data-table .num .cell-sub {
+  max-width: 150px;
+  margin-left: auto;
+}
+
+/* Reservas web van junto al anuncio: un fondo tenue las separa del resto. */
+.data-table td.sales-col {
+  background: #fafafa;
 }
 
 /* Pantalla completa: el panel toma todo el viewport y las pestanas de mes viajan dentro por JS. */
@@ -2282,6 +2381,10 @@ body.amador-table-fullscreen {
 
   .table-tools {
     flex-wrap: wrap;
+  }
+
+  .ad-top {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .campaign-block .chart-panel-head {

@@ -479,6 +479,8 @@
           clicks: sumOf(adItems, 'clicks'),
           results: sumOf(adItems, 'results'),
           purchases: sumOf(adItems, 'purchases'),
+          // Dias con gasto o impresiones: los dias activos del modulo Anuncios (en la vista anual se unen).
+          days: [...new Set(adDays)],
           resultType: adItems.find(row => row.resultType)?.resultType || null,
           adUrl: adItems.find(row => /^https:\/\//.test(row.preview))?.preview || null,
         };
@@ -998,20 +1000,21 @@
     if (years.length < 2) return '';
     return `<div class="year-tabs" role="group" aria-label="Año">${years.map(year => `<button type="button" class="month-tab${year === selectedYear ? ' active' : ''}" data-year="${year}" aria-pressed="${year === selectedYear}">${year}</button>`).join('')}</div>`;
   }
+  // Gasto publicitario y Anuncios comparten el mes: las dos filas de pestanas se pintan juntas.
+  const MONTH_TAB_HOSTS = ['month-tabs', 'ads-month-tabs'];
   function renderTabs() {
-    const host = document.getElementById('month-tabs');
-    if (!host || !state.data) return;
+    if (!state.data) return;
     const year = viewYear();
     const latest = latestMonth();
     const annual = annualView();
     const selected = annual ? null : selectedMonth()?.key;
-    keepFocus(host, () => {
+    MONTH_TAB_HOSTS.map(id => document.getElementById(id)).filter(Boolean).forEach(host => keepFocus(host, () => {
       host.innerHTML = yearTabsHtml(year) + MONTHS.map((name, index) => {
         const key = monthKey(year, index);
         const on = key === selected;
         return `<button type="button" class="month-tab${on ? ' active' : ''}" data-month="${key}" aria-pressed="${on}"${hasData(monthByKey(key)) ? '' : ' disabled title="Sin datos en Meta ni en la hoja"'}>${name}${key === latest?.key ? '<span class="current-dot"></span>' : ''}</button>`;
       }).join('') + `<button type="button" class="month-tab${annual ? ' active' : ''}" data-month="${YEAR_KEY}" aria-pressed="${annual}" title="Acumulado ${year} de los meses con datos"${latest ? '' : ' disabled'}>Anual</button>`;
-    });
+    }));
   }
   function renderPeriod(period) {
     const title = document.getElementById('period-title');
@@ -1195,6 +1198,15 @@
         daily: ad.dailyAmount ?? null,
         observation: ad.observation || null,
         preview: ad.adUrl || '',
+        // Solo los meses de Meta traen impresiones, resultados, compras (reservas web) y dias por anuncio.
+        fromMeta: Array.isArray(ad.days),
+        days: Array.isArray(ad.days) ? ad.days : null,
+        impressions: Number(ad.impressions) || 0,
+        reach: Number(ad.reach) || 0,
+        clicks: Number(ad.clicks) || 0,
+        results: Number(ad.results) || 0,
+        resultType: ad.resultType || '',
+        purchases: Number(ad.purchases) || 0,
       };
     });
   }
@@ -1647,7 +1659,7 @@
     const head = '<div class="adset-head"><div class="panel-title">Conjuntos de anuncios</div>';
     if (!rows.some(row => row.adSet)) {
       const why = rows.length
-        ? `${period.annual ? 'Estos meses no agrupan' : `${period.month.name} no agrupa`} los anuncios por conjunto: el detalle va en la tabla de anuncios.`
+        ? `${period.annual ? 'Estos meses no agrupan' : `${period.month.name} no agrupa`} los anuncios por conjunto: el detalle va en la tabla de anuncios de abajo.`
         : 'La hoja no trae el detalle de anuncios de estas campañas.';
       return `${head}<div class="panel-sub">${why}</div></div>`;
     }
@@ -1710,6 +1722,7 @@
           <div class="chart-wrap h-300"><canvas role="img" aria-label="Grafico por mes de la campaña ${esc(objective.label)}"></canvas></div>
           <div class="chart-legend projection-legend" data-campaign-legend></div>
           ${adSetsHtml(period, objective, model)}
+          ${campaignAdsHtml(period, objective, model)}
         </div>
       </section>`;
   }
@@ -1751,7 +1764,142 @@
     });
   }
 
-  // ── Anuncios del periodo ─────────────────────────────────────────────────
+  // ── Modulo Anuncios (vista view-ads) ─────────────────────────────────────
+  // Comparte el mes, el periodo y la comparacion (mes anterior completo) con Gasto publicitario: las dos vistas se
+  // pintan con el mismo state.monthKey y el mismo modelo. Reservas web = las "Compras" que Meta atribuye al anuncio
+  // (compras en el sitio web); la descarga no trae su valor, asi que no hay ventas ni ROAS. Las reservas de la hoja
+  // siguen por campana. Solo los meses de Meta traen impresiones, resultados y dias por anuncio.
+  const MESSAGE_RESULT = 'Conversaciones con mensajes iniciadas';
+  const unique = values => [...new Set(values.filter(Boolean))];
+  // Un anuncio es su nombre dentro de su objetivo: si corre en varios conjuntos o campanas (o meses, en la vista
+  // anual) se suma. Los resultados de tipos distintos no se suman: el anuncio muestra los del tipo con mas resultados.
+  // Un mes de la hoja (sin Meta) solo trae mensajes: cuentan como su resultado.
+  function adsByName(rows) {
+    const groups = new Map();
+    rows.forEach(row => {
+      const key = `${row.group}|${normalize(row.ad)}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(row);
+    });
+    return [...groups.entries()].map(([key, items]) => {
+      const last = items[items.length - 1];
+      const sum = field => items.reduce((total, row) => total + (Number(row[field]) || 0), 0);
+      const meta = items.filter(row => row.fromMeta);
+      const byType = new Map();
+      items.forEach(row => {
+        const type = row.fromMeta ? row.resultType : MESSAGE_RESULT;
+        const count = row.fromMeta ? row.results : row.messages;
+        if (type || count) byType.set(type, (byType.get(type) || 0) + count);
+      });
+      const [resultType, results] = [...byType.entries()].sort((a, b) => b[1] - a[1])[0] || ['', 0];
+      const latestKey = items.reduce((max, row) => (row.monthKey > max ? row.monthKey : max), '');
+      const latest = items.filter(row => row.monthKey === latestKey);
+      return {
+        key,
+        group: last.group,
+        groupLabel: last.groupLabel,
+        color: last.color,
+        ad: last.ad,
+        campaigns: unique(items.map(row => row.campaign)),
+        adSets: unique(items.map(row => row.adSet)),
+        status: latest.some(row => row.status === 'Activa') ? 'Activa' : latest.find(row => row.status)?.status || '',
+        fromMeta: meta.length > 0,
+        perAd: items.every(row => row.perAd),
+        spend: sum('spend'),
+        messages: sum('messages'),
+        purchases: sum('purchases'),
+        impressions: sum('impressions'),
+        reach: sum('reach'),
+        clicks: sum('clicks'),
+        resultType,
+        results,
+        resultsByType: byType,
+        mixedResults: byType.size > 1,
+        activeDays: meta.length ? new Set(meta.flatMap(row => row.days || [])).size : null,
+        preview: items.find(row => /^https:\/\//.test(row.preview))?.preview || '',
+      };
+    }).filter(ad => ad.spend > 0 || ad.impressions > 0 || ad.clicks > 0 || ad.messages > 0 || ad.purchases > 0);
+  }
+  // De mas a menos resultados (a igual resultado, mas gasto). Lider: el primero con resultados de cada objetivo.
+  function rankAds(ads, order) {
+    ads.sort((a, b) => ((order?.get(a.group) ?? 0) - (order?.get(b.group) ?? 0)) || (b.results - a.results) || (b.spend - a.spend));
+    const leaders = new Set();
+    ads.forEach(ad => {
+      ad.leader = ad.results > 0 && !leaders.has(ad.group);
+      if (ad.leader) leaders.add(ad.group);
+    });
+    return ads;
+  }
+  // Costos de un anuncio: solo con gasto propio (desde julio la hoja lo registra por conjunto).
+  const adCost = (ad, count) => (ad.perAd && count > 0 && ad.spend > 0 ? ad.spend / count : null);
+  const adCpm = ad => (ad.perAd && ad.impressions > 0 && ad.spend > 0 ? (ad.spend / ad.impressions) * 1000 : null);
+  const metaOnly = (ad, html) => (ad.fromMeta ? html : '<span class="no-data">-</span>');
+  // Nombre del anuncio con la estrella del lider y el enlace a la vista previa de Meta.
+  function adNameHtml(ad) {
+    const url = safeUrl(ad.preview);
+    const name = esc(ad.ad || '(sin nombre)');
+    const star = ad.leader ? '<b class="leader-star" title="Líder del objetivo: más resultados">&#9733;</b> ' : '';
+    const link = url ? `<a class="ad-link" href="${url}" target="_blank" rel="noopener noreferrer" title="Ver el anuncio en Meta">${name}<span aria-hidden="true"> &#8599;</span></a>` : name;
+    return `<span class="ad-name-text" title="${esc(ad.ad)}">${star}${link}</span>`;
+  }
+  const campaignSetHtml = ad => `${esc(ad.campaigns.join(' / '))}${ad.adSets.length ? `<small>${esc(ad.adSets.join(' / '))}</small>` : ''}`;
+  const spendHtml = ad => (ad.perAd ? fmt.money(ad.spend) : '<span class="no-data" title="El gasto se registra por conjunto">Por conjunto</span>');
+  const resultTypeHtml = ad => `${esc(ad.resultType || '-')}${ad.mixedResults ? '<small>y otros tipos</small>' : ''}`;
+  // Resultados del mes anterior del mismo tipo: 0 si ese mes corrio sin resultados y "-" si tuvo otro tipo.
+  const previousResults = (ad, before) => (before ? before.resultsByType.get(ad.resultType) ?? (before.resultsByType.size ? null : 0) : null);
+  function compareCells(ad, before, className = '') {
+    const value = previousResults(ad, before);
+    const cls = className ? ` ${className}` : '';
+    return `<td class="num${cls}">${value == null ? '<span class="no-data">-</span>' : fmt.count(value)}</td>
+          <td class="num${cls}">${before && value == null ? '<span class="no-data">-</span>' : variationCell(ad.results, value)}</td>`;
+  }
+  // Periodo del modulo: el mismo de Gasto publicitario.
+  function renderAdsPeriod(period, compare) {
+    const title = document.getElementById('ads-period-title');
+    const sub = document.getElementById('ads-period-sub');
+    if (!title || !sub) return;
+    if (!period) {
+      title.textContent = 'Sin datos';
+      sub.textContent = 'No hay meses con datos en Meta ni en la hoja Distribucion-amador.';
+      return;
+    }
+    if (period.annual) {
+      title.textContent = `Periodo: ${period.label} ${period.year}${period.closed ? '' : ' (año en curso)'}`;
+      sub.textContent = 'Acumulado del año: sin periodo anterior para comparar';
+      return;
+    }
+    title.textContent = `Periodo: ${period.label} ${period.year}${period.closed ? '' : ' (mes en curso)'}`;
+    if (!period.compare) sub.textContent = 'Sin mes anterior para comparar';
+    else sub.textContent = compare ? `Comparación vs ${period.compare.label}` : `${period.compare.month.name} no trae el detalle de anuncios: sin comparación`;
+  }
+  // Top 3 por reservas web (a igual cantidad, mas mensajes y luego menos gasto).
+  function renderTopReservations(period, ads) {
+    const host = document.getElementById('ad-top');
+    const sub = document.getElementById('ad-top-sub');
+    if (!host) return;
+    if (sub) sub.textContent = 'Reservas web: las compras en el sitio web que Meta atribuye a cada anuncio. Las reservas de la hoja se registran por campaña.';
+    const top = ads.filter(ad => ad.purchases > 0)
+      .sort((a, b) => (b.purchases - a.purchases) || (b.messages - a.messages) || (a.spend - b.spend))
+      .slice(0, 3);
+    if (!top.length) {
+      const why = !period ? 'Sin datos para el periodo.'
+        : ads.some(ad => ad.fromMeta) ? 'Ningún anuncio registró reservas web en el periodo.'
+          : `Las reservas web por anuncio salen de las descargas de Meta: ${period.annual ? 'este periodo no tiene' : `${period.month.name} no tiene`} descarga.`;
+      host.innerHTML = `<p class="ad-top-empty">${esc(why)}</p>`;
+      return;
+    }
+    host.innerHTML = top.map((ad, index) => {
+      const detail = [`${fmt.unitCost(adCost(ad, ad.purchases))} por reserva web`, `${fmt.count(ad.messages)} ${ad.messages === 1 ? 'mensaje' : 'mensajes'}`, `${fmt.money(ad.spend)} de inversión`];
+      return `
+        <article class="ad-top-card">
+          <div class="ad-top-rank">Puesto ${index + 1}</div>
+          <div class="ad-top-name">${adNameHtml({ ...ad, leader: false })}</div>
+          <div class="ad-top-meta"><span class="objective-label" style="--campaign-color:${ad.color}"><i class="campaign-dot"></i>${esc(ad.groupLabel)}</span> ${campaignSetHtml(ad)}</div>
+          <div class="ad-top-value">${fmt.count(ad.purchases)}<span>${ad.purchases === 1 ? 'reserva web' : 'reservas web'}</span></div>
+          <div class="ad-top-detail">${detail.join(' · ')}</div>
+        </article>`;
+    }).join('');
+  }
   function renderAdsFilter(objectives) {
     const select = document.getElementById('ads-objective');
     if (!select) return;
@@ -1760,96 +1908,122 @@
       .concat(objectives.map(objective => `<option value="${esc(objective.key)}"${objective.key === state.adsObjective ? ' selected' : ''}>${esc(objective.label)}</option>`))
       .join('');
   }
-  // Anuncios agregados a mano en este navegador, por nombre de campana (sin cifras de la hoja).
-  function customAdsHtml(period) {
-    const custom = getMonthCustom();
-    const names = [...new Set([...(period.month.campaigns || []).map(campaign => campaign.name), ...custom.campaigns.map(campaign => campaign.name).filter(Boolean)])];
-    const rows = Object.entries(custom.extraAds || {}).flatMap(([owner, ads]) => (ads || []).map(ad => `
-      <tr class="custom-row">
-        <td class="type-col"><input class="inline-edit" type="text" placeholder="Objetivo" value="${esc(ad.objective)}" data-field="adobj" data-cname="${esc(owner)}" data-aid="${esc(ad._id)}" aria-label="Objetivo del anuncio agregado"></td>
-        <td class="ad-name-col"><input class="inline-edit wide" type="text" placeholder="Nombre anuncio" value="${esc(ad.name)}" data-field="adname" data-cname="${esc(owner)}" data-aid="${esc(ad._id)}" aria-label="Nombre del anuncio agregado"></td>
-        <td class="campaign-set-col">${esc(owner || 'Sin campaña')}</td>
-        <td colspan="12"><span class="no-data">Agregado en este navegador: sin cifras de la hoja.</span></td>
-      </tr>`));
-    if (names.length) rows.push(`<tr class="add-campaign-row"><td colspan="15"><label class="add-ad-picker">Agregar un anuncio a <select data-add-ad-campaign aria-label="Campaña del anuncio a agregar">${names.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('')}</select></label><button type="button" class="add-campaign-btn add-ad-btn">＋ Agregar anuncio</button></td></tr>`);
-    return rows.join('');
-  }
-  function renderAds(period, model) {
-    const body = document.getElementById('campaigns-body');
-    const title = document.getElementById('campaigns-title');
-    const sub = document.getElementById('campaigns-sub');
+  const ADS_COLUMNS = 18;
+  function renderAdsTable(period, model, all, previous, compare) {
+    const body = document.getElementById('ads-body');
+    const title = document.getElementById('ads-table-title');
+    const sub = document.getElementById('ads-table-sub');
     const prevHead = document.getElementById('ads-prev-head');
     if (!body) return;
-    // Sin anuncios en el mes anterior (marzo a mayo solo traen campanas) no hay contra que comparar.
-    const compare = Boolean(period?.compare) && model?.previous.rows.length > 0;
-    document.querySelector('.campaigns-panel')?.classList.toggle('no-compare', !compare);
+    document.getElementById('ads-table-panel')?.classList.toggle('no-compare', !compare);
+    if (prevHead) prevHead.textContent = compare ? `Resultados ${period.compare.month.name}` : 'Mes anterior';
     if (!period || !model) {
-      body.innerHTML = '<tr><td class="table-empty" colspan="15">Sin datos para el periodo.</td></tr>';
-      if (title) title.textContent = 'Anuncios del periodo';
+      body.innerHTML = `<tr><td class="table-empty" colspan="${ADS_COLUMNS}">Sin datos para el periodo.</td></tr>`;
+      if (title) title.textContent = 'Anuncios';
       if (sub) sub.textContent = '';
-      if (prevHead) prevHead.textContent = 'Mes anterior';
       renderAdsFilter([]);
       return;
     }
     renderAdsFilter(model.objectives);
-    const order = new Map(model.objectives.map((objective, index) => [objective.key, index]));
-    const previous = new Map(compare ? adsOf(model.previous.rows).map(ad => [ad.key, ad]) : []);
-    const all = adsOf(model.rows).sort((a, b) => ((order.get(a.group) ?? 99) - (order.get(b.group) ?? 99)) || (b.messages - a.messages) || (b.spend - a.spend));
-    const leaders = new Set();
-    all.forEach(ad => {
-      if (ad.messages > 0 && !leaders.has(ad.group)) {
-        leaders.add(ad.group);
-        ad.leader = true;
-      }
-    });
     const rows = state.adsObjective === 'all' ? all : all.filter(ad => ad.group === state.adsObjective);
-    const bySet = all.some(ad => !ad.perAd);
-    const fromMeta = all.some(ad => ad.reservasByCampaign);
-    const sourceNote = bySet ? ' Desde julio el gasto se registra por conjunto y las reservas por campaña: van en su cuadro y en la distribución.'
-      : fromMeta ? ' El gasto y los mensajes de cada anuncio vienen de Meta; las reservas, de la hoja por campaña: van en su cuadro y en la distribución.' : '';
+    const sheetOnly = all.some(ad => !ad.fromMeta);
     if (title) title.textContent = `Anuncios | ${periodName(period)}${period.annual ? '' : ` ${period.year}`}`;
     if (sub) {
       sub.textContent = model.rows.length
-        ? `${rows.length} ${rows.length === 1 ? 'anuncio' : 'anuncios'} ordenados por mensajes dentro de cada objetivo. La estrella marca al líder de cada objetivo.${sourceNote}`
+        ? `${rows.length} ${rows.length === 1 ? 'anuncio' : 'anuncios'} de más a menos resultados dentro de cada objetivo. La estrella marca al líder de cada objetivo.${sheetOnly ? ' Los anuncios de la hoja solo traen gasto y mensajes.' : ''}`
         : `La hoja no trae el detalle de anuncios de ${period.annual ? 'este periodo' : period.month.name}.`;
     }
-    if (prevHead) prevHead.textContent = compare ? `Mensajes ${period.compare.month.name}` : 'Mes anterior';
-    const extra = period.annual ? '' : customAdsHtml(period);
     if (!rows.length) {
       const empty = model.rows.length ? 'No hay anuncios de este objetivo en el periodo.' : 'La hoja no trae el detalle de anuncios de este periodo.';
-      keepFocus(body, () => { body.innerHTML = `<tr><td class="table-empty" colspan="15">${empty}</td></tr>${extra}`; });
+      keepFocus(body, () => { body.innerHTML = `<tr><td class="table-empty" colspan="${ADS_COLUMNS}">${empty}</td></tr>`; });
       return;
     }
     const html = rows.map(ad => {
       const before = previous.get(ad.key);
-      const preview = safeUrl(ad.preview);
-      const set = ad.adSet ? `<small>${esc(ad.adSet)}</small>` : '';
       return `
         <tr>
           <td class="type-col"><span class="objective-label" style="--campaign-color:${ad.color}"><i class="campaign-dot"></i>${esc(ad.groupLabel)}</span></td>
-          <td class="ad-name-col" title="${esc(ad.ad)}"><span class="ad-name-text">${ad.leader ? '<b class="leader-star" title="Líder del objetivo">&#9733;</b> ' : ''}${esc(ad.ad || '(sin nombre)')}</span></td>
-          <td class="campaign-set-col">${esc(ad.campaign)}${set}</td>
+          <td class="ad-name-col">${adNameHtml(ad)}</td>
+          <td class="num sales-col">${metaOnly(ad, `<b>${fmt.count(ad.purchases)}</b>`)}</td>
+          <td class="num sales-col">${metaOnly(ad, fmt.unitCost(adCost(ad, ad.purchases)))}</td>
+          <td class="campaign-set-col">${campaignSetHtml(ad)}</td>
           <td><span class="status-pill ${statusClass(ad.status)}">${esc(ad.status || '-')}</span></td>
-          <td class="num"><b>${fmt.count(ad.messages)}</b></td>
-          <td class="num">${before ? fmt.count(before.messages) : '<span class="no-data">-</span>'}</td>
-          <td class="num">${compare ? variationCell(ad.messages, before?.messages) : '<span class="no-data">-</span>'}</td>
-          <td class="num">${ad.perAd ? fmt.money(ad.messages > 0 ? ad.spend / ad.messages : null) : '<span class="no-data">-</span>'}</td>
-          <td class="num">${ad.perAd ? fmt.money(ad.spend) : '<span class="no-data" title="El gasto se registra por conjunto">Por conjunto</span>'}</td>
-          <td class="num">${ad.perAd && !ad.reservasByCampaign ? fmt.count(ad.reservations) : '<span class="no-data" title="Las reservas se registran por campaña">Por campaña</span>'}</td>
-          <td class="date-col">${esc(ad.startDate || '-')}</td>
-          <td class="date-col deadline-cell">${period.annual ? esc(ad.endDate || '-') : renderDeadline(ad.endDate, ad.daysRemaining)}</td>
-          <td class="num">${fmt.money(ad.daily)}</td>
-          <td class="observation-col">${esc(ad.observation || '-')}</td>
-          <td>${preview ? `<a class="preview-link" href="${preview}" target="_blank" rel="noopener noreferrer">Ver anuncio &raquo;</a>` : '<span class="no-data">Sin enlace</span>'}</td>
+          <td class="result-type-col">${resultTypeHtml(ad)}</td>
+          <td class="num"><b>${fmt.count(ad.results)}</b></td>
+          ${compareCells(ad, before, 'cmp-col')}
+          <td class="num">${fmt.unitCost(adCost(ad, ad.results))}</td>
+          <td class="num">${fmt.count(ad.messages)}</td>
+          <td class="num">${spendHtml(ad)}</td>
+          <td class="num">${metaOnly(ad, fmt.count(ad.impressions))}</td>
+          <td class="num">${metaOnly(ad, fmt.count(ad.reach))}</td>
+          <td class="num">${metaOnly(ad, fmt.money(adCpm(ad)))}</td>
+          <td class="num">${metaOnly(ad, fmt.count(ad.clicks))}</td>
+          <td class="num">${ad.activeDays == null ? '<span class="no-data">-</span>' : fmt.count(ad.activeDays)}</td>
         </tr>`;
     }).join('');
-    keepFocus(body, () => { body.innerHTML = html + extra; });
+    keepFocus(body, () => { body.innerHTML = html; });
+  }
+  // Periodo, Top 3 y tabla del modulo Anuncios.
+  function renderAdsView(period, model) {
+    // Sin anuncios en el mes anterior (marzo a mayo solo traen campanas) no hay contra que comparar.
+    const compare = Boolean(period?.compare) && model?.previous.rows.length > 0;
+    const order = new Map((model?.objectives || []).map((objective, index) => [objective.key, index]));
+    const all = model ? rankAds(adsByName(model.rows), order) : [];
+    const previous = new Map(compare ? adsByName(model.previous.rows).map(ad => [ad.key, ad]) : []);
+    renderAdsPeriod(period, compare);
+    renderTopReservations(period, all);
+    renderAdsTable(period, model, all, previous, compare);
+  }
+  // Anuncios de un objetivo, al final de su cuadro en Gasto publicitario. Reservas web solo si el objetivo las tuvo.
+  function campaignAdsHtml(period, objective, model) {
+    const ofObjective = rows => rows.filter(row => row.group === objective.key);
+    const ads = rankAds(adsByName(ofObjective(model.rows)));
+    const head = '<div class="adset-head"><div class="panel-title">Anuncios</div>';
+    if (!ads.length) return `${head}<div class="panel-sub">${model.rows.length ? 'Sin anuncios con actividad en el periodo.' : 'La hoja no trae el detalle de anuncios de estas campañas.'}</div></div>`;
+    const previousRows = ofObjective(model.previous.rows);
+    const compare = Boolean(period.compare) && model.previous.rows.length > 0;
+    const previous = new Map(compare ? adsByName(previousRows).map(ad => [ad.key, ad]) : []);
+    const sales = ads.some(ad => ad.purchases > 0);
+    const total = ads.reduce((sum, ad) => sum + (ad.perAd ? ad.spend : 0), 0);
+    const columns = [['Anuncio']]
+      .concat(sales ? [['Reservas web', true], ['Costo por reserva web', true]] : [], [['Campaña / conjunto'], ['Resultados', true]])
+      .concat(compare ? [[`Resultados ${period.compare.month.name}`, true], ['Variación', true]] : [])
+      .concat([['Costo por resultado', true], ['Mensajes', true], ['Inversión', true], ['% del objetivo'], ['Impresiones', true], ['Alcance', true], ['CPM', true], ['Clics', true], ['Días activos', true]]);
+    const body = ads.map(ad => {
+      const share = ad.perAd && total > 0 ? (ad.spend / total) * 100 : null;
+      return `
+        <tr>
+          <td class="campaign-name">${adNameHtml(ad)}</td>
+          ${sales ? `<td class="num sales-col">${metaOnly(ad, `<b>${fmt.count(ad.purchases)}</b>`)}</td><td class="num sales-col">${metaOnly(ad, fmt.unitCost(adCost(ad, ad.purchases)))}</td>` : ''}
+          <td class="campaign-set-col">${campaignSetHtml(ad)}</td>
+          <td class="num"><b>${fmt.count(ad.results)}</b><small class="cell-sub">${resultTypeHtml(ad)}</small></td>
+          ${compare ? compareCells(ad, previous.get(ad.key)) : ''}
+          <td class="num">${fmt.unitCost(adCost(ad, ad.results))}</td>
+          <td class="num">${fmt.count(ad.messages)}</td>
+          <td class="num">${spendHtml(ad)}</td>
+          <td class="share-col">${share == null ? '<span class="no-data">-</span>' : `<div class="share-bar"><span style="width:${Math.min(100, share).toFixed(1)}%"></span></div><b class="share-value">${fmt.pct(share)}</b>`}</td>
+          <td class="num">${metaOnly(ad, fmt.count(ad.impressions))}</td>
+          <td class="num">${metaOnly(ad, fmt.count(ad.reach))}</td>
+          <td class="num">${metaOnly(ad, fmt.money(adCpm(ad)))}</td>
+          <td class="num">${metaOnly(ad, fmt.count(ad.clicks))}</td>
+          <td class="num">${ad.activeDays == null ? '<span class="no-data">-</span>' : fmt.count(ad.activeDays)}</td>
+        </tr>`;
+    }).join('');
+    let note = `${ads.length} ${ads.length === 1 ? 'anuncio' : 'anuncios'} de más a menos resultados en ${esc(periodName(period))}`;
+    if (compare) note += `. Resultados contra ${esc(period.compare.label)}`;
+    return `${head}<div class="panel-sub">${note}. La estrella marca al líder.</div></div>
+      <div class="table-scroll">
+        <table class="data-table adset-table camp-ads-table">
+          <thead><tr>${columns.map(([label, numeric]) => `<th${numeric ? ' class="num"' : ''}>${esc(label)}</th>`).join('')}</tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
   }
 
   // ── Herramientas de la tabla de anuncios ─────────────────────────────────
   function applyTableCompact() {
-    const panel = document.querySelector('.campaigns-panel');
-    const button = document.getElementById('campaigns-density-btn');
+    const panel = document.getElementById('ads-table-panel');
+    const button = document.getElementById('ads-density-btn');
     if (!panel || !button) return;
     panel.classList.toggle('is-compact', state.tableCompact);
     button.setAttribute('aria-pressed', String(state.tableCompact));
@@ -1858,9 +2032,9 @@
   }
   function toggleTableFullscreen(force) {
     state.tableFullscreen = force == null ? !state.tableFullscreen : Boolean(force);
-    const panel = document.querySelector('.campaigns-panel');
-    const button = document.getElementById('campaigns-expand-btn');
-    const tabs = document.getElementById('month-tabs');
+    const panel = document.getElementById('ads-table-panel');
+    const button = document.getElementById('ads-expand-btn');
+    const tabs = document.getElementById('ads-month-tabs');
     const scroll = panel?.querySelector('.table-scroll');
     if (!panel || !button) return;
     panel.classList.toggle('is-fullscreen', state.tableFullscreen);
@@ -1875,12 +2049,12 @@
     button.setAttribute('title', state.tableFullscreen ? 'Salir de pantalla completa (Esc)' : 'Ver la tabla en pantalla completa (Esc para salir)');
     if (state.tableFullscreen) scroll?.focus?.();
   }
-  // Distribucion, cuadros y anuncios del periodo.
+  // Distribucion y cuadros de Gasto publicitario y el modulo Anuncios, con el mismo modelo del periodo.
   function renderCampaignSection(period) {
     const model = periodModel(period);
     renderDistribution(period, model);
     renderCampaignBlocks(period, model);
-    renderAds(period, model);
+    renderAdsView(period, model);
   }
   async function pushGoalToSheet(input) {
     const endpoint = syncEndpoint();
@@ -2207,7 +2381,7 @@
     // El unico boton Actualizar vive en la barra superior, junto al estado de los datos.
     refreshButtons().forEach(button => button.addEventListener('click', refreshAll));
     wireStatusCard();
-    document.getElementById('month-tabs')?.addEventListener('click', event => {
+    const onMonthTab = event => {
       const button = event.target.closest('.month-tab:not(:disabled)');
       if (!button) return;
       const year = Number(button.dataset.year);
@@ -2224,7 +2398,8 @@
       }
       state.monthPicked = true;
       renderMonthView();
-    });
+    };
+    MONTH_TAB_HOSTS.forEach(id => document.getElementById(id)?.addEventListener('click', onMonthTab));
     document.getElementById('chart-toggle-btn').addEventListener('click', () => {
       state.chartCollapsed = !state.chartCollapsed;
       saveChartCollapsed();
@@ -2264,30 +2439,6 @@
       if (!event.target.closest('.add-campaign-btn')) return;
       setMonthCustom(mc => {
         mc.campaigns.push({ _id: genId(), name: '', type: '', status: 'Activo', ads: [] });
-        return mc;
-      });
-      renderCampaignSection(currentPeriod());
-    });
-    // Anuncios agregados a mano (tabla de anuncios).
-    const adsBody = document.getElementById('campaigns-body');
-    adsBody?.addEventListener('change', event => {
-      const edit = event.target.closest('.inline-edit');
-      if (!edit) return;
-      const { field, cname, aid } = edit.dataset;
-      setMonthCustom(mc => {
-        const item = (mc.extraAds[cname || ''] || []).find(ad => ad._id === aid);
-        if (item && field === 'adname') item.name = edit.value;
-        if (item && field === 'adobj') item.objective = edit.value;
-        return mc;
-      });
-      renderCampaignSection(currentPeriod());
-    });
-    adsBody?.addEventListener('click', event => {
-      if (!event.target.closest('.add-ad-btn')) return;
-      const owner = adsBody.querySelector('[data-add-ad-campaign]')?.value || '';
-      setMonthCustom(mc => {
-        mc.extraAds[owner] = mc.extraAds[owner] || [];
-        mc.extraAds[owner].push({ _id: genId(), name: '', objective: '' });
         return mc;
       });
       renderCampaignSection(currentPeriod());
@@ -2339,14 +2490,14 @@
     document.getElementById('ads-objective')?.addEventListener('change', event => {
       state.adsObjective = event.target.value;
       const period = currentPeriod();
-      renderAds(period, periodModel(period));
+      renderAdsView(period, periodModel(period));
     });
-    document.getElementById('campaigns-density-btn')?.addEventListener('click', () => {
+    document.getElementById('ads-density-btn')?.addEventListener('click', () => {
       state.tableCompact = !state.tableCompact;
       try { localStorage.setItem(TABLE_COMPACT_KEY, String(state.tableCompact)); } catch {}
       applyTableCompact();
     });
-    document.getElementById('campaigns-expand-btn')?.addEventListener('click', () => toggleTableFullscreen());
+    document.getElementById('ads-expand-btn')?.addEventListener('click', () => toggleTableFullscreen());
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape' && state.tableFullscreen) toggleTableFullscreen(false);
     });
@@ -2354,7 +2505,7 @@
     document.querySelectorAll('[data-view-target]').forEach(button => {
       button.addEventListener('click', () => { if (state.tableFullscreen) toggleTableFullscreen(false); });
     });
-    const tabs = document.getElementById('month-tabs');
+    const tabs = document.getElementById('ads-month-tabs');
     if (tabs) state.tabsHome = { parent: tabs.parentNode, next: tabs.nextSibling };
     applyTableCompact();
     document.addEventListener('visibilitychange', () => {
@@ -2384,7 +2535,7 @@
       updateStatusLabel(META_ENDPOINT ? 'Leyendo Meta y la hoja...' : 'Leyendo Google Sheets...');
       syncLiveSheet();
     } catch (error) {
-      document.getElementById('view-obj').innerHTML = '<div class="data-notice error"><strong>No se pudo cargar la informacion de Amador.</strong></div>';
+      ['view-obj', 'view-ads'].forEach(id => { document.getElementById(id).innerHTML = '<div class="data-notice error"><strong>No se pudo cargar la informacion de Amador.</strong></div>'; });
       console.error(error);
       state.error = String(error?.message || error);
       window.dispatchEvent(new CustomEvent('amador:data-error', { detail: { error: state.error } }));

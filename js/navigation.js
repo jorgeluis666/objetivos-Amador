@@ -8,6 +8,12 @@
       source: 'Fuente: Distribucion-amador (Google Sheets)',
       footer: 'Sincronizado por Agencia Lima Retail',
     },
+    'view-ads': {
+      title: 'Anuncios',
+      caption: 'Meta Ads por anuncio',
+      source: 'Fuente: Descargas de Meta Ads (Drive)',
+      footer: 'Reservas web: compras en el sitio web que Meta atribuye a cada anuncio',
+    },
     'view-messages': {
       title: 'Proyecciones',
       caption: 'Cierre de mes y simulador de objetivo',
