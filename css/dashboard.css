@@ -2489,7 +2489,6 @@ body.amador-table-fullscreen {
   justify-content: space-between;
   gap: 20px;
   margin-top: 16px;
-  border-top: 3px solid var(--brand);
 }
 
 .week-cover-brand {
