@@ -441,10 +441,15 @@
       byCampaign.get(row.campaign).push(row);
     });
     const campaigns = [...byCampaign.entries()].map(([name, items]) => {
-      // El objetivo de la campana es el de su mayor gasto (en Meta es uno por campana).
+      const key = campaignMatchKey(name);
+      const fromSheet = sheetCampaigns.get(key);
+      if (fromSheet) matched.add(key);
+      // El cuadro de la campana es el Objetivo de la hoja ("corporativos" va en Mensajes aunque en Meta sea Clientes
+      // potenciales). Sin campana en la hoja, el objetivo de Meta con mas gasto (en Meta es uno por campana).
+      const sheetObjective = String(fromSheet?.objective || fromSheet?.ads?.find(ad => ad.objective)?.objective || '').split('/')[0].trim();
       const spendByObjective = new Map();
       items.forEach(row => spendByObjective.set(row.objective, (spendByObjective.get(row.objective) || 0) + row.spend + 1e-9));
-      const objective = metaGroup([...spendByObjective.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]);
+      const objective = metaGroup(sheetObjective || [...spendByObjective.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]);
       const days = items.filter(active).map(row => row.day).sort();
       const status = recent(days[days.length - 1]) ? 'Activa' : 'Finalizada';
       const byAd = new Map();
@@ -485,9 +490,6 @@
           adUrl: adItems.find(row => /^https:\/\//.test(row.preview))?.preview || null,
         };
       });
-      const key = campaignMatchKey(name);
-      const fromSheet = sheetCampaigns.get(key);
-      if (fromSheet) matched.add(key);
       const sheetAds = fromSheet?.ads || [];
       const sheetGoals = sheetAds.map(ad => ad.reservationGoal).filter(value => value != null);
       // Fechas planificadas de la hoja (inicio y fin de sus anuncios) si la campana esta en la hoja.
