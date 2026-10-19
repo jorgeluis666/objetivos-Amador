@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.23.0`.
+Version actual: `v1.24.0`.
 
 ## Versionado
 
@@ -21,6 +21,7 @@ El proyecto usa la nomenclatura `vMAJOR.MINOR.PATCH`:
 - Proyecciones: cierre de mes estimado con los datos reales y simulador de objetivo.
 - Historico de Campanas: todas las campanas con gasto, activas y finalizadas, con pestanas por mes y Todos (ver "Historico de Campanas").
 - Archivo de Reportes: catalogo de los documentos guardados en la carpeta de Google Drive.
+- Generacion de Reporte: el reporte semanal de lunes a domingo, con el orden del ultimo reporte de la carpeta de Drive y descarga en PDF (ver "Generacion de Reporte").
 - Bitacora: checklist mensual de cambios, comentarios y decisiones de la cuenta.
 - Usuarios y Claves: directorio de las cuentas con acceso al tablero, sin contrasenas (ver "Usuarios y Claves").
 
@@ -94,6 +95,35 @@ a traves de `window.AmadorObjectives.snapshot()` y proyecta el cierre del mes en
   diario requerido para los dias restantes, la brecha contra presupuesto u objetivo y la inversion adicional.
   El escenario conserva la eficiencia real del mes (costo por mensaje, costo por reserva y tasa de reserva) y no permite
   cerrar por debajo de lo ya realizado. Doble clic sobre el nodo o "Restablecer" vuelve a la proyeccion lineal.
+
+## Generacion de Reporte
+
+Pestana que arma el reporte de la semana que acaba de pasar, de lunes a domingo, con el mismo orden del
+ultimo reporte publicado en la carpeta Reportes de Drive: resumen del periodo, conversaciones por dia,
+mejores anuncios, conjuntos y campanas, y conclusiones.
+
+- **De donde salen los numeros:** de las mismas filas del barrido de Meta que usa Gasto publicitario (una
+  fila por dia, campana, conjunto y anuncio, en `window.AMADOR_META_DATA` y en la relectura en vivo que
+  expone `AmadorObjectives.meta()`). No hay una fuente nueva ni una lectura extra.
+- **Que semana muestra:** la ultima de lunes a domingo ya cerrada (en hora de Lima). El selector deja ver
+  las 12 anteriores. La semana en curso no se lista: el reporte es de semana completa.
+- **Cada lunes se puebla solo:** el tablero relee el barrido al abrirse y con Actualizar, y el workflow de
+  Pages corre tambien los lunes a las 10:30 de Lima (`schedule` en `deploy-pages.yml`), despues del barrido
+  diario de Meta de las 10:00.
+- **Si la descarga del mes no llega al domingo**, el reporte lo avisa arriba y nombra los dias que faltan:
+  los totales pueden subir cuando se suba la descarga nueva.
+- **Resultados:** las conversaciones son la columna "messages" de Meta. Cuando una semana no tiene mensajes,
+  encabeza el tipo de resultado con mas inversion y los demas van en el desglose "Resultados por tipo", que
+  nunca se suman entre objetivos.
+- **Conclusiones:** las dos primeras vienen propuestas con lo que dice la semana y se editan en la pestana;
+  quedan guardadas por semana en el navegador (`amador-week-notes-v1`), no se publican con el tablero.
+- **El modelo** es el ultimo PDF de la carpeta Reportes (el listado que ya trae Archivo de Reportes): su
+  nombre y su enlace salen arriba de la portada.
+- **Descargar PDF** abre el dialogo de impresion con el reporte solo (sin panel lateral ni barra superior)
+  y el nombre del archivo ya armado.
+
+El modulo es `js/report-week.js` y es practicamente el mismo archivo en todos los tableros de marca. Sus
+estilos y los de impresion estan al final de `css/dashboard.css`.
 
 ## Bitacora
 

@@ -5,6 +5,11 @@ name: Publicar en GitHub Pages con clave
 on:
   push:
     branches: [main]
+  # Generacion de Reporte: cada lunes a las 10:30 de Lima (15:30 UTC), despues del barrido diario de Meta
+  # (10:00 de Lima), se vuelve a publicar para que el tablero traiga la semana que acaba de cerrar aunque
+  # nadie entre a Actualizar.
+  schedule:
+    - cron: '30 15 * * 1'
   workflow_dispatch:
 
 permissions:

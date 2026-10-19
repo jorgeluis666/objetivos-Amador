@@ -2562,6 +2562,8 @@
     };
   }
   // viewYear: año que muestra Gasto publicitario (la navegacion lo usa en el titulo de la barra superior).
-  window.AmadorObjectives = { renderHistory, snapshot, viewYear: () => (state.data ? viewYear() : null) };
+  // meta: el barrido de Meta ya releido en vivo. Generacion de Reporte lo suma por semana y asi no
+  // vuelve a pedirle los datos al Web App.
+  window.AmadorObjectives = { renderHistory, snapshot, meta: () => state.meta, viewYear: () => (state.data ? viewYear() : null) };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
