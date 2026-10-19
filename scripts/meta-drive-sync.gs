@@ -5,7 +5,8 @@
 // Carpeta de datos: un Google Sheet por mes con la descarga de Meta Ads ("Raw Data Report": una fila por
 // dia x edad x sexo x anuncio), nombrado "Amador - Octubre 2026". Su ID NO va en este archivo (el repo es publico):
 // se carga en Configuracion del proyecto > Propiedades del script como DATA_FOLDER_ID.
-// GET ?action=data -> ultimo barrido | ?action=data&fresh=1 -> barrido en el momento (boton Actualizar).
+// GET ?action=data -> ultimo barrido (o uno nuevo si la carpeta cambio) | ?action=data&fresh=1 -> barrido en el
+// momento (boton Actualizar). Disparador: cada hora (installSweepTriggers).
 const DATA_FOLDER_PROPERTY = 'DATA_FOLDER_ID';
 const TIMEZONE = 'America/Lima';
 const SWEEP_HOUR = 10;
@@ -48,7 +49,11 @@ function doGet(event) {
   try {
     const params = (event && event.parameter) || {};
     if (params.action !== 'data') throw new Error('Accion no soportada.');
-    const snapshot = params.fresh === '1' ? sweep_('manual') : (readSnapshot_() || sweep_('inicial'));
+    let snapshot = params.fresh === '1' ? sweep_('manual') : readSnapshot_();
+    if (!snapshot) snapshot = sweep_('inicial');
+    // Una descarga subida despues del ultimo barrido (Meta se sube a media manana, despues del de las 10:00) se lee
+    // al abrir el tablero, sin esperar al disparador ni al boton Actualizar.
+    else if (params.fresh !== '1' && changedSafely_(snapshot)) snapshot = sweep_('archivo nuevo');
     return json_(Object.assign({ ok: true }, snapshot));
   } catch (error) {
     console.error(error);
@@ -56,18 +61,48 @@ function doGet(event) {
   }
 }
 
-// Disparador diario.
+// Disparador de cada hora: solo barre si la carpeta cambio desde el ultimo barrido; el de las 10:00 barre siempre
+// (relee el mes anterior, que Meta completa los primeros dias, aunque Drive no cambie su fecha de edicion).
 function sweepScheduled() {
-  sweep_('automatico');
+  const hour = Number(Utilities.formatDate(new Date(), TIMEZONE, 'H'));
+  const previous = readSnapshot_();
+  if (hour === SWEEP_HOUR || !previous || folderChangedSince_(previous)) sweep_('automatico');
 }
 
-// Ejecutar UNA vez a mano. Borra los disparadores anteriores del barrido para no duplicarlos.
+// Ejecutar UNA vez a mano (y otra vez si cambia el horario). Borra los disparadores anteriores del barrido para
+// no duplicarlos.
 function installSweepTriggers() {
   ScriptApp.getProjectTriggers()
     .filter(trigger => trigger.getHandlerFunction() === SWEEP_HANDLER)
     .forEach(trigger => ScriptApp.deleteTrigger(trigger));
-  ScriptApp.newTrigger(SWEEP_HANDLER).timeBased().everyDays(1).atHour(SWEEP_HOUR).inTimezone(TIMEZONE).create();
+  ScriptApp.newTrigger(SWEEP_HANDLER).timeBased().everyHours(1).inTimezone(TIMEZONE).create();
   logSnapshot_(sweep_('instalacion'));
+}
+
+// Si no se puede revisar la carpeta se sirve el barrido guardado (es lo que habia antes de esta revision).
+function changedSafely_(snapshot) {
+  try {
+    return folderChangedSince_(snapshot);
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
+}
+
+// La carpeta cambio si algun Google Sheet se creo o se edito despues del barrido, o si el barrido trae un archivo
+// que ya no esta (se borro o se reemplazo por otro).
+function folderChangedSince_(snapshot) {
+  const sweptAt = Date.parse(snapshot.sweptAt) || 0;
+  const files = DriveApp.getFolderById(dataFolderId_()).getFilesByType(MimeType.GOOGLE_SHEETS);
+  const present = {};
+  let changed = false;
+  while (files.hasNext()) {
+    const file = files.next();
+    if (file.isTrashed()) continue;
+    present[file.getId()] = true;
+    if (file.getLastUpdated().getTime() > sweptAt) changed = true;
+  }
+  return changed || (snapshot.months || []).some(month => month.fileId && !present[month.fileId]);
 }
 
 // Barrido manual desde el editor, para revisar que los archivos se leen bien.
@@ -76,7 +111,7 @@ function probarBarrido() {
 }
 
 function logSnapshot_(snapshot) {
-  console.log('Barrido ' + snapshot.origin + ' ' + snapshot.sweptAt + ' | diario ' + SWEEP_HOUR + ':00 (' + TIMEZONE + ')');
+  console.log('Barrido ' + snapshot.origin + ' ' + snapshot.sweptAt + ' | cada hora si cambia la carpeta y siempre a las ' + SWEEP_HOUR + ':00 (' + TIMEZONE + ')');
   snapshot.months.forEach(month => {
     if (month.error) {
       console.log(month.name + ' ' + month.year + ': ERROR ' + month.error);
@@ -101,7 +136,8 @@ function sweep_(origin) {
   lock.waitLock(30000);
   try {
     const previous = readSnapshot_();
-    if (origin === 'manual' && previous && Date.now() - Date.parse(previous.sweptAt) < MANUAL_THROTTLE_MS) return previous;
+    // Dos pedidos seguidos (dos personas abren el tablero a la vez) comparten el barrido del primero.
+    if ((origin === 'manual' || origin === 'archivo nuevo') && previous && Date.now() - Date.parse(previous.sweptAt) < MANUAL_THROTTLE_MS) return previous;
     const data = readMonths_(previous);
     const snapshot = { version: SWEEP_VERSION, sweptAt: new Date().toISOString(), origin, months: data.months, ignored: data.ignored };
     writeSnapshot_(snapshot);

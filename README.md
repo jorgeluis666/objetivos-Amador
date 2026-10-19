@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.24.1`.
+Version actual: `v1.25.0`.
 
 ## Versionado
 
@@ -38,7 +38,7 @@ Desde la v1.22.0 el modulo Gasto publicitario combina dos fuentes:
 - **Descargas de Meta Ads** (carpeta de Drive "Meta Files - Amador"): un Google Sheet por mes con el "Raw Data Report" de Meta (una fila por dia x edad x sexo x anuncio), llamado `Amador - <Mes> <Año>`. De ahi salen el gasto, los mensajes ("Conversaciones con mensajes iniciadas"), impresiones, alcance, clics, el objetivo y los anuncios con sus fechas. Las lee el Web App de `scripts/meta-drive-sync.gs` (ver "Descargas de Meta (Web App)").
 - **Hoja `Distribucion-amador`** (carpeta "Excel madre distribucion - Amador"): las **reservas**, el tipo, el presupuesto, las fechas planificadas y el Objetivo Reservas de cada campana. Se cruzan con Meta por nombre de campana: Meta antepone "Campaña " y a veces no deja espacio antes de "|" ("Campaña Mensajes - Fiestas patrias| LR" es "Mensajes - Fiestas patrias | LR" en la hoja). Las reservas de campanas de la hoja que no aparecen en Meta (por ejemplo, junio, con otros nombres) van en una fila "Reservas de la hoja sin campaña en Meta"; el total del mes siempre es el de la hoja.
 
-El cuadro de cada campana es la columna **Objetivo** de la hoja (desde la v1.24.1: "corporativos" va en Mensajes aunque en Meta sea Clientes potenciales). Solo una campana que no esta en la hoja usa el objetivo de Meta: Ventas, Clientes potenciales y Trafico van a **Reservas**; Interaccion a **Mensajes**; Reconocimiento y Alcance a **Branding**. Una campana es **Activa** si gasto en los dos ultimos dias con datos o sigue con gasto el mes siguiente; si no, **Finalizada**. El mes en curso llega hasta el ultimo dia con gasto de su descarga ("Datos al 12 de octubre"). Los meses sin descarga de Meta (enero a mayo de 2026) y cualquier mes si no hay barrido salen enteros de la hoja, como antes. Los meses de la descarga reemplazan los de la hoja aunque cambie el total de gasto: el archivo de junio de 2026 empieza el 15 y hay que reemplazarlo por la descarga del mes completo.
+El cuadro de cada campana es la columna **Objetivo** de la hoja (desde la v1.24.1: "corporativos" va en Mensajes aunque en Meta sea Clientes potenciales). Si un cuadro junta varias campanas, debajo de sus indicadores va el monto de cada una (inversion, % del cuadro, mensajes y reservas). Solo una campana que no esta en la hoja usa el objetivo de Meta: Ventas, Clientes potenciales y Trafico van a **Reservas**; Interaccion a **Mensajes**; Reconocimiento y Alcance a **Branding**. Una campana es **Activa** si gasto en los dos ultimos dias con datos o sigue con gasto el mes siguiente; si no, **Finalizada**. El mes en curso llega hasta el ultimo dia con gasto de su descarga ("Datos al 12 de octubre"). Los meses sin descarga de Meta (enero a mayo de 2026) y cualquier mes si no hay barrido salen enteros de la hoja, como antes. Los meses de la descarga reemplazan los de la hoja aunque cambie el total de gasto: el archivo de junio de 2026 empieza el 15 y hay que reemplazarlo por la descarga del mes completo.
 
 La fuente normalizada del dashboard esta en `data/amador-ads-2026.json` (enero a mayo y la fecha de la ultima copia) y en una copia por pestana mensual de `Distribucion-amador` (`data/amador-<mes en ingles>-sheet-<año>.json`: junio, julio, agosto y septiembre de 2026). El build incrusta todas las copias mensuales que haya en `data/`, de cualquier año, cada una con su año; en desarrollo se piden las de la lista `SHEET_FILES` de `js/objectives.js`. Junio, julio, agosto y septiembre estan guardados con sus datos finales (septiembre se cerro el 12 de octubre de 2026: gasto S/3,662.40; 451 mensajes; 30 reservas); la lectura en vivo los reemplaza por la pestana actual. Las pestanas de julio en adelante agrupan anuncios por `Conjunto de anuncios` (RTGT, P. Frio, P. Caliente, etc.), reflejado en el campo `adSet`.
 
@@ -109,7 +109,7 @@ mejores anuncios, conjuntos y campanas, y conclusiones.
   las 12 anteriores. La semana en curso no se lista: el reporte es de semana completa.
 - **Cada lunes se puebla solo:** el tablero relee el barrido al abrirse y con Actualizar, y el workflow de
   Pages corre tambien los lunes a las 10:30 de Lima (`schedule` en `deploy-pages.yml`), despues del barrido
-  diario de Meta de las 10:00.
+  de Meta de las 10:00.
 - **Si la descarga del mes no llega al domingo**, el reporte lo avisa arriba y nombra los dias que faltan:
   los totales pueden subir cuando se suba la descarga nueva.
 - **Resultados:** las conversaciones son la columna "messages" de Meta. Cuando una semana no tiene mensajes,
@@ -220,12 +220,12 @@ Desde ese momento, los cambios en `Objetivo Reservas` se actualizan localmente y
 
 ## Descargas de Meta (Web App)
 
-`scripts/meta-drive-sync.gs` es un proyecto independiente de Apps Script (no vinculado a una hoja), publicado por una cuenta con acceso a la carpeta "Meta Files - Amador". Barre la carpeta una vez al dia (10:00 de Lima) y cuando se pulsa Actualizar (`?action=data&fresh=1`, como maximo una vez por minuto); suma edad y sexo por dia, campana, conjunto y anuncio, y guarda el resultado en un JSON de Mi unidad ("Amador - barrido del tablero.json"). Los meses cerrados cuyo archivo no cambio no se vuelven a leer; el mes en curso y el anterior, siempre.
+`scripts/meta-drive-sync.gs` es un proyecto independiente de Apps Script (no vinculado a una hoja), publicado por una cuenta con acceso a la carpeta "Meta Files - Amador". Barre la carpeta cada hora si cambio algo (un archivo nuevo, editado o borrado), siempre a las 10:00 de Lima, al abrir el tablero si hay una descarga mas nueva que el ultimo barrido (desde la v1.25.0: Meta se sube a media manana, despues de las 10:00) y cuando se pulsa Actualizar (`?action=data&fresh=1`); dos pedidos dentro del mismo minuto comparten un barrido. suma edad y sexo por dia, campana, conjunto y anuncio, y guarda el resultado en un JSON de Mi unidad ("Amador - barrido del tablero.json"). Los meses cerrados cuyo archivo no cambio no se vuelven a leer; el mes en curso y el anterior, siempre.
 
 Configuracion unica:
 
 1. script.google.com > Nuevo proyecto > pegar `scripts/meta-drive-sync.gs`. Configuracion del proyecto: zona horaria **America/Lima** y, en Propiedades del script, `DATA_FOLDER_ID` con el ID de la carpeta de descargas (no va en el repo, que es publico).
-2. Ejecutar una vez `installSweepTriggers()`: pide los permisos (Drive, Hojas, Script; "Google no ha verificado esta app" se acepta), crea el disparador diario y hace el primer barrido. `probarBarrido()` escribe en el registro filas, gasto, mensajes y fechas de cada mes.
+2. Ejecutar una vez `installSweepTriggers()`: pide los permisos (Drive, Hojas, Script; "Google no ha verificado esta app" se acepta), crea el disparador de cada hora y hace el primer barrido. Al pasar de una version anterior a la v1.25.0 hay que volver a ejecutarla: el disparador diario se reemplaza por el de cada hora. `probarBarrido()` escribe en el registro filas, gasto, mensajes y fechas de cada mes.
 3. Implementar > Nueva implementacion > **Aplicacion web**, ejecutar como **Yo**, acceso **Cualquier persona**. La URL `/exec` es un secreto (quien la tenga lee los numeros): solo va como secret `DATA_ENDPOINT` en GitHub.
 4. Cada cambio al `.gs`: pegarlo y Implementar > Administrar implementaciones > editar > **Nueva version** (la URL no cambia). Un cambio de columnas o de la suma exige subir `SWEEP_VERSION`.
 

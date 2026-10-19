@@ -1255,7 +1255,15 @@
     return [...groups.values()]
       .map(items => {
         const sums = totalsOf(items);
-        return { key: items[0].group, label: items[0].groupLabel, color: items[0].color, campaigns: [...new Set(items.filter(hasActivity).map(item => item.name))], share: total > 0 ? (sums.spend / total) * 100 : null, ...sums };
+        const campaigns = [...new Set(items.filter(hasActivity).map(item => item.name))];
+        // Cifras de cada campana del cuadro (en la vista anual, sumadas por nombre), de mayor a menor gasto.
+        const byCampaign = campaigns
+          .map(name => {
+            const own = totalsOf(items.filter(item => item.name === name));
+            return { name, ...own, share: sums.spend > 0 ? (own.spend / sums.spend) * 100 : null };
+          })
+          .sort((a, b) => b.spend - a.spend);
+        return { key: items[0].group, label: items[0].groupLabel, color: items[0].color, campaigns, byCampaign, share: total > 0 ? (sums.spend / total) * 100 : null, ...sums };
       })
       .filter(hasActivity)
       .sort((a, b) => b.spend - a.spend);
@@ -1707,6 +1715,14 @@
     else if (period.compare) comparison = before ? ` vs ${period.compare.label}` : `. Nueva: no corría en ${period.compare.month.name}`;
     const kpis = BLOCK_KPIS.map(kpi => `
       <div><dt>${kpi.label}</dt><dd>${fmt[kpi.format](objective[kpi.key])}${before && !(kpi.key === 'spend' && spendPending(period)) ? deltaHtml(objective[kpi.key], before[kpi.key], kpi.better) : ''}</dd></div>`).join('');
+    // Con varias campanas en el cuadro, el monto de cada una (la inversion de arriba es su suma).
+    const beforeByName = new Map((before?.byCampaign || []).map(item => [item.name, item]));
+    const split = objective.byCampaign.length > 1 ? `
+        <div class="campaign-split" role="table" aria-label="Inversión por campaña de ${esc(objective.label)}">
+          <div class="campaign-split-row campaign-split-head" role="row"><span role="columnheader">Campaña</span><span role="columnheader" class="num">Inversión</span><span role="columnheader" class="num">% del cuadro</span><span role="columnheader" class="num">Mensajes</span><span role="columnheader" class="num">Reservas</span></div>
+          ${objective.byCampaign.map(item => `
+          <div class="campaign-split-row" role="row"><span role="cell" class="campaign-split-name">${esc(item.name)}</span><span role="cell" class="num"><b>${fmt.money(item.spend)}</b>${beforeByName.has(item.name) && !spendPending(period) ? deltaHtml(item.spend, beforeByName.get(item.name).spend, null) : ''}</span><span role="cell" class="num">${item.share == null ? '-' : fmt.pct(item.share)}</span><span role="cell" class="num">${fmt.count(item.messages)}</span><span role="cell" class="num">${fmt.count(item.reservations)}</span></div>`).join('')}
+        </div>` : '';
     return `
       <section class="campaign-block${settings.collapsed ? ' is-collapsed' : ''}" id="campaign-${key}" data-objective="${key}" style="--campaign-color:${objective.color}">
         <div class="panel-head chart-panel-head">
@@ -1718,7 +1734,7 @@
             <button type="button" class="chart-toggle" data-campaign-toggle="${key}" aria-controls="campaign-body-${key}">${CHEVRON}</button>
           </div>
         </div>
-        <dl class="chart-kpis">${kpis}</dl>
+        <dl class="chart-kpis">${kpis}</dl>${split}
         <div class="campaign-block-body" id="campaign-body-${key}">
           <div class="chart-series-toggles chart-metrics" data-campaign-metrics role="group" aria-label="Indicadores del grafico de ${esc(objective.label)}"></div>
           <div class="chart-wrap h-300"><canvas role="img" aria-label="Grafico por mes de la campaña ${esc(objective.label)}"></canvas></div>
