@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.25.0`.
+Version actual: `v1.26.0`.
 
 ## Versionado
 
@@ -23,13 +23,16 @@ El proyecto usa la nomenclatura `vMAJOR.MINOR.PATCH`:
 - Archivo de Reportes: catalogo de los documentos guardados en la carpeta de Google Drive.
 - Generacion de Reporte: el reporte semanal de lunes a domingo, con el orden del ultimo reporte de la carpeta de Drive y descarga en PDF (ver "Generacion de Reporte").
 - Bitacora: checklist mensual de cambios, comentarios y decisiones de la cuenta.
-- Usuarios y Claves: directorio de las cuentas con acceso al tablero, sin contrasenas (ver "Usuarios y Claves").
 
 La barra superior muestra el estado de los datos ("Datos de Septiembre | leidos ...", en ambar si se ve la copia guardada o no hay conexion con Google Sheets). Al pulsarla se abre el detalle: datos y su corte, ultima y proxima lectura, pestanas leidas, fuente y un aviso (sin conexion, copia guardada, Objetivo Reservas o mes en curso). Su boton **Actualizar** es el unico del tablero: relee la hoja y sincroniza el Archivo de Reportes con Drive.
 
 El panel lateral se puede minimizar con el boton de la barra superior: en escritorio queda una franja de iconos de 88px (con el nombre del modulo como tooltip) y en pantallas de 900px o menos se oculta por completo. El estado se recuerda en `localStorage` (`rb-sidebar-collapsed`).
 
 El tablero solo muestra los modulos activos: los modulos pendientes (Comparativo YoY, Distribucion, Productos Web) se retiraron del menu el 24 de septiembre de 2026 junto con la calculadora de inversion por CPL. Usuarios y Claves volvio como modulo activo el 29 de septiembre de 2026.
+
+El pie del panel lateral lleva el nombre de la cuenta, el WhatsApp de Agencia Lima Retail
+(+51 937 409 733) y www.limaretail.com. El modulo "Usuarios y Claves" salio del tablero; el
+directorio guardado sigue en el repositorio por si hace falta recuperarlo.
 
 ## Datos
 
@@ -149,28 +152,6 @@ huella del contenido sobre el que se hizo y se ignora cuando se publica una vers
 saca el foco del campo: la lista solo se redibuja si cambia el orden, el filtro o el conteo, y una fecha tecleada se
 reordena al salir del campo.
 
-## Usuarios y Claves
-
-Directorio de quien tiene acceso al tablero (`js/usuarios.js`). En GitHub Pages el tablero se abre con una sola clave
-compartida (secret `DASHBOARD_PASSWORD`, ver "Publicacion en GitHub Pages con clave") que **nunca** se guarda en el repo
-ni en el HTML: esta vista solo lleva nombre, usuario o correo, rol, fecha de alta y estado. La version publicada es `data/amador-usuarios-2026.json` (el build la incrusta
-como `window.AMADOR_USUARIOS`; dist/ no lleva ese archivo).
-
-```json
-{ "updatedAt": "2026-09-29", "users": [
-  { "id": "u01", "name": "Nombre Apellido", "user": "cliente-amador", "role": "cliente", "status": "activo", "since": "2026-09-29" }
-] }
-```
-
-- `role`: `cliente`, `equipo` o `admin` (otro valor se lee como `cliente`).
-- `status`: `activo` o `suspendido`. `user` se guarda en minusculas y sin espacios ni `:`; no puede quedar vacio ni repetirse.
-- Se edita igual que la Bitacora: borrador en `localStorage` (clave `amador-usuarios-draft`), **Exportar** descarga
-  `amador-usuarios-2026.json`, se reemplaza el archivo en `data/`, commit y despliegue.
-- Dar acceso es entregar la clave; cambiarla es editar el secret y volver a publicar (la vista muestra los pasos). Como la
-  clave es compartida, quitar el acceso a alguien obliga a cambiarla. En la publicacion alternativa del hosting cada cuenta
-  tiene su usuario en cPanel > Privacidad de directorios.
-- Bitacora y Usuarios comparten `js/draft-store.js`: el borrador guarda la fecha y una huella del archivo publicado, asi
-  que se descarta si se publica otra version (aunque sea del mismo dia).
 
 ## Archivo de Reportes (Google Drive)
 

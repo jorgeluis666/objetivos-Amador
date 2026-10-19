@@ -90,7 +90,6 @@ async function main() {
   const driveReports = readFile('data/amador-drive-reports.json').replace(/</g, '\\u003c');
   const inlineJson = file => JSON.stringify(JSON.parse(readFile(file))).replace(/</g, '\\u003c');
   const bitacoraData = inlineJson('data/amador-bitacora-2026.json');
-  const usuariosData = inlineJson('data/amador-usuarios-2026.json');
   // Copias de las pestanas mensuales de la hoja (data/amador-<mes en ingles>-sheet-<año>.json): se incrustan todas,
   // en orden de año y mes, cada una con su año.
   const MONTH_FILES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
@@ -107,10 +106,10 @@ async function main() {
   // Se incrustan, en el orden de index.html, todos los js/ que carga: no hay otra lista que mantener.
   html = html.replace(/<script src="js\/([\w-]+\.js)(?:\?v=[^"]+)?"><\/script>/g, (_, file) => `<script>${readFile(`js/${file}`)}</script>`);
   if (/<script src="js\//.test(html)) throw new Error('index.html carga un js/ que el build no incrusta');
-  // La bitacora y el directorio de usuarios viajan incrustados: dist/ no lleva esos JSON.
+  // La bitacora viaja incrustada: dist/ no lleva esos JSON.
   html = html.replace(
     '</head>',
-    () => `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_SHEET_MONTHS = [${sheetMonths.join(',')}];window.AMADOR_DRIVE_REPORTS = ${driveReports};window.AMADOR_BITACORA = ${bitacoraData};window.AMADOR_USUARIOS = ${usuariosData};window.AMADOR_META_DATA = ${metaData};window.AMADOR_DATA_ENDPOINT = ${JSON.stringify(endpoint)};</script></head>`
+    () => `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_SHEET_MONTHS = [${sheetMonths.join(',')}];window.AMADOR_DRIVE_REPORTS = ${driveReports};window.AMADOR_BITACORA = ${bitacoraData};window.AMADOR_META_DATA = ${metaData};window.AMADOR_DATA_ENDPOINT = ${JSON.stringify(endpoint)};</script></head>`
   );
 
   // El navegador convierte CRLF en LF antes de calcular el hash CSP de cada <script>; si el HTML
