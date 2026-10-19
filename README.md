@@ -21,7 +21,7 @@ El proyecto usa la nomenclatura `vMAJOR.MINOR.PATCH`:
 - Proyecciones: cierre de mes estimado con los datos reales y simulador de objetivo.
 - Historico de Campanas: todas las campanas con gasto, activas y finalizadas, con pestanas por mes y Todos (ver "Historico de Campanas").
 - Archivo de Reportes: catalogo de los documentos guardados en la carpeta de Google Drive.
-- Generacion de Reporte: el reporte semanal de lunes a domingo, con el orden del ultimo reporte de la carpeta de Drive y descarga en PDF (ver "Generacion de Reporte").
+  - Pestana Generacion de Reporte, dentro de Archivo de Reportes: el reporte semanal de lunes a domingo, con el orden del ultimo reporte de la carpeta de Drive y descarga en PDF (ver "Generacion de Reporte").
 - Bitacora: checklist mensual de cambios, comentarios y decisiones de la cuenta.
 
 La barra superior muestra el estado de los datos ("Datos de Septiembre | leidos ...", en ambar si se ve la copia guardada o no hay conexion con Google Sheets). Al pulsarla se abre el detalle: datos y su corte, ultima y proxima lectura, pestanas leidas, fuente y un aviso (sin conexion, copia guardada, Objetivo Reservas o mes en curso). Su boton **Actualizar** es el unico del tablero: relee la hoja y sincroniza el Archivo de Reportes con Drive.

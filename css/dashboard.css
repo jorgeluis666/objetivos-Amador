@@ -2498,6 +2498,17 @@ body.amador-table-fullscreen {
   gap: 7px;
 }
 
+/* Archivo de Reportes: Documentos en Drive y Generación de Reporte son dos pestañas del mismo módulo. */
+.month-tabs.report-tabs {
+  display: flex;
+  margin: 0 0 18px;
+}
+
+.report-tabs .month-tab {
+  padding: 0 16px;
+  font-size: 12px;
+}
+
 /* ===== Generacion de Reporte (semana de lunes a domingo) ===== */
 /* El reporte se ve en pantalla como el PDF de la carpeta Reportes y se imprime con @media print:
    solo #week-doc, sin panel lateral, barra superior ni el resto de los modulos. */
@@ -2719,6 +2730,7 @@ body.amador-table-fullscreen {
   .topbar,
   .site-footer,
   .week-toolbar,
+  .report-tabs,
   .reports-modal,
   .view:not(#view-week) {
     display: none !important;
