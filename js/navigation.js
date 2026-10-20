@@ -35,9 +35,9 @@
     'view-week': {
       parent: 'view-reports',   // va dentro de Archivo de Reportes, con su pestaña
       title: 'Archivo de Reportes',
-      caption: 'Generación de Reporte · semana de lunes a domingo',
+      caption: 'Generación de Reporte · Reporte de Publicidad en PDF',
       source: 'Fuente: descargas de Meta Ads / carpeta Reportes de Drive',
-      footer: 'La semana que acaba de pasar, lista cada lunes',
+      footer: 'El mes elegido, semana a semana',
     },
     'view-log': {
       title: 'Bitácora',

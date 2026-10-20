@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.26.0`.
+Version actual: `v1.28.0`.
 
 ## Versionado
 
@@ -21,7 +21,7 @@ El proyecto usa la nomenclatura `vMAJOR.MINOR.PATCH`:
 - Proyecciones: cierre de mes estimado con los datos reales y simulador de objetivo.
 - Historico de Campanas: todas las campanas con gasto, activas y finalizadas, con pestanas por mes y Todos (ver "Historico de Campanas").
 - Archivo de Reportes: catalogo de los documentos guardados en la carpeta de Google Drive.
-  - Pestana Generacion de Reporte, dentro de Archivo de Reportes: el reporte semanal de lunes a domingo, con el orden del ultimo reporte de la carpeta de Drive y descarga en PDF (ver "Generacion de Reporte").
+  - Pestana Generacion de Reporte, dentro de Archivo de Reportes: el Reporte de Publicidad con el diseño del modelo de Amador, por mes y semana a semana, y descarga en PDF (ver "Generacion de Reporte").
 - Bitacora: checklist mensual de cambios, comentarios y decisiones de la cuenta.
 
 La barra superior muestra el estado de los datos ("Datos de Septiembre | leidos ...", en ambar si se ve la copia guardada o no hay conexion con Google Sheets). Al pulsarla se abre el detalle: datos y su corte, ultima y proxima lectura, pestanas leidas, fuente y un aviso (sin conexion, copia guardada, Objetivo Reservas o mes en curso). Su boton **Actualizar** es el unico del tablero: relee la hoja y sincroniza el Archivo de Reportes con Drive.
@@ -101,32 +101,40 @@ a traves de `window.AmadorObjectives.snapshot()` y proyecta el cierre del mes en
 
 ## Generacion de Reporte
 
-Pestana que arma el reporte de la semana que acaba de pasar, de lunes a domingo, con el mismo orden del
-ultimo reporte publicado en la carpeta Reportes de Drive: resumen del periodo, conversaciones por dia,
-mejores anuncios, conjuntos y campanas, y conclusiones.
+Pestana que arma el "Reporte de Publicidad" con el diseño del modelo de Amador (`Modelo Reporte Amador`):
+laminas 16:9 con fondo claro, tarjetas blancas de borde fino y acentos en azul.
 
-- **De donde salen los numeros:** de las mismas filas del barrido de Meta que usa Gasto publicitario (una
-  fila por dia, campana, conjunto y anuncio, en `window.AMADOR_META_DATA` y en la relectura en vivo que
-  expone `AmadorObjectives.meta()`). No hay una fuente nueva ni una lectura extra.
-- **Que semana muestra:** la ultima de lunes a domingo ya cerrada (en hora de Lima). El selector deja ver
-  las 12 anteriores. La semana en curso no se lista: el reporte es de semana completa.
-- **Cada lunes se puebla solo:** el tablero relee el barrido al abrirse y con Actualizar, y el workflow de
-  Pages corre tambien los lunes a las 10:30 de Lima (`schedule` en `deploy-pages.yml`), despues del barrido
-  de Meta de las 10:00.
-- **Si la descarga del mes no llega al domingo**, el reporte lo avisa arriba y nombra los dias que faltan:
-  los totales pueden subir cuando se suba la descarga nueva.
-- **Resultados:** las conversaciones son la columna "messages" de Meta. Cuando una semana no tiene mensajes,
-  encabeza el tipo de resultado con mas inversion y los demas van en el desglose "Resultados por tipo", que
-  nunca se suman entre objetivos.
-- **Conclusiones:** las dos primeras vienen propuestas con lo que dice la semana y se editan en la pestana;
-  quedan guardadas por semana en el navegador (`amador-week-notes-v1`), no se publican con el tablero.
+| Pagina | Contenido |
+| --- | --- |
+| Portada | Logo de Lima Retail, "Reporte de Publicidad", cliente, mes ("Octubre 2026 · evolucion semanal") y fecha de emision. |
+| Contenido | Una tarjeta por seccion con su icono y su numero de pagina. |
+| Como vamos | Inversion, compras (costo/compra), reservas o leads (costo/reserva) y mensajes (costo/mensaje); conversaciones por semana (S1, S2...); recuadro "Lectura". |
+| Una por campana | Reservas de Almuerzos, Eventos, Corporativos (y cualquier otra campana con gasto, con su propio nombre): 4 KPIs segun lo que mide, evolucion semanal, mejores anuncios (hasta 4, con "Ver »" a la vista previa) y recuadro "Analisis" (Que paso / Que lo ocasiono / Que hacemos). |
+| Conclusiones y acciones | Tres tarjetas: la campana motor, los anuncios a replicar y la campana a revisar; en un mes en curso, la nota de que las metricas se consolidan al cierre. |
+| Cierre | Logo y firma de Lima Retail. |
+
+- **Periodo:** se elige el mes (el en curso llega hasta el ultimo dia con datos) y cada pagina lo parte en
+  semanas de lunes a domingo dentro del mes: S1 va del dia 1 al primer domingo. No compara contra el mes
+  anterior.
+- **De donde salen los numeros:** de las mismas filas del barrido de Meta que usa Gasto publicitario (en
+  `window.AMADOR_META_DATA` y en la relectura en vivo que expone `AmadorObjectives.meta()`). No hay una
+  fuente nueva ni una lectura extra.
+- **Que mide cada campana:** compras = resultados "Compras en el sitio web"; leads = resultados "Clientes
+  potenciales"; conversaciones = la columna "messages" de Meta. El costo por compra y por lead es la
+  inversion de su campana entre su resultado; el costo por mensaje es la inversion total entre los mensajes.
+  En las campanas de leads la tabla de anuncios y el grafico miden conversaciones, como en el modelo.
+- **Textos:** la lectura, el analisis de cada campana y las conclusiones vienen propuestos con lo que dicen
+  los numeros. Se editan con un clic sobre la lamina (`**texto**` va en negrita) y quedan guardados por mes
+  en el navegador (`amador-report-notes-v2`); no se publican con el tablero. "Restablecer textos" vuelve a
+  los propuestos, sin dialogo de confirmacion.
 - **El modelo** es el ultimo PDF de la carpeta Reportes (el listado que ya trae Archivo de Reportes): su
-  nombre y su enlace salen arriba de la portada.
-- **Descargar PDF** abre el dialogo de impresion con el reporte solo (sin panel lateral ni barra superior)
-  y el nombre del archivo ya armado.
+  nombre y su enlace salen arriba.
+- **Descargar PDF** abre el dialogo de impresion con las laminas solas, una por hoja de 13.33 x 7.5 in (el
+  tamaño del modelo), y el nombre del archivo ya armado. Activar "Graficos de fondo" si el navegador no lo
+  hace solo.
 
-El modulo es `js/report-week.js` y es practicamente el mismo archivo en todos los tableros de marca. Sus
-estilos y los de impresion estan al final de `css/dashboard.css`.
+El modulo es `js/report-week.js` y su template es propio de Amador: cada tablero de marca tiene el suyo,
+adaptado por la marca. Sus estilos y los de impresion estan al final de `css/dashboard.css`.
 
 ## Bitacora
 
