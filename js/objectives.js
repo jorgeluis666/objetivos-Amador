@@ -71,7 +71,9 @@
     { key: 'reservations', label: 'Reservas', unit: 'count' },
   ];
   // URL del Web App de scripts/google-sheets-sync.gs; vacio = la edicion de objetivos queda solo local.
-  const SHEET_SYNC_ENDPOINT = '';
+  // URL del Web App que escribe el Objetivo Reservas en la hoja (scripts/google-sheets-sync.gs). La incrusta el
+  // build desde el secret SHEET_SYNC_ENDPOINT, solo dentro del HTML cifrado: no vive en el repo, que es publico.
+  const SHEET_SYNC_ENDPOINT = window.AMADOR_SHEET_SYNC_ENDPOINT || '';
   const SHEET_SYNC_ENDPOINT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
   const CHART_COLLAPSED_KEY = 'amador-chart-collapsed-v1';
   const { MONTHS, SHORT_MONTHS, esc, safeUrl, fmt, change, hasActivity, limaParts, monthKey, daysInMonth, formatStamp, keepFocus } = window.AmadorShared;
@@ -170,8 +172,8 @@
   function saveChartSeries() {
     try { localStorage.setItem(CHART_SERIES_KEY, JSON.stringify(state.types)); } catch {}
   }
-  // El endpoint de escritura va fijo en el codigo (SHEET_SYNC_ENDPOINT). Ya no se acepta desde la URL
-  // ni desde localStorage: un enlace manipulado podia desviar los POST a un tercero.
+  // El endpoint de escritura sale solo del build (SHEET_SYNC_ENDPOINT). No se acepta desde la URL ni desde
+  // localStorage: un enlace manipulado podia desviar los POST a un tercero.
   function syncEndpoint() {
     return SHEET_SYNC_ENDPOINT_RE.test(SHEET_SYNC_ENDPOINT) ? SHEET_SYNC_ENDPOINT : '';
   }

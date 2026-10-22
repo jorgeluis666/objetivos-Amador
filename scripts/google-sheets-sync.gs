@@ -1,3 +1,13 @@
+/**
+ * Objetivo Reservas de Amador: el tablero escribe aqui el objetivo de cada campana en la hoja
+ * "Distribucion-amador" (pestaña del mes, columna "Objetivo reservas") y recalcula la fila Total.
+ *
+ * Instalacion (una sola vez):
+ * 1. Crear un proyecto en https://script.google.com y pegar este archivo.
+ * 2. Implementar > Nueva implementacion > Aplicacion web: ejecutar como "Yo", acceso "Cualquier persona".
+ *    Al autorizar, Google pide permiso para editar las hojas de calculo de la cuenta.
+ * 3. La URL /exec va en el secret SHEET_SYNC_ENDPOINT del repositorio (solo queda dentro del HTML cifrado).
+ */
 const SPREADSHEET_ID = '1Lj5rEepYZhHlf-VyGJwRYVMqnpWLu9lg3oL6wes3o-s';
 const DEFAULT_SHEET_NAME = 'Agosto';
 // Solo se escribe en las pestañas mensuales de SPREADSHEET_ID. La peticion ya no puede elegir otro

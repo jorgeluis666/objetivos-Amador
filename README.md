@@ -200,10 +200,13 @@ El tablero puede leer el CSV publicado de Google Sheets, pero necesita un puente
 
 1. Crear un proyecto de Apps Script vinculado al Google Sheet.
 2. Copiar el contenido de `scripts/google-sheets-sync.gs`.
-3. Publicarlo como Web App con ejecucion como propietario y acceso permitido a los usuarios que usaran el panel.
-   El script solo escribe en las pestañas mensuales del spreadsheet fijado en `SPREADSHEET_ID` y solo acepta enteros entre 0 y 100000.
-4. Pegar la URL `https://script.google.com/macros/s/.../exec` en `SHEET_SYNC_ENDPOINT` (`js/objectives.js`) y volver a publicar.
-   Ya no se acepta desde `?sheetSyncEndpoint=` ni desde localStorage: un enlace manipulado podia desviar los datos a un tercero.
+3. Publicarlo como Web App con ejecucion como propietario y acceso "Cualquier persona" (quien abre el tablero no
+   tiene por que haber iniciado sesion en Google). El script solo escribe en las pestañas mensuales del spreadsheet
+   fijado en `SPREADSHEET_ID` y solo acepta enteros entre 0 y 100000.
+4. Guardar la URL `https://script.google.com/macros/s/.../exec` en el secret `SHEET_SYNC_ENDPOINT` del repositorio y
+   volver a publicar. El build la incrusta solo dentro del HTML cifrado (`window.AMADOR_SHEET_SYNC_ENDPOINT`): no vive
+   en el repo, que es publico, porque con ella cualquiera podria cambiar los objetivos. Tampoco se acepta desde
+   `?sheetSyncEndpoint=` ni desde localStorage: un enlace manipulado podia desviar los datos a un tercero.
 
 Desde ese momento, los cambios en `Objetivo Reservas` se actualizan localmente y se envian al Sheet.
 

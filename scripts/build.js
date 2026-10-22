@@ -107,9 +107,15 @@ async function main() {
   html = html.replace(/<script src="js\/([\w-]+\.js)(?:\?v=[^"]+)?"><\/script>/g, (_, file) => `<script>${readFile(`js/${file}`)}</script>`);
   if (/<script src="js\//.test(html)) throw new Error('index.html carga un js/ que el build no incrusta');
   // La bitacora viaja incrustada: dist/ no lleva esos JSON.
+  // Web App que escribe el Objetivo Reservas en la hoja (scripts/google-sheets-sync.gs). La URL llega por el
+  // secret SHEET_SYNC_ENDPOINT y solo queda dentro del HTML cifrado: con ella cualquiera podria cambiar objetivos.
+  const sheetSyncEndpoint = (process.env.SHEET_SYNC_ENDPOINT || '').trim();
+  if (sheetSyncEndpoint && !DATA_ENDPOINT_RE.test(sheetSyncEndpoint)) throw new Error('SHEET_SYNC_ENDPOINT no es una URL /exec de script.google.com');
+  if (sheetSyncEndpoint) console.log('[build] Objetivo Reservas conectado a la hoja');
+  else console.warn('[build] sin SHEET_SYNC_ENDPOINT: el Objetivo Reservas se guarda solo en el navegador');
   html = html.replace(
     '</head>',
-    () => `<script>window.AMADOR_ADS_DATA = ${data};window.AMADOR_SHEET_MONTHS = [${sheetMonths.join(',')}];window.AMADOR_DRIVE_REPORTS = ${driveReports};window.AMADOR_BITACORA = ${bitacoraData};window.AMADOR_META_DATA = ${metaData};window.AMADOR_DATA_ENDPOINT = ${JSON.stringify(endpoint)};</script></head>`
+    () => `<script>window.AMADOR_SHEET_SYNC_ENDPOINT = ${JSON.stringify(sheetSyncEndpoint)};window.AMADOR_ADS_DATA = ${data};window.AMADOR_SHEET_MONTHS = [${sheetMonths.join(',')}];window.AMADOR_DRIVE_REPORTS = ${driveReports};window.AMADOR_BITACORA = ${bitacoraData};window.AMADOR_META_DATA = ${metaData};window.AMADOR_DATA_ENDPOINT = ${JSON.stringify(endpoint)};</script></head>`
   );
 
   // El navegador convierte CRLF en LF antes de calcular el hash CSP de cada <script>; si el HTML
