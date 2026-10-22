@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.30.1`.
+Version actual: `v1.31.0`.
 
 ## Versionado
 
@@ -26,7 +26,7 @@ Convenciones de pantalla (desde la v1.30.1, alineadas con Royal Baby): soles com
   - Pestana Generacion de Reporte, dentro de Archivo de Reportes: el Reporte de Publicidad con el diseño del modelo de Amador, por mes y semana a semana, y descarga en PDF (ver "Generacion de Reporte").
 - Bitacora: checklist mensual de cambios, comentarios y decisiones de la cuenta.
 
-La barra superior muestra el estado de los datos ("Datos de Septiembre | leidos ...", en ambar si se ve la copia guardada o no hay conexion con Google Sheets). Al pulsarla se abre el detalle: datos y su corte, ultima y proxima lectura, pestanas leidas, fuente y un aviso (sin conexion, copia guardada, Objetivo Reservas o mes en curso). Su boton **Actualizar** es el unico del tablero: relee la hoja y sincroniza el Archivo de Reportes con Drive.
+La barra superior (desde la v1.31.0, como Royal Baby) queda fija al hacer scroll y es translucida (blanco al 88 % con desenfoque). A la izquierda van el boton para minimizar el panel, el titulo de la vista y como bajada la misma descripcion del modulo que muestra el panel lateral. A la derecha, la pildora de sincronizacion: "Sincronizado · hace 12 min" en verde; "cargando…" / "Recargando…" en ambar con el punto latiendo durante una lectura; "Aún no sincronizado" en ambar mientras se ve la copia guardada (tambien ambar si una descarga de Meta del mes no se pudo leer); "Sin conexión con Meta / Google Sheets" en rojo. Al pulsarla se abre el detalle: datos y su corte, ultima y proxima lectura, pestanas leidas, fuente y un aviso (sin conexion, copia guardada, Objetivo Reservas o mes en curso). Al lado, el boton fantasma **Actualizar** con icono de recarga es el unico del tablero: relee la hoja y sincroniza el Archivo de Reportes con Drive (mismo `id="topbar-refresh-btn"` y `data-amador-refresh`).
 
 El panel lateral se puede minimizar con el boton de la barra superior: en escritorio queda una franja de iconos de 88px (con el nombre del modulo como tooltip) y en pantallas de 900px o menos se oculta por completo. El estado se recuerda en `localStorage` (`rb-sidebar-collapsed`).
 

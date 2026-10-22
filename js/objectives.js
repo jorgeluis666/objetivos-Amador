@@ -722,10 +722,13 @@
   function refreshButtons() {
     return [...document.querySelectorAll('[data-amador-refresh]')];
   }
+  // Boton fantasma "Actualizar": el icono gira y el texto cambia mientras relee.
   function setRefreshing(isLoading) {
     refreshButtons().forEach(button => {
       button.disabled = isLoading;
-      button.textContent = isLoading ? 'Actualizando...' : 'Actualizar';
+      button.classList.toggle('loading', isLoading);
+      const label = button.querySelector('.topbar-refresh-label') || button;
+      label.textContent = isLoading ? 'Actualizando…' : 'Actualizar';
     });
   }
   // La proxima lectura automatica es una hora despues de la ultima, sea automatica o del boton.
@@ -766,7 +769,7 @@
     return payload;
   }
   async function runSync(manual) {
-    if (manual) updateStatusLabel(META_ENDPOINT ? 'Leyendo Meta y la hoja...' : 'Leyendo Google Sheets...');
+    if (manual) updateStatusLabel('Recargando…');
     try {
       const [sheet, meta] = await Promise.allSettled([readSheetTabs(), readMeta(manual)]);
       const before = signature();
@@ -831,21 +834,37 @@
     const names = [state.metaError && 'Meta', state.error && 'Google Sheets'].filter(Boolean);
     return names.join(' ni con ');
   }
+  function relativeTime(date) {
+    const minutes = Math.round((Date.now() - date.getTime()) / 60000);
+    if (minutes < 1) return 'hace segundos';
+    if (minutes < 60) return `hace ${minutes} min`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `hace ${hours} h`;
+    return `hace ${Math.round(hours / 24)} d`;
+  }
+  // Pildora de la barra superior como Royal Baby. El corte de los datos ("1-12 Octubre 2026"), la ultima lectura y
+  // el aviso van en el detalle que abre la pildora.
   function statusLabel() {
-    if (!state.data) return state.error ? 'Sin datos: no se pudo leer Google Sheets' : 'Cargando datos...';
-    const month = latestMonth();
-    // Un mes de Meta llega hasta su ultimo dia con gasto: "Datos al 12 de octubre".
-    const dataPart = !month ? 'Sin datos' : month.meta && !month.closed ? `Datos al ${month.dataDay} de ${month.name.toLowerCase()}` : `Datos de ${month.name}`;
-    if (state.error || state.metaError) return `${dataPart} | sin conexión con ${offlineSources()}`;
-    if (!state.lastSync) return `${dataPart} | copia guardada`;
-    return `${dataPart} | leídos ${formatStamp(state.lastSync)}`;
+    if (!state.data) return state.error ? 'No se pudieron cargar los datos' : 'cargando…';
+    if (state.error || state.metaError) return `Sin conexión con ${offlineSources()}`;
+    if (!state.lastSync) return 'Aún no sincronizado';
+    return `Sincronizado · ${relativeTime(state.lastSync)}`;
+  }
+  // ok verde; cargando ambar con el punto latiendo (un texto de paso: primera lectura o Actualizar); aviso ambar
+  // (copia guardada sin lectura en vivo, o una descarga de Meta del mes que no se pudo leer); error rojo (sin
+  // conexion con Meta o con la hoja, o sin datos).
+  function statusTone(text) {
+    if (text || (!state.data && !state.error)) return 'loading';
+    if (!state.data || state.error || state.metaError) return 'err';
+    const metaFailed = (state.meta?.months || []).some(item => item.error && liveMonths().some(live => live.year === item.year && live.index === item.month - 1));
+    return !state.lastSync || metaFailed ? 'warn' : 'ok';
   }
   function updateStatusLabel(text) {
     const label = document.getElementById('topbar-status');
     if (label) label.textContent = text || statusLabel();
     const pill = label?.closest('.topbar-pill');
-    const metaFailed = (state.meta?.months || []).some(item => item.error && liveMonths().some(live => live.year === item.year && live.index === item.month - 1));
-    if (pill) pill.classList.toggle('warn', !text && (Boolean(state.error || state.metaError) || !state.lastSync || metaFailed));
+    const tone = statusTone(text);
+    if (pill) ['ok', 'loading', 'warn', 'err'].forEach(name => pill.classList.toggle(name, name === tone));
     renderStatusCard();
   }
   // Avisos del Objetivo Reservas: van a la nota del detalle de la actualizacion.
@@ -2642,12 +2661,15 @@
       state.monthKey = latestMonth()?.key || null;
       wireEvents();
       renderAll();
-      updateStatusLabel(META_ENDPOINT ? 'Leyendo Meta y la hoja...' : 'Leyendo Google Sheets...');
+      updateStatusLabel('cargando…');
       syncLiveSheet();
+      // "hace N min" sigue al dia entre lecturas (no pisa el texto de una lectura en curso).
+      setInterval(() => { if (!state.current) updateStatusLabel(); }, 60000);
     } catch (error) {
       ['view-obj', 'view-ads'].forEach(id => { document.getElementById(id).innerHTML = '<div class="data-notice error"><strong>No se pudo cargar la información de Amador.</strong></div>'; });
       console.error(error);
       state.error = String(error?.message || error);
+      updateStatusLabel();
       window.dispatchEvent(new CustomEvent('amador:data-error', { detail: { error: state.error } }));
     }
   }
