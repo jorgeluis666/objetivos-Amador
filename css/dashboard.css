@@ -303,6 +303,38 @@
   background: rgba(234, 88, 12, .08);
 }
 
+.series-toggle[data-series="costPerMessage"].active {
+  color: #0f766e;
+  border-color: #0f766e;
+  background: rgba(15, 118, 110, .08);
+}
+
+.series-toggle[data-series="costPerReservation"].active {
+  color: #db2777;
+  border-color: #db2777;
+  background: rgba(219, 39, 119, .08);
+}
+
+/* Boton "Un solo cuadro": al final de los indicadores, separado de las casillas. */
+.series-toggle.chart-combine {
+  font-family: inherit;
+}
+
+.series-toggle.chart-combine[hidden] {
+  display: none;
+}
+
+.series-toggle.chart-combine.active {
+  color: #0f172a;
+  border-color: #0f172a;
+  background: #f1f5f9;
+}
+
+.series-toggle.chart-combine:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .2);
+}
+
 /* ===== Panel lateral (estilo LR Suite) ===== */
 .sidebar {
   position: sticky;

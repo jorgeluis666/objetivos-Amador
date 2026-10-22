@@ -64,11 +64,14 @@
     { key: 'activas', label: 'Activas', one: 'campaña activa', many: 'campañas activas' },
     { key: 'finalizadas', label: 'Finalizadas', one: 'campaña finalizada', many: 'campañas finalizadas' },
   ];
-  // Indicadores del grafico de cada cuadro (todos por mes).
+  // Indicadores del grafico de cada cuadro (todos por mes). Los costos salen de sumar gasto y resultados del mes
+  // (sin resultados, hueco). combineColor: el de su linea cuando los indicadores van juntos en un solo cuadro.
   const BLOCK_METRICS = [
-    { key: 'spend', label: 'Inversión', unit: 'money' },
-    { key: 'messages', label: 'Mensajes', unit: 'count' },
-    { key: 'reservations', label: 'Reservas', unit: 'count' },
+    { key: 'spend', label: 'Inversión', unit: 'money', combineColor: '#2563eb' },
+    { key: 'messages', label: 'Mensajes', unit: 'count', combineColor: '#16a34a' },
+    { key: 'reservations', label: 'Reservas', unit: 'count', combineColor: '#ea580c' },
+    { key: 'costPerMessage', label: 'Costo por mensaje', unit: 'money', combineColor: '#0f766e' },
+    { key: 'costPerReservation', label: 'Costo por reserva', unit: 'money', combineColor: '#db2777' },
   ];
   // URL del Web App de scripts/google-sheets-sync.gs; vacio = la edicion de objetivos queda solo local.
   // URL del Web App que escribe el Objetivo Reservas en la hoja (scripts/google-sheets-sync.gs). La incrusta el
@@ -97,8 +100,13 @@
     investment: { label: 'Inversion', unit: 'money', color: '#2563eb', fill: 'rgba(37,99,235,.11)' },
     messages: { label: 'Mensajes', unit: 'count', color: '#16a34a', fill: 'rgba(22,163,74,.10)' },
     reservations: { label: 'Reservas', unit: 'count', color: '#ea580c', fill: 'rgba(234,88,12,.10)' },
+    // Costos del mes: gasto / resultados con la misma regla que los KPIs; sin resultados, hueco.
+    costPerMessage: { label: 'Costo por mensaje', unit: 'money', color: '#0f766e', fill: 'rgba(15,118,110,.10)' },
+    costPerReservation: { label: 'Costo por reserva', unit: 'money', color: '#db2777', fill: 'rgba(219,39,119,.10)' },
   };
   const CHART_SERIES_KEY = 'amador-chart-series-v1';
+  // Grafico de la cuenta con varios indicadores en un solo cuadro (en vez de paneles apilados).
+  const CHART_COMBINED_KEY = 'amador-chart-combined-v1';
   // monthKey: pestana elegida (YYYY-MM o anual); month: nombre del mes que muestran la tabla de campanas y sus
   // ediciones locales. current: lectura en vivo en curso. liveSheets: pestanas leidas en la ultima lectura.
   const state = {
@@ -110,7 +118,7 @@
     // los meses del barrido con las reservas de la hoja y el resto tal como viene de la hoja (composeData).
     sheetData: null, meta: null, metaError: '', metaSync: null,
     data: null, types: readChartSeries(), monthKey: null, monthPicked: false, year: null, month: null, chartYear: null, charts: new Map(), syncTimer: null, nextSync: 0, goals: {},
-    chartCollapsed: readChartCollapsed(), lastSync: null, lastFetch: 0, current: null, liveSheets: [], error: '', tabWarning: '', tabMissing: '', goalNote: '',
+    chartCollapsed: readChartCollapsed(), chartCombined: readFlag(CHART_COMBINED_KEY), lastSync: null, lastFetch: 0, current: null, liveSheets: [], error: '', tabWarning: '', tabMissing: '', goalNote: '',
     // Tabla de anuncios: densidad, pantalla completa (las pestanas de mes vuelven a tabsHome) y filtro por objetivo.
     tableCompact: readFlag(TABLE_COMPACT_KEY), tableFullscreen: false, tabsHome: null, adsObjective: 'all',
     campaignBlocks: readBlockSettings(),
@@ -1467,10 +1475,13 @@
     : Number(value).toLocaleString('es-PE', { notation: Math.abs(value) >= 100000 ? 'compact' : 'standard', maximumFractionDigits: 1 }));
 
   // Con un indicador hay un solo eje y; con varios, un eje por indicador apilado en vertical (paneles con su
-  // escala) sobre el mismo eje de meses. Nunca dos escalas superpuestas: los cruces entre lineas no significarian nada.
-  function yScales(metrics) {
+  // escala) sobre el mismo eje de meses. Nunca dos escalas a la vista sobre las mismas lineas: los cruces no
+  // significarian nada. En un solo cuadro (combined) cada indicador tiene su escala sin eje visible: se compara la
+  // forma y el valor va en cada punto.
+  function yScales(metrics, combined) {
     const base = unit => ({ beginAtZero: true, border: { display: false }, ticks: { color: '#7890b5', font: { size: 10 }, callback: value => tickValue(unit, value) } });
-    if (metrics.length === 1) return { y: { ...base(metrics[0].unit), grid: { color: 'rgba(148,163,184,.20)' } } };
+    if (metrics.length === 1) return { y: { ...base(metrics[0].unit), grace: '12%', grid: { color: 'rgba(148,163,184,.20)' } } };
+    if (combined) return Object.fromEntries(metrics.map((metric, index) => [`y${index}`, { display: false, beginAtZero: true, grace: '18%' }]));
     // Chart.js apila de abajo hacia arriba en el orden de los ejes: se dan al reves para que el primero quede arriba.
     return Object.fromEntries(metrics.map((metric, index) => [`y${index}`, {
       ...base(metric.unit),
@@ -1486,7 +1497,8 @@
   }
 
   // Total de cada mes del año por indicador; un mes sin dato queda como hueco. legend: leyenda propia (opcional).
-  function monthlySeries(metrics, valueOf, legend) {
+  // combined: los indicadores van juntos en un solo cuadro, sin relleno (taparia las otras lineas).
+  function monthlySeries(metrics, valueOf, legend, combined) {
     const multiple = metrics.length > 1;
     return {
       labels: SHORT_MONTHS,
@@ -1496,7 +1508,7 @@
         data: MONTHS.map((_, monthIndex) => valueOf(metric, monthIndex)),
         borderColor: metric.color,
         backgroundColor: `${metric.color}1a`,
-        fill: true,
+        fill: !(combined && multiple),
         borderWidth: 2.5,
         pointRadius: 5,
         pointHoverRadius: 7,
@@ -1506,26 +1518,32 @@
         valueLabels: true,
         ...(multiple ? { yAxisID: `y${index}` } : {}),
       })),
-      legend: legend || (multiple
-        ? [`<span><i class="legend-line" style="background:${metrics[0].color}"></i><b>${metrics.length} indicadores por mes</b></span>`, '<span>Cada indicador con su escala.</span>']
-        : [`<span><i class="legend-line" style="background:${metrics[0].color}"></i><b>${esc(metrics[0].label)} por mes</b></span>`]),
+      legend: legend || (multiple && combined
+        ? metrics.map(metric => `<span><i class="legend-line" style="background:${metric.color}"></i><b>${esc(metric.label)} por mes</b></span>`).concat(COMBINED_NOTE)
+        : multiple
+          ? [`<span><i class="legend-line" style="background:${metrics[0].color}"></i><b>${metrics.length} indicadores por mes</b></span>`, '<span>Cada indicador con su escala.</span>']
+          : [`<span><i class="legend-line" style="background:${metrics[0].color}"></i><b>${esc(metrics[0].label)} por mes</b></span>`]),
     };
   }
+  const COMBINED_NOTE = '<span>Cada indicador con su escala: compara la forma y lee el valor en el punto.</span>';
+  // Boton "Un solo cuadro" (con dos o mas indicadores marcados): junta los indicadores en un cuadro.
+  const combineButtonHtml = (combined, attr) => `<button type="button" class="series-toggle chart-combine${combined ? ' active' : ''}" ${attr} aria-pressed="${combined}" title="${combined ? 'Volver a un panel por indicador' : 'Juntar los indicadores en un solo cuadro'}">Un solo cuadro</button>`;
 
   function destroyChart(id) {
     state.charts.get(id)?.destroy();
     state.charts.delete(id);
   }
 
-  function drawLineChart(id, canvas, series, metrics) {
+  function drawLineChart(id, canvas, series, metrics, combined) {
     destroyChart(id);
     if (!canvas) return;
     if (typeof Chart === 'undefined') {
       canvas.parentElement.innerHTML = '<div class="empty-state"><strong>Grafico no disponible sin conexion.</strong><span>Los indicadores y las tablas siguen visibles.</span></div>';
       return;
     }
-    // Cada panel extra suma alto para que ninguno quede aplastado.
-    canvas.parentElement.style.height = metrics.length > 1 ? `${90 + 135 * metrics.length}px` : '';
+    // Cada panel extra suma alto para que ninguno quede aplastado; en un solo cuadro, algo mas para las etiquetas.
+    const together = Boolean(combined) && metrics.length > 1;
+    canvas.parentElement.style.height = together ? '380px' : metrics.length > 1 ? `${90 + 135 * metrics.length}px` : '';
     state.charts.set(id, new Chart(canvas, {
       type: 'line',
       data: { labels: series.labels, datasets: series.datasets },
@@ -1547,24 +1565,61 @@
         },
         scales: {
           x: { grid: { display: false }, border: { color: '#cbd5e1' }, ticks: { color: '#7890b5', font: { size: 10 }, autoSkip: true, maxTicksLimit: 12 } },
-          ...yScales(metrics),
+          ...yScales(metrics, together),
         },
       },
       plugins: [{
+        // Valor en cada punto, menos los ceros (el punto ya esta en la base). Va arriba en un pico y abajo en un
+        // valle, para no montarse en la linea, con halo blanco. Si choca con otra etiqueta o con el nombre de un
+        // panel, o se sale de su panel, prueba el otro lado; si tampoco cabe, se omite (queda en el tooltip).
         id: 'valueLabels',
         afterDatasetsDraw(chart) {
           const ctx = chart.ctx;
+          const placed = [];
+          const overlaps = box => placed.some(other => !(box.right < other.left || box.left > other.right || box.bottom < other.top || box.top > other.bottom));
           ctx.save();
+          // Los nombres de los paneles (panelLabels) tambien ocupan lugar.
+          ctx.font = '600 11px Inter, sans-serif';
+          Object.values(chart.scales).forEach(scale => {
+            if (!scale.options.panelLabel) return;
+            const left = chart.chartArea.left + 4;
+            placed.push({ left, right: left + ctx.measureText(scale.options.panelLabel).width + 8, top: scale.top + 2, bottom: scale.top + 18 });
+          });
           ctx.font = '600 10px Inter, sans-serif';
           ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.lineJoin = 'round';
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = 'rgba(255,255,255,.92)';
           chart.data.datasets.forEach((dataset, index) => {
             if (!dataset.valueLabels) return;
+            const meta = chart.getDatasetMeta(index);
+            const scale = chart.scales[meta.yAxisID];
+            if (!scale) return;
+            // Solo el panel de arriba puede usar el margen superior del grafico.
+            const top = scale.top <= chart.chartArea.top + 1 ? chart.chartArea.top - 22 : scale.top;
             ctx.fillStyle = dataset.borderColor;
-            chart.getDatasetMeta(index).data.forEach((point, pointIndex) => {
+            meta.data.forEach((point, pointIndex) => {
               const value = dataset.data[pointIndex];
-              if (value == null) return;
-              const text = dataset.unit === 'money' ? tickValue('money', Math.round(value)) : Number(value).toLocaleString('es-PE', { notation: value >= 10000 ? 'compact' : 'standard', maximumFractionDigits: 1 });
-              ctx.fillText(text, point.x, point.y - 12);
+              if (value == null || Number(value) === 0) return;
+              // Soles sin decimales, salvo montos chicos (S/. 8.40 no debe leerse S/. 8).
+              const text = dataset.unit === 'money'
+                ? (Math.abs(value) >= 10 ? tickValue('money', Math.round(value)) : fmt.money(value))
+                : Number(value).toLocaleString('es-PE', { notation: value >= 10000 ? 'compact' : 'standard', maximumFractionDigits: 1 });
+              const half = ctx.measureText(text).width / 2 + 2;
+              const before = dataset.data[pointIndex - 1];
+              const after = dataset.data[pointIndex + 1];
+              const valley = before != null && after != null && value < before && value < after;
+              const sides = valley ? [point.y + 13, point.y - 12] : [point.y - 12, point.y + 13];
+              // Pegada al borde, la etiqueta se corre hacia adentro para no cortarse.
+              const x = Math.min(Math.max(point.x, half), chart.width - half);
+              const box = sides
+                .map(y => ({ y, left: x - half, right: x + half, top: y - 6, bottom: y + 6 }))
+                .find(item => item.top >= top && item.bottom <= scale.bottom && !overlaps(item));
+              if (!box) return;
+              placed.push(box);
+              ctx.strokeText(text, x, box.y);
+              ctx.fillText(text, x, box.y);
             });
           });
           ctx.restore();
@@ -1620,19 +1675,25 @@
   }
 
   // Indicadores del grafico de un cuadro: el resultado del objetivo va primero (Reservas en su cuadro, Mensajes en
-  // los demas) y, por defecto, junto a la inversion. El orden sigue la lista, no los clics.
-  function blockMetricList(objective) {
+  // los demas) y, por defecto, junto a la inversion; despues el otro resultado y los costos (el del resultado del
+  // cuadro primero). El orden sigue la lista, no los clics. En paneles van con el color del objetivo; en un solo
+  // cuadro, cada uno con el suyo.
+  function blockMetricList(objective, combined) {
     const result = objective.key === 'reservas' ? 'reservations' : 'messages';
-    return [result, 'spend', result === 'messages' ? 'reservations' : 'messages']
-      .map(key => ({ ...BLOCK_METRICS.find(metric => metric.key === key), color: objective.color }));
+    const costs = result === 'reservations' ? ['costPerReservation', 'costPerMessage'] : ['costPerMessage', 'costPerReservation'];
+    return [result, 'spend', result === 'messages' ? 'reservations' : 'messages', ...costs]
+      .map(key => BLOCK_METRICS.find(metric => metric.key === key))
+      .map(metric => ({ ...metric, color: combined ? metric.combineColor : objective.color }));
   }
 
-  // Valor de un objetivo en un mes; hueco si ese mes el objetivo no tuvo gasto o no registra el indicador.
+  // Valor de un objetivo en un mes; hueco si ese mes el objetivo no tuvo gasto o no registra el indicador. Los
+  // costos salen de las sumas de sus campanas (totalsOf: solo las que tienen gasto cargado; sin resultados, hueco).
   function objectiveMonthValue(month, key, metric) {
     if (!hasData(month)) return null;
     const entries = campaignEntries(month).filter(entry => entry.group === key);
     if (!entries.some(hasActivity)) return null;
     if (metric === 'spend') return entries.reduce((sum, entry) => sum + entry.spend, 0);
+    if (metric === 'costPerMessage' || metric === 'costPerReservation') return totalsOf(entries)[metric];
     return entries.reduce((sum, entry) => addNullable(sum, entry[metric]), null);
   }
 
@@ -1751,22 +1812,25 @@
     const objective = model?.objectives.find(item => item.key === key);
     if (!block || !objective) return;
     const settings = blockSettings(key);
-    const metrics = blockMetricList(objective);
-    const saved = Array.isArray(settings.metrics) ? metrics.map(metric => metric.key).filter(metricKey => settings.metrics.includes(metricKey)) : [];
-    const selectedKeys = saved.length ? saved : metrics.slice(0, 2).map(metric => metric.key);
+    const keys = blockMetricList(objective).map(metric => metric.key);
+    const saved = Array.isArray(settings.metrics) ? keys.filter(metricKey => settings.metrics.includes(metricKey)) : [];
+    const selectedKeys = saved.length ? saved : keys.slice(0, 2);
+    const combined = settings.combined && selectedKeys.length > 1;
+    const metrics = blockMetricList(objective, combined);
     const selected = metrics.filter(metric => selectedKeys.includes(metric.key));
     block.classList.toggle('is-collapsed', settings.collapsed);
     setToggle(block.querySelector('[data-campaign-toggle]'), settings.collapsed, `la campaña ${objective.label}`);
     const chips = block.querySelector('[data-campaign-metrics]');
-    keepFocus(chips, () => { chips.innerHTML = chipsHtml(metrics, selectedKeys, `campaign-metric-${key}`, objective.color); });
+    const combineButton = selectedKeys.length > 1 ? combineButtonHtml(combined, 'data-campaign-combine') : '';
+    keepFocus(chips, () => { chips.innerHTML = chipsHtml(metrics, selectedKeys, `campaign-metric-${key}`, objective.color) + combineButton; });
     if (settings.collapsed) {
       destroyChart(`block:${key}`);
       return;
     }
     const year = viewYear();
-    const series = monthlySeries(selected, (metric, monthIndex) => objectiveMonthValue(monthByKey(monthKey(year, monthIndex)), key, metric.key));
+    const series = monthlySeries(selected, (metric, monthIndex) => objectiveMonthValue(monthByKey(monthKey(year, monthIndex)), key, metric.key), null, combined);
     block.querySelector('[data-campaign-legend]').innerHTML = series.legend.join('');
-    drawLineChart(`block:${key}`, block.querySelector('canvas'), series, selected);
+    drawLineChart(`block:${key}`, block.querySelector('canvas'), series, selected, combined);
   }
   function renderCampaignBlocks(period, model) {
     const host = document.getElementById('campaign-blocks');
@@ -2342,6 +2406,15 @@
       input.checked = selectedKeys.includes(input.value);
       input.closest('.series-toggle')?.classList.toggle('active', input.checked);
     });
+    // "Un solo cuadro" solo con dos o mas indicadores marcados.
+    const combined = state.chartCombined && selectedKeys.length > 1;
+    const combineButton = document.getElementById('chart-combine-btn');
+    if (combineButton) {
+      combineButton.hidden = selectedKeys.length < 2;
+      combineButton.classList.toggle('active', combined);
+      combineButton.setAttribute('aria-pressed', String(combined));
+      combineButton.title = combined ? 'Volver a un panel por indicador' : 'Juntar los indicadores en un solo cuadro';
+    }
     const legend = document.getElementById('chart-legend');
     if (state.chartCollapsed) {
       destroyChart('global');
@@ -2350,10 +2423,15 @@
     }
     const metrics = selectedKeys.map(key => ({ key, label: SERIES[key].label, unit: SERIES[key].unit, color: SERIES[key].color }));
     const items = metrics.map(metric => `<span><i class="legend-line" style="background:${metric.color}"></i><b>${esc(metric.label)} por mes</b></span>`);
-    if (metrics.length > 1) items.push('<span>Cada indicador con su escala.</span>');
-    const series = monthlySeries(metrics, (metric, monthIndex) => valueFor(monthByKey(monthKey(year, monthIndex)), metric.key), items);
+    if (metrics.length > 1) items.push(combined ? COMBINED_NOTE : '<span>Cada indicador con su escala.</span>');
+    const series = monthlySeries(metrics, (metric, monthIndex) => accountMonthValue(monthByKey(monthKey(year, monthIndex)), metric.key), items, combined);
     if (legend) legend.innerHTML = series.legend.join('');
-    drawLineChart('global', document.getElementById('chart-monthly'), series, metrics);
+    drawLineChart('global', document.getElementById('chart-monthly'), series, metrics, combined);
+  }
+  // Valor de la cuenta en un mes. Los costos son los del resumen ejecutivo (summarize); sin resultados, hueco.
+  function accountMonthValue(month, key) {
+    if (key === 'costPerMessage' || key === 'costPerReservation') return hasData(month) ? summarize([month])[key] : null;
+    return valueFor(month, key);
   }
   // Cambiar de mes solo repinta lo que depende del mes: pestanas, periodo, KPIs y campanas.
   function renderMonthView() {
@@ -2396,6 +2474,11 @@
       if (!selected.length) { input.checked = true; return; }
       state.types = Object.keys(SERIES).filter(key => selected.includes(key));
       saveChartSeries();
+      renderChart();
+    });
+    document.getElementById('chart-combine-btn')?.addEventListener('click', () => {
+      state.chartCombined = !state.chartCombined;
+      try { localStorage.setItem(CHART_COMBINED_KEY, String(state.chartCombined)); } catch {}
       renderChart();
     });
     // El unico boton Actualizar vive en la barra superior, junto al estado de los datos.
@@ -2499,8 +2582,15 @@
       const period = currentPeriod();
       renderCampaignBlock(key, period, periodModel(period));
     });
-    // Minimizar cada cuadro de objetivo.
+    // Minimizar cada cuadro de objetivo y "Un solo cuadro" de su grafico.
     document.getElementById('campaign-blocks')?.addEventListener('click', event => {
+      const combineKey = event.target.closest('[data-campaign-combine]')?.closest('.campaign-block')?.dataset.objective;
+      if (combineKey) {
+        saveBlockSettings(combineKey, { combined: !blockSettings(combineKey).combined });
+        const period = currentPeriod();
+        renderCampaignBlock(combineKey, period, periodModel(period));
+        return;
+      }
       const key = event.target.closest('[data-campaign-toggle]')?.closest('.campaign-block')?.dataset.objective;
       if (!key) return;
       saveBlockSettings(key, { collapsed: !blockSettings(key).collapsed });

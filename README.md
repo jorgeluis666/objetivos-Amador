@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.28.0`.
+Version actual: `v1.30.0`.
 
 ## Versionado
 
@@ -64,8 +64,10 @@ El spreadsheet esta compartido como "cualquier persona con el enlace / lector", 
 - **Objetivo Reservas**: lo editado se guarda en este navegador por mes y campana (`localStorage`, clave `amador-reservation-goals-v2`, "2026-09::Campana"); los valores de la version anterior (`-v1`, sin mes) pasan a cada mes en que aparece la campana. Proyecciones lo usa como referencia.
 - **Filas propias**: "Agregar campana" (distribucion) guarda filas de nota en este navegador (`amador-custom-rows-v1`, por mes "2026-09"; las guardadas antes por nombre de mes pasan a 2026), sin cifras de la hoja. Los anuncios agregados a mano dejaron de mostrarse en la v1.23.0 (siguen guardados en esa clave).
 - **Anuncios de cada cuadro**: al final de cada objetivo, debajo de los conjuntos, sus anuncios de mas a menos resultados con la estrella en el lider y el nombre enlazado a la vista previa de Meta; Reservas web y su costo van junto al anuncio solo si el objetivo las tuvo. Despues: resultados (con su tipo), resultados del mes anterior y variacion, costo por resultado, mensajes, inversion y % del objetivo, impresiones, alcance, CPM, clics y dias activos.
-- **Graficos por mes**: cada cuadro trae su grafico del año con Inversion, Mensajes y Reservas (por defecto el resultado del objetivo y la inversion). Con varios indicadores, cada uno va en su propio panel con su escala, apilados sobre el mismo eje de meses: nunca dos escalas en un mismo panel. Un mes sin actividad del objetivo queda como hueco. El grafico mensual de la cuenta (el unico con enero a mayo) sigue la misma regla y arranca minimizado.
-- Minimizado e indicadores de cada cuadro en `amador-campaign-charts-v1`; densidad de la tabla de anuncios en `amador-campaigns-compact-v1`.
+- **Graficos por mes**: cada cuadro trae su grafico del año con Inversion, Mensajes, Reservas, Costo por mensaje y Costo por reserva (por defecto el resultado del objetivo y la inversion). Los costos salen de sumar gasto y resultados del mes con la misma regla que los KPIs (solo campanas con gasto cargado); un mes sin mensajes o sin reservas queda como hueco. Con varios indicadores, cada uno va en su propio panel con su escala, apilados sobre el mismo eje de meses: nunca dos escalas a la vista en un mismo panel. Un mes sin actividad del objetivo queda como hueco. El grafico mensual de la cuenta (el unico con enero a mayo) sigue la misma regla, suma los mismos dos costos y arranca minimizado.
+- **Valor en cada punto**: cada mes lleva su valor, arriba en un pico y abajo en un valle, con halo blanco y dentro de su panel; los ceros no llevan etiqueta y una que choca con otra se omite (queda en el tooltip). Los soles van sin decimales salvo montos menores a S/. 10.
+- **Un solo cuadro**: con dos o mas indicadores marcados aparece el boton "Un solo cuadro", que los junta en un cuadro con un color por indicador y cada uno con su escala sin eje visible (se compara la forma y el valor se lee en el punto). Se guarda por cuadro y, para el grafico de la cuenta, en `amador-chart-combined-v1`.
+- Minimizado, indicadores y "Un solo cuadro" de cada cuadro en `amador-campaign-charts-v1`; densidad de la tabla de anuncios en `amador-campaigns-compact-v1`.
 
 ## Anuncios
 
