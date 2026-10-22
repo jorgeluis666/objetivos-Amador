@@ -58,12 +58,12 @@
 
   const normalize = value => String(value ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 
-  // ── Formatos del modelo ("S/ 2,431", "S/ 7.41", "328") ─────────────────
+  // ── Formatos del modelo ("S/. 2,431", "S/. 7.41", "328") ─────────────────
   const integer = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 0 });
   const finite = value => value != null && Number.isFinite(Number(value));
   const num = value => (finite(value) ? integer.format(Math.round(value)) : '—');
-  const money = value => (finite(value) ? `S/ ${integer.format(Math.round(value))}` : '—');
-  const money2 = value => (finite(value) ? `S/ ${Number(value).toFixed(2)}` : '—');
+  const money = value => (finite(value) ? `S/. ${integer.format(Math.round(value))}` : '—');
+  const money2 = value => (finite(value) ? `S/. ${Number(value).toFixed(2)}` : '—');
   // Un costo de S/ 100 o mas va redondeado (S/ 183); debajo, con centimos (S/ 7.41).
   const cost = value => (finite(value) && value > 0 ? (value >= 100 ? money(value) : money2(value)) : '—');
   const compact = value => (value >= 1000 ? `${(value / 1000).toFixed(1)}k` : integer.format(Math.round(value)));
@@ -691,7 +691,7 @@
     const select = document.getElementById('week-select');
     if (!available.length) {
       if (select) select.innerHTML = '<option value="">Sin meses con datos</option>';
-      host.innerHTML = '<div class="panel"><div class="empty-state"><strong>Todavia no hay datos para el reporte</strong><span>El reporte se arma con las descargas de Meta Ads de la carpeta de Drive. En cuanto haya un mes con entregas, aparece aqui.</span></div></div>';
+      host.innerHTML = '<div class="panel"><div class="empty-state"><strong>Todavía no hay datos para el reporte</strong><span>El reporte se arma con las descargas de Meta Ads de la carpeta de Drive. En cuanto haya un mes con entregas, aparece aquí.</span></div></div>';
       return;
     }
 
@@ -708,7 +708,7 @@
     if (modelHost) {
       modelHost.innerHTML = model
         ? `Modelo: <a href="https://drive.google.com/file/d/${esc(model.id)}/view" target="_blank" rel="noopener">${esc(model.title)}</a>`
-        : 'Modelo: el ultimo reporte de la carpeta de Drive (no se pudo leer la carpeta)';
+        : 'Modelo: el último reporte de la carpeta de Drive (no se pudo leer la carpeta)';
     }
 
     const report = buildReport(period);

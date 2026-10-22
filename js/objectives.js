@@ -97,7 +97,7 @@
   const AD_SPENT_HEADERS = ['Gasto x Anuncio','Gasto x conjunto'];
   const AD_BALANCE_HEADERS = ['Saldo x anuncio','Saldo x conjunto'];
   const SERIES = {
-    investment: { label: 'Inversion', unit: 'money', color: '#2563eb', fill: 'rgba(37,99,235,.11)' },
+    investment: { label: 'Inversión', unit: 'money', color: '#2563eb', fill: 'rgba(37,99,235,.11)' },
     messages: { label: 'Mensajes', unit: 'count', color: '#16a34a', fill: 'rgba(22,163,74,.10)' },
     reservations: { label: 'Reservas', unit: 'count', color: '#ea580c', fill: 'rgba(234,88,12,.10)' },
     // Costos del mes: gasto / resultados con la misma regla que los KPIs; sin resultados, hueco.
@@ -836,9 +836,9 @@
     const month = latestMonth();
     // Un mes de Meta llega hasta su ultimo dia con gasto: "Datos al 12 de octubre".
     const dataPart = !month ? 'Sin datos' : month.meta && !month.closed ? `Datos al ${month.dataDay} de ${month.name.toLowerCase()}` : `Datos de ${month.name}`;
-    if (state.error || state.metaError) return `${dataPart} | sin conexion con ${offlineSources()}`;
+    if (state.error || state.metaError) return `${dataPart} | sin conexión con ${offlineSources()}`;
     if (!state.lastSync) return `${dataPart} | copia guardada`;
-    return `${dataPart} | leidos ${formatStamp(state.lastSync)}`;
+    return `${dataPart} | leídos ${formatStamp(state.lastSync)}`;
   }
   function updateStatusLabel(text) {
     const label = document.getElementById('topbar-status');
@@ -860,16 +860,16 @@
     const year = month?.year ?? state.data.year;
     const set = (id, value) => {
       const node = document.getElementById(id);
-      if (node) node.textContent = value || '-';
+      if (node) node.textContent = value || '—';
     };
     set('status-data', month ? (month.closed ? `${month.name} ${year} completo` : `1-${month.dataDay} ${month.name} ${year}`) : 'Sin meses con datos');
     set('status-last', state.lastSync ? formatStamp(state.lastSync) : 'sin lectura en vivo');
     renderNextSync();
     const sheets = state.liveSheets.length ? state.liveSheets : [month?.sheetTab || month?.name].filter(Boolean);
     const hasMeta = metaMonthsOf(state.meta).length > 0;
-    set('status-sheet', `Distribucion-amador / ${sheets.join(' y ') || '-'}${hasMeta ? ' (reservas)' : ''}`);
-    set('status-meta', month?.meta ? `${month.meta.fileName} | barrido ${state.meta?.sweptAt ? formatStamp(new Date(state.meta.sweptAt)) : '-'}` : (META_ENDPOINT || hasMeta ? 'Sin archivo del mes' : 'Sin conectar: el gasto sale de la hoja'));
-    set('status-source', state.lastSync ? (state.error || state.metaError ? 'ultima lectura en vivo' : `${hasMeta ? 'Meta y ' : ''}Google Sheets en vivo`) : 'copia guardada en el tablero');
+    set('status-sheet', `Distribucion-amador / ${sheets.join(' y ') || '—'}${hasMeta ? ' (reservas)' : ''}`);
+    set('status-meta', month?.meta ? `${month.meta.fileName} | barrido ${state.meta?.sweptAt ? formatStamp(new Date(state.meta.sweptAt)) : '—'}` : (META_ENDPOINT || hasMeta ? 'Sin archivo del mes' : 'Sin conectar: el gasto sale de la hoja'));
+    set('status-source', state.lastSync ? (state.error || state.metaError ? 'última lectura en vivo' : `${hasMeta ? 'Meta y ' : ''}Google Sheets en vivo`) : 'copia guardada en el tablero');
     const note = document.getElementById('status-note');
     if (!note) return;
     // Un solo aviso, por orden de gravedad: sin conexion, copia guardada, pestana sin leer, Objetivo Reservas, mes
@@ -879,8 +879,8 @@
     // Descarga del mes en curso o del anterior que el barrido no pudo leer (otro informe, columnas faltantes).
     const metaFailed = (state.meta?.months || []).filter(item => item.error && liveMonths().some(live => live.year === item.year && live.index === item.month - 1)).pop();
     let message = '';
-    if (errors.length) message = `Sin conexion con ${offlineSources()} (${errors.join('; ')}). Se muestran los ultimos datos leidos.`;
-    else if (!state.lastSync) message = 'Copia guardada en el tablero: todavia no llego la lectura en vivo.';
+    if (errors.length) message = `Sin conexión con ${offlineSources()} (${errors.join('; ')}). Se muestran los últimos datos leídos.`;
+    else if (!state.lastSync) message = 'Copia guardada en el tablero: todavía no llegó la lectura en vivo.';
     else if (state.tabWarning) message = state.tabWarning;
     else if (metaFailed) message = `La descarga de ${metaFailed.name} ${metaFailed.year} en la carpeta de Meta no se pudo leer (${metaFailed.error}). Tiene que ser el informe por día, edad, sexo y anuncio, como los otros meses; mientras tanto ${metaFailed.name} sale de la hoja.`;
     else if (metaMonth?.duplicates.length) message = `Hay otro archivo de ${month.name} en la carpeta de Meta (${metaMonth.duplicates.join(', ')}): se usa el editado más recientemente.`;
@@ -890,14 +890,14 @@
     else if (state.goalNote) message = state.goalNote;
     else if (month && !month.closed && !(Number(month.spend) > 0)) message = `La hoja todavía no trae el gasto de ${month.name}: se ven sus mensajes y reservas, y los costos aparecen cuando se cargue el gasto.`;
     else if (metaMonth && !month.closed) message = `${month.name} sigue en curso: el gasto llega hasta el ${month.dataDay} (última descarga de Meta en la carpeta) y las reservas, hasta la última lectura de la hoja.`;
-    else if (month && !month.closed) message = `${month.name} sigue en curso: las cifras llegan hasta la ultima lectura.`;
+    else if (month && !month.closed) message = `${month.name} sigue en curso: las cifras llegan hasta la última lectura.`;
     note.textContent = message;
     note.classList.toggle('error', errors.length > 0);
     note.hidden = !message;
   }
   function renderNextSync() {
     const node = document.getElementById('status-next');
-    if (node) node.textContent = state.nextSync ? `${formatStamp(new Date(state.nextSync))} · cada hora con el tablero abierto` : '-';
+    if (node) node.textContent = state.nextSync ? `${formatStamp(new Date(state.nextSync))} · cada hora con el tablero abierto` : '—';
   }
   function wireStatusCard() {
     const button = document.getElementById('data-status-btn');
@@ -1048,7 +1048,7 @@
     }
     title.textContent = `Periodo: ${period.label} ${period.year}${period.closed ? '' : ' (mes en curso)'}`;
     const noSpend = Number(period.month.spend) > 0 ? '' : `. La hoja todavía no trae el gasto de ${period.month.name}`;
-    sub.textContent = `${period.compare ? `Comparacion vs ${period.compare.label}` : 'Sin mes anterior para comparar'}${noSpend}`;
+    sub.textContent = `${period.compare ? `Comparación vs ${period.compare.label}` : 'Sin mes anterior para comparar'}${noSpend}`;
   }
   // Promedio por mes de la vista anual con los meses cerrados (un mes a medias lo bajaria) que registran cada indicador.
   function monthlyAverage(period) {
@@ -1102,7 +1102,7 @@
     return `<span class="reservation-trend ${reached ? 'up' : 'down'}" title="${label}: ${reservas || 0}/${goal}" aria-label="${label}: ${reservas || 0} de ${goal}">${reached ? '&#9650;' : '&#9660;'} ${detail} | Objetivo: ${goal}</span>`;
   }
   function renderDeadline(endDate, days) {
-    if (!endDate) return '-';
+    if (!endDate) return '—';
     if (days == null) return esc(endDate);
     const counterClass = days === 0 ? 'closed' : days <= 3 ? 'urgent' : '';
     const label = days === 0 ? 'Plazo finalizado' : `${days} ${days === 1 ? 'día restante' : 'días restantes'}`;
@@ -1378,7 +1378,7 @@
   function variationCell(current, previous) {
     if (previous == null) return '<span class="delta-pill new">Nuevo</span>';
     const variation = change(current, previous);
-    if (variation == null) return '<span class="no-data">-</span>';
+    if (variation == null) return '<span class="no-data">—</span>';
     return `<span class="delta-pill ${variation >= 0 ? 'good' : 'bad'}">${variation >= 0 ? '&#9650;' : '&#9660;'} ${fmt.pct(Math.abs(variation), 0)}</span>`;
   }
   const periodName = period => (period.annual ? `${period.label} ${period.year}` : `${period.label}`);
@@ -1419,7 +1419,7 @@
       <tr>
         <td class="campaign-name">${esc(row.name)}${period.annual ? `<small>${row.months.map(shortMonth).join(', ')}</small>` : ''}</td>
         <td><span class="objective-label" style="--campaign-color:${row.color}"><i class="campaign-dot"></i>${esc(row.groupLabel)}</span></td>
-        <td>${esc(row.type || '-')}</td>
+        <td>${esc(row.type || '—')}</td>
         <td class="num">${fmt.count(row.messages)}</td>
         <td class="num">${fmt.money(row.costPerMessage)}</td>
         <td class="num">${fmt.count(row.reservations)}</td>
@@ -1427,10 +1427,10 @@
         <td class="num">${fmt.money(row.costPerReservation)}</td>
         <td class="num"><b>${fmt.money(row.spend)}</b></td>
         <td class="share-col"><div class="share-bar" style="--campaign-color:${row.color}"><span style="width:${Math.min(100, row.share || 0).toFixed(1)}%"></span></div><b class="share-value">${fmt.pct(row.share)}</b></td>
-        <td class="num">${period.annual ? '-' : fmt.money(row.budget)}</td>
-        <td class="num">${period.annual ? '-' : fmt.money(row.balance)}</td>
-        <td class="date-col deadline-cell">${period.annual ? '-' : renderDeadline(row.endDate, row.daysRemaining)}</td>
-        <td class="num">${period.annual ? '-' : fmt.money(row.newDaily)}</td>
+        <td class="num">${period.annual ? '—' : fmt.money(row.budget)}</td>
+        <td class="num">${period.annual ? '—' : fmt.money(row.balance)}</td>
+        <td class="date-col deadline-cell">${period.annual ? '—' : renderDeadline(row.endDate, row.daysRemaining)}</td>
+        <td class="num">${period.annual ? '—' : fmt.money(row.newDaily)}</td>
       </tr>`);
     // Campanas agregadas a mano en este navegador (sin cifras de la hoja).
     (custom?.campaigns || []).forEach(campaign => html.push(`
@@ -1455,11 +1455,11 @@
         <td class="goal-col">${goal != null ? `<span class="goal-sum">${fmt.count(goal)}</span>` : ''}${renderTrend(sums.reservations, goal)}</td>
         <td class="num">${fmt.money(sums.costPerReservation)}</td>
         <td class="num">${fmt.money(month ? month.spend : sums.spend)}</td>
-        <td><b class="share-value">${(month ? Number(month.spend) : sums.spend) > 0 ? '100%' : '-'}</b></td>
-        <td class="num">${month ? fmt.money(month.budgetTotal) : '-'}</td>
-        <td class="num">${month ? fmt.money(month.balanceTotal) : '-'}</td>
+        <td><b class="share-value">${(month ? Number(month.spend) : sums.spend) > 0 ? '100%' : '—'}</b></td>
+        <td class="num">${month ? fmt.money(month.budgetTotal) : '—'}</td>
+        <td class="num">${month ? fmt.money(month.balanceTotal) : '—'}</td>
         <td></td>
-        <td class="num">${month ? fmt.money(month.newDailyTotal) : '-'}</td>
+        <td class="num">${month ? fmt.money(month.newDailyTotal) : '—'}</td>
       </tr>`);
     } else if (!custom?.campaigns.length) {
       const empty = period.annual || (period.month.campaigns || []).length ? `Sin campañas con actividad en ${esc(periodName(period))}.` : `${esc(period.month.name)} no trae detalle de campañas en la hoja.`;
@@ -1479,8 +1479,8 @@
   // significarian nada. En un solo cuadro (combined) cada indicador tiene su escala sin eje visible: se compara la
   // forma y el valor va en cada punto.
   function yScales(metrics, combined) {
-    const base = unit => ({ beginAtZero: true, border: { display: false }, ticks: { color: '#7890b5', font: { size: 10 }, callback: value => tickValue(unit, value) } });
-    if (metrics.length === 1) return { y: { ...base(metrics[0].unit), grace: '12%', grid: { color: 'rgba(148,163,184,.20)' } } };
+    const base = unit => ({ beginAtZero: true, border: { display: false }, ticks: { color: '#94A3B8', font: { size: 10 }, callback: value => tickValue(unit, value) } });
+    if (metrics.length === 1) return { y: { ...base(metrics[0].unit), grace: '12%', grid: { color: 'rgba(15,23,42,.06)' } } };
     if (combined) return Object.fromEntries(metrics.map((metric, index) => [`y${index}`, { display: false, beginAtZero: true, grace: '18%' }]));
     // Chart.js apila de abajo hacia arriba en el orden de los ejes: se dan al reves para que el primero quede arriba.
     return Object.fromEntries(metrics.map((metric, index) => [`y${index}`, {
@@ -1491,7 +1491,7 @@
       // El tope de cada panel cae sobre el cero del panel de arriba: se omite para que no se encimen.
       ticks: { ...base(metric.unit).ticks, maxTicksLimit: 5, callback: (value, tickIndex, ticks) => (index > 0 && tickIndex === ticks.length - 1 ? '' : tickValue(metric.unit, value)) },
       // La linea del cero marca el piso de cada panel.
-      grid: { color: context => (context.tick?.value === 0 ? '#cbd5e1' : 'rgba(148,163,184,.20)') },
+      grid: { color: context => (context.tick?.value === 0 ? '#cbd5e1' : 'rgba(15,23,42,.06)') },
       panelLabel: metric.label,
     }]).reverse());
   }
@@ -1538,7 +1538,7 @@
     destroyChart(id);
     if (!canvas) return;
     if (typeof Chart === 'undefined') {
-      canvas.parentElement.innerHTML = '<div class="empty-state"><strong>Grafico no disponible sin conexion.</strong><span>Los indicadores y las tablas siguen visibles.</span></div>';
+      canvas.parentElement.innerHTML = '<div class="empty-state"><strong>Gráfico no disponible sin conexión.</strong><span>Los indicadores y las tablas siguen visibles.</span></div>';
       return;
     }
     // Cada panel extra suma alto para que ninguno quede aplastado; en un solo cuadro, algo mas para las etiquetas.
@@ -1564,7 +1564,7 @@
           },
         },
         scales: {
-          x: { grid: { display: false }, border: { color: '#cbd5e1' }, ticks: { color: '#7890b5', font: { size: 10 }, autoSkip: true, maxTicksLimit: 12 } },
+          x: { grid: { display: false }, border: { color: '#cbd5e1' }, ticks: { color: '#94A3B8', font: { size: 10 }, autoSkip: true, maxTicksLimit: 12 } },
           ...yScales(metrics, together),
         },
       },
@@ -1752,7 +1752,7 @@
           <td class="campaign-name">${esc(set.name)}<small>${set.adCount} ${set.adCount === 1 ? 'anuncio' : 'anuncios'}</small></td>
           ${manyCampaigns ? `<td class="campaign-set-col">${esc(set.campaigns.join(' / '))}</td>` : ''}
           <td class="num"><b>${fmt.count(set.messages)}</b></td>
-          ${compare ? `<td class="num">${before ? fmt.count(before.messages) : '<span class="no-data">-</span>'}</td><td class="num">${variationCell(set.messages, before?.messages)}</td>` : ''}
+          ${compare ? `<td class="num">${before ? fmt.count(before.messages) : '<span class="no-data">—</span>'}</td><td class="num">${variationCell(set.messages, before?.messages)}</td>` : ''}
           <td class="num">${fmt.money(set.costPerMessage)}</td>
           <td class="num">${fmt.money(set.spend)}</td>
           <td class="share-col"><div class="share-bar"><span style="width:${Math.min(100, set.share || 0).toFixed(1)}%"></span></div><b class="share-value">${fmt.pct(set.share)}</b></td>
@@ -1784,7 +1784,7 @@
         <div class="campaign-split" role="table" aria-label="Inversión por campaña de ${esc(objective.label)}">
           <div class="campaign-split-row campaign-split-head" role="row"><span role="columnheader">Campaña</span><span role="columnheader" class="num">Inversión</span><span role="columnheader" class="num">% del cuadro</span><span role="columnheader" class="num">Mensajes</span><span role="columnheader" class="num">Reservas</span></div>
           ${objective.byCampaign.map(item => `
-          <div class="campaign-split-row" role="row"><span role="cell" class="campaign-split-name">${esc(item.name)}</span><span role="cell" class="num"><b>${fmt.money(item.spend)}</b>${beforeByName.has(item.name) && !spendPending(period) ? deltaHtml(item.spend, beforeByName.get(item.name).spend, null) : ''}</span><span role="cell" class="num">${item.share == null ? '-' : fmt.pct(item.share)}</span><span role="cell" class="num">${fmt.count(item.messages)}</span><span role="cell" class="num">${fmt.count(item.reservations)}</span></div>`).join('')}
+          <div class="campaign-split-row" role="row"><span role="cell" class="campaign-split-name">${esc(item.name)}</span><span role="cell" class="num"><b>${fmt.money(item.spend)}</b>${beforeByName.has(item.name) && !spendPending(period) ? deltaHtml(item.spend, beforeByName.get(item.name).spend, null) : ''}</span><span role="cell" class="num">${item.share == null ? '—' : fmt.pct(item.share)}</span><span role="cell" class="num">${fmt.count(item.messages)}</span><span role="cell" class="num">${fmt.count(item.reservations)}</span></div>`).join('')}
         </div>` : '';
     return `
       <section class="campaign-block${settings.collapsed ? ' is-collapsed' : ''}" id="campaign-${key}" data-objective="${key}" style="--campaign-color:${objective.color}">
@@ -1799,8 +1799,8 @@
         </div>
         <dl class="chart-kpis">${kpis}</dl>${split}
         <div class="campaign-block-body" id="campaign-body-${key}">
-          <div class="chart-series-toggles chart-metrics" data-campaign-metrics role="group" aria-label="Indicadores del grafico de ${esc(objective.label)}"></div>
-          <div class="chart-wrap h-300"><canvas role="img" aria-label="Grafico por mes de la campaña ${esc(objective.label)}"></canvas></div>
+          <div class="chart-series-toggles chart-metrics" data-campaign-metrics role="group" aria-label="Indicadores del gráfico de ${esc(objective.label)}"></div>
+          <div class="chart-wrap h-300"><canvas role="img" aria-label="Gráfico por mes de la campaña ${esc(objective.label)}"></canvas></div>
           <div class="chart-legend projection-legend" data-campaign-legend></div>
           ${adSetsHtml(period, objective, model)}
           ${campaignAdsHtml(period, objective, model)}
@@ -1917,7 +1917,7 @@
   // Costos de un anuncio: solo con gasto propio (desde julio la hoja lo registra por conjunto).
   const adCost = (ad, count) => (ad.perAd && count > 0 && ad.spend > 0 ? ad.spend / count : null);
   const adCpm = ad => (ad.perAd && ad.impressions > 0 && ad.spend > 0 ? (ad.spend / ad.impressions) * 1000 : null);
-  const metaOnly = (ad, html) => (ad.fromMeta ? html : '<span class="no-data">-</span>');
+  const metaOnly = (ad, html) => (ad.fromMeta ? html : '<span class="no-data">—</span>');
   // Nombre del anuncio con la estrella del lider y el enlace a la vista previa de Meta.
   function adNameHtml(ad) {
     const url = safeUrl(ad.preview);
@@ -1928,14 +1928,14 @@
   }
   const campaignSetHtml = ad => `${esc(ad.campaigns.join(' / '))}${ad.adSets.length ? `<small>${esc(ad.adSets.join(' / '))}</small>` : ''}`;
   const spendHtml = ad => (ad.perAd ? fmt.money(ad.spend) : '<span class="no-data" title="El gasto se registra por conjunto">Por conjunto</span>');
-  const resultTypeHtml = ad => `${esc(ad.resultType || '-')}${ad.mixedResults ? '<small>y otros tipos</small>' : ''}`;
+  const resultTypeHtml = ad => `${esc(ad.resultType || '—')}${ad.mixedResults ? '<small>y otros tipos</small>' : ''}`;
   // Resultados del mes anterior del mismo tipo: 0 si ese mes corrio sin resultados y "-" si tuvo otro tipo.
   const previousResults = (ad, before) => (before ? before.resultsByType.get(ad.resultType) ?? (before.resultsByType.size ? null : 0) : null);
   function compareCells(ad, before, className = '') {
     const value = previousResults(ad, before);
     const cls = className ? ` ${className}` : '';
-    return `<td class="num${cls}">${value == null ? '<span class="no-data">-</span>' : fmt.count(value)}</td>
-          <td class="num${cls}">${before && value == null ? '<span class="no-data">-</span>' : variationCell(ad.results, value)}</td>`;
+    return `<td class="num${cls}">${value == null ? '<span class="no-data">—</span>' : fmt.count(value)}</td>
+          <td class="num${cls}">${before && value == null ? '<span class="no-data">—</span>' : variationCell(ad.results, value)}</td>`;
   }
   // Periodo del modulo: el mismo de Gasto publicitario.
   function renderAdsPeriod(period, compare) {
@@ -2031,7 +2031,7 @@
           <td class="num sales-col">${metaOnly(ad, `<b>${fmt.count(ad.purchases)}</b>`)}</td>
           <td class="num sales-col">${metaOnly(ad, fmt.unitCost(adCost(ad, ad.purchases)))}</td>
           <td class="campaign-set-col">${campaignSetHtml(ad)}</td>
-          <td><span class="status-pill ${statusClass(ad.status)}">${esc(ad.status || '-')}</span></td>
+          <td><span class="status-pill ${statusClass(ad.status)}">${esc(ad.status || '—')}</span></td>
           <td class="result-type-col">${resultTypeHtml(ad)}</td>
           <td class="num"><b>${fmt.count(ad.results)}</b></td>
           ${compareCells(ad, before, 'cmp-col')}
@@ -2042,7 +2042,7 @@
           <td class="num">${metaOnly(ad, fmt.count(ad.reach))}</td>
           <td class="num">${metaOnly(ad, fmt.money(adCpm(ad)))}</td>
           <td class="num">${metaOnly(ad, fmt.count(ad.clicks))}</td>
-          <td class="num">${ad.activeDays == null ? '<span class="no-data">-</span>' : fmt.count(ad.activeDays)}</td>
+          <td class="num">${ad.activeDays == null ? '<span class="no-data">—</span>' : fmt.count(ad.activeDays)}</td>
         </tr>`;
     }).join('');
     keepFocus(body, () => { body.innerHTML = html; });
@@ -2085,12 +2085,12 @@
           <td class="num">${fmt.unitCost(adCost(ad, ad.results))}</td>
           <td class="num">${fmt.count(ad.messages)}</td>
           <td class="num">${spendHtml(ad)}</td>
-          <td class="share-col">${share == null ? '<span class="no-data">-</span>' : `<div class="share-bar"><span style="width:${Math.min(100, share).toFixed(1)}%"></span></div><b class="share-value">${fmt.pct(share)}</b>`}</td>
+          <td class="share-col">${share == null ? '<span class="no-data">—</span>' : `<div class="share-bar"><span style="width:${Math.min(100, share).toFixed(1)}%"></span></div><b class="share-value">${fmt.pct(share)}</b>`}</td>
           <td class="num">${metaOnly(ad, fmt.count(ad.impressions))}</td>
           <td class="num">${metaOnly(ad, fmt.count(ad.reach))}</td>
           <td class="num">${metaOnly(ad, fmt.money(adCpm(ad)))}</td>
           <td class="num">${metaOnly(ad, fmt.count(ad.clicks))}</td>
-          <td class="num">${ad.activeDays == null ? '<span class="no-data">-</span>' : fmt.count(ad.activeDays)}</td>
+          <td class="num">${ad.activeDays == null ? '<span class="no-data">—</span>' : fmt.count(ad.activeDays)}</td>
         </tr>`;
     }).join('');
     let note = `${ads.length} ${ads.length === 1 ? 'anuncio' : 'anuncios'} de más a menos resultados en ${esc(periodName(period))}`;
@@ -2308,7 +2308,7 @@
   }
   // La lista de anuncios va plegada: abierta estiraba la fila una linea por anuncio.
   function historyAdsCell(ads, campaign) {
-    if (!ads.length) return '<span class="no-data">-</span>';
+    if (!ads.length) return '<span class="no-data">—</span>';
     return `<details class="history-ads" data-campaign="${esc(campaign)}"><summary>${ads.length} ${ads.length === 1 ? 'anuncio' : 'anuncios'}</summary><div class="history-ads-list">${ads.map(historyAdChip).join('')}</div></details>`;
   }
   function historyPeriod(entries) {
@@ -2316,7 +2316,7 @@
     const ends = sortedDates(entries, 'endDate', -1);
     if (starts[0] || ends[0]) return `${esc(starts[0] || '?')} - ${esc(ends[0] || '?')}`;
     const months = [...new Set(entries.map(entry => shortMonth(entry.month)))];
-    return months.length > 1 ? `${months[0]} - ${months[months.length - 1]}` : months[0] || '-';
+    return months.length > 1 ? `${months[0]} - ${months[months.length - 1]}` : months[0] || '—';
   }
   // Una sola tabla: "Todos" lleva una columna de gasto por mes; un mes deja sus campanas con las cifras de ese mes
   // y el gasto acumulado al final.
@@ -2359,7 +2359,7 @@
         <td class="campaign-name">${esc(item.name)}</td>
         <td><span class="objective-label" style="--campaign-color:${item.color}"><i class="campaign-dot"></i>${esc(item.groupLabel)}</span></td>
         <td>${item.finished ? '<span class="type-pill slate">Finalizada</span>' : '<span class="type-pill green">Activa</span>'}</td>
-        ${months.map(column => `<td class="num">${item.months.includes(column.key) ? fmt.money(spendIn(item.entries, column.key)) : '<span class="no-data">-</span>'}</td>`).join('')}
+        ${months.map(column => `<td class="num">${item.months.includes(column.key) ? fmt.money(spendIn(item.entries, column.key)) : '<span class="no-data">—</span>'}</td>`).join('')}
         <td class="num"><b>${fmt.money(stats.spend)}</b></td>
         <td class="num">${fmt.count(stats.messages)}</td>
         <td class="num">${fmt.count(stats.reservations)}</td>
@@ -2371,7 +2371,7 @@
       <tr class="total-row">
         <td class="campaign-name">${month ? `Total de ${esc(month.name)}` : 'Total'}</td>
         <td></td><td></td>
-        ${months.map(column => `<td class="num">${rows.some(scope => scope.item.months.includes(column.key)) ? fmt.money(spendIn(allEntries, column.key)) : '<span class="no-data">-</span>'}</td>`).join('')}
+        ${months.map(column => `<td class="num">${rows.some(scope => scope.item.months.includes(column.key)) ? fmt.money(spendIn(allEntries, column.key)) : '<span class="no-data">—</span>'}</td>`).join('')}
         <td class="num">${fmt.money(total.spend)}</td>
         <td class="num">${fmt.count(total.messages)}</td>
         <td class="num">${fmt.count(total.reservations)}</td>
@@ -2387,7 +2387,7 @@
     const button = document.getElementById('chart-toggle-btn');
     if (!panel || !button) return;
     panel.classList.toggle('is-collapsed', state.chartCollapsed);
-    setToggle(button, state.chartCollapsed, 'el grafico');
+    setToggle(button, state.chartCollapsed, 'el gráfico');
   }
   // Grafico mensual de la cuenta: el unico que muestra enero a mayo. Varios indicadores van en paneles apilados.
   function renderChart() {
@@ -2395,7 +2395,7 @@
     const year = viewYear();
     state.chartYear = year;
     const months = monthsOfYear(year);
-    document.getElementById('chart-title').textContent = `Evolucion mensual | ${selectedKeys.map(key => SERIES[key].label).join(' + ')} | ${year}`;
+    document.getElementById('chart-title').textContent = `Evolución mensual · ${selectedKeys.map(key => SERIES[key].label).join(' + ')} · ${year}`;
     const sub = document.getElementById('chart-sub');
     if (sub) {
       const first = months[0]?.name.toLowerCase();
@@ -2450,8 +2450,8 @@
   function renderYearTitles() {
     const year = viewYear();
     const heading = document.getElementById('obj-title');
-    if (heading) heading.textContent = `Indicadores ${year} por mes`;
-    document.title = `Amador | Gasto publicitario ${year}`;
+    if (heading) heading.textContent = `Gasto publicitario · Indicadores ${year} por mes`;
+    document.title = `Amador · Gasto publicitario ${year}`;
     if (document.getElementById('view-obj')?.classList.contains('visible')) {
       const title = document.getElementById('topbar-title');
       if (title) title.textContent = `Gasto publicitario ${year}`;
@@ -2645,7 +2645,7 @@
       updateStatusLabel(META_ENDPOINT ? 'Leyendo Meta y la hoja...' : 'Leyendo Google Sheets...');
       syncLiveSheet();
     } catch (error) {
-      ['view-obj', 'view-ads'].forEach(id => { document.getElementById(id).innerHTML = '<div class="data-notice error"><strong>No se pudo cargar la informacion de Amador.</strong></div>'; });
+      ['view-obj', 'view-ads'].forEach(id => { document.getElementById(id).innerHTML = '<div class="data-notice error"><strong>No se pudo cargar la información de Amador.</strong></div>'; });
       console.error(error);
       state.error = String(error?.message || error);
       window.dispatchEvent(new CustomEvent('amador:data-error', { detail: { error: state.error } }));

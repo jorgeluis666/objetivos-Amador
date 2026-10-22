@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.30.0`.
+Version actual: `v1.30.1`.
 
 ## Versionado
 
@@ -11,6 +11,8 @@ El proyecto usa la nomenclatura `vMAJOR.MINOR.PATCH`:
 - `MAJOR`: cambios incompatibles o una nueva etapa del tablero.
 - `MINOR`: nuevos modulos, indicadores o funciones compatibles.
 - `PATCH`: correcciones visuales, de datos o funcionamiento.
+
+Convenciones de pantalla (desde la v1.30.1, alineadas con Royal Baby): soles como `S/. 1,234.56`, un dato vacio como `—` (raya), meses "Septiembre"/"Sep" (las hojas e informes que dicen "Setiembre" o "Set" se siguen leyendo), tildes en todos los textos, pestaña del mes activa en los tonos de la marca (rojo) y tablas con numeros monoespaciados a la derecha.
 
 ## Modulo activo
 
@@ -55,7 +57,7 @@ El spreadsheet esta compartido como "cualquier persona con el enlace / lector", 
 
 ## Gasto publicitario: campanas
 
-- **Solo lo que tuvo actividad**: meses, campanas y conjuntos con gasto, mensajes o reservas; anuncios con gasto propio, mensajes o reservas (sin heredar el gasto del conjunto). Lo demas no se muestra ni se menciona. Al empezar el mes la hoja puede traer mensajes con el gasto en 0: el mes ya aparece, los costos salen "-" y la inversion dice "Gasto sin cargar en la hoja" en lugar de una variacion.
+- **Solo lo que tuvo actividad**: meses, campanas y conjuntos con gasto, mensajes o reservas; anuncios con gasto propio, mensajes o reservas (sin heredar el gasto del conjunto). Lo demas no se muestra ni se menciona. Al empezar el mes la hoja puede traer mensajes con el gasto en 0: el mes ya aparece, los costos salen "—" y la inversion dice "Gasto sin cargar en la hoja" en lugar de una variacion.
 - Hasta que se elige una pestana, la vista sigue al ultimo mes con datos: un mes nuevo que llega con la lectura en vivo se muestra solo.
 - **Objetivo (cuadro)**: el de la campana en la hoja (Reservas, Mensajes, Clics, Thruplays...). Junio lo trae por anuncio y en texto libre: cuenta la primera palabra ("Reservas/Mensajes" = Reservas) y, si los anuncios de una campana difieren, el de mayor gasto. Reservas va en naranja, Mensajes en verde y Branding (Reconocimiento, Thruplays) en violeta; otro objetivo toma un color fijo.
 - **Granularidad de la hoja**: desde julio el gasto viene por conjunto (en su primera fila) y las reservas, el objetivo y las fechas por campana; mensajes y estado por anuncio. Junio trae gasto y reservas por anuncio y no tiene conjuntos; marzo a mayo solo campanas; enero y febrero solo el gasto total. Por eso los conjuntos muestran gasto y mensajes, y desde julio los anuncios muestran "Por conjunto" / "Por campana" en gasto y reservas.
@@ -78,7 +80,7 @@ Modulo `view-ads` (en el menu, despues de Gasto publicitario), en `js/objectives
 - **Tabla**: Objetivo, Anuncio (enlace ↗ a la vista previa y estrella en el lider de cada objetivo), Reservas web, Costo por reserva web, Campaña / conjunto, Estado, Resultado, Resultados, Resultados del mes anterior, Variacion, Costo por resultado, Mensajes, Inversion, Impresiones, Alcance, CPM, Clics y Dias activos. Filtro por objetivo, Compacto (`amador-campaigns-compact-v1`) y Pantalla completa (las pestanas de mes entran al panel; `Esc` o cambiar de modulo la cierran). Sin comparacion se ocultan Mes anterior y Variacion.
 - **Un anuncio** es su nombre dentro de su objetivo: si corre en varios conjuntos o campañas (o meses, en Anual) se suma. Los resultados de tipos distintos no se suman: se muestra el tipo con mas resultados ("y otros tipos" si hubo mas) y se compara con los del mismo tipo del mes anterior ("Nuevo" si no corria). Lider = mas resultados del objetivo.
 - CPM, costos y dias activos salen de las sumas (alcance = suma de filas, no alcance unico). Dias activos = dias con gasto o impresiones (en Anual, la union de fechas). Solo se muestran anuncios con inversion, impresiones, clics, mensajes o reservas web.
-- Los meses que salen de la hoja (sin descarga de Meta) solo traen gasto y mensajes por anuncio: su resultado son los mensajes y el resto queda en "-".
+- Los meses que salen de la hoja (sin descarga de Meta) solo traen gasto y mensajes por anuncio: su resultado son los mensajes y el resto queda en "—".
 
 ## Historico de Campanas
 
@@ -91,7 +93,7 @@ Modulo `view-ads` (en el menu, despues de Gasto publicitario), en `js/objectives
 El modulo Proyecciones lee los datos del modulo Gasto publicitario
 a traves de `window.AmadorObjectives.snapshot()` y proyecta el cierre del mes en curso.
 
-- El mes proyectado es el ultimo con actividad (gasto, mensajes o reservas); si ya cerro (calendario de Lima) se muestra completo y el simulador no aplica. Sin gasto cargado, la inversion no se puede simular y los costos salen "-".
+- El mes proyectado es el ultimo con actividad (gasto, mensajes o reservas); si ya cerro (calendario de Lima) se muestra completo y el simulador no aplica. Sin gasto cargado, la inversion no se puede simular y los costos salen "—".
 - Ritmo diario = acumulado real / dias con datos; la proyeccion mantiene ese ritmo hasta el ultimo dia del mes.
 - La linea de tiempo marca el dia de la ultima actualizacion y compara contra el presupuesto (inversion) o el objetivo de reservas.
 - Cada sincronizacion con Google Sheets emite el evento `amador:data-updated` y el modulo se recalcula solo; si llega durante el arrastre del nodo, se aplica al soltar. Si los datos no cargan, `amador:data-error` muestra el motivo.

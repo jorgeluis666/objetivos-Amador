@@ -139,7 +139,7 @@
 
   function formatSize(bytes) {
     const value = Number(bytes);
-    if (!Number.isFinite(value) || value <= 0) return '--';
+    if (!Number.isFinite(value) || value <= 0) return '—';
     if (value < 1024) return `${value} B`;
     if (value < 1024 * 1024) return `${(value / 1024).toFixed(0)} KB`;
     return `${(value / (1024 * 1024)).toFixed(1)} MB`;
@@ -160,12 +160,12 @@
 
   function formatDate(iso) {
     const parts = dateParts(iso);
-    return parts ? `${parts.day} ${SHORT_MONTHS[parts.month].toLowerCase()} ${parts.year}` : '--';
+    return parts ? `${parts.day} ${SHORT_MONTHS[parts.month].toLowerCase()} ${parts.year}` : '—';
   }
 
   function formatLongDate(iso) {
     const parts = dateParts(iso);
-    return parts ? `${parts.day} de ${MONTHS[parts.month].toLowerCase()} de ${parts.year}` : '--';
+    return parts ? `${parts.day} de ${MONTHS[parts.month].toLowerCase()} de ${parts.year}` : '—';
   }
 
   function buildReports(files) {
@@ -245,8 +245,8 @@
 
     const cards = [
       { label: 'Archivos en la carpeta', value: String(total), hint: `${latest} vigentes + ${total - latest} versiones anteriores` },
-      { label: 'Reportes de campana', value: String(monthly), hint: 'Mensuales y parciales' },
-      { label: 'Ultimo documento', value: newest ? formatDate(newest.modifiedTime) : '--', hint: newest ? newest.name : 'Sin registros' },
+      { label: 'Reportes de campaña', value: String(monthly), hint: 'Mensuales y parciales' },
+      { label: 'Último documento', value: newest ? formatDate(newest.modifiedTime) : '—', hint: newest ? newest.name : 'Sin registros' },
       { label: 'Peso del archivo', value: formatSize(weight), hint: 'Total almacenado en Drive' },
     ];
 
@@ -292,7 +292,7 @@
 
     // Si la ultima lectura de Drive fallo (tambien la automatica al abrir el modulo), se dice junto al conteo.
     const stamp = state.syncError
-      ? ` | no se pudo releer la carpeta; catalogo del ${formatLongDate(state.syncedAt)}`
+      ? ` | no se pudo releer la carpeta; catálogo del ${formatLongDate(state.syncedAt)}`
       : ` sincronizados el ${formatLongDate(state.syncedAt)}`;
     els.count.textContent = rows.length === state.reports.length
       ? `${state.reports.length} documentos${stamp}`
@@ -314,7 +314,7 @@
         <td class="date-col">${report.period ? report.period.label : '<span class="no-data">Sin periodo</span>'}${report.range ? `<span class="report-range">${report.range}</span>` : ''}</td>
         <td><span class="format-tag ${report.isVideo ? 'video' : 'pdf'}">${report.format}</span></td>
         <td class="num">${formatSize(report.sizeBytes)}</td>
-        <td class="date-col">${formatDate(report.modifiedTime)}${report.latest ? '<span class="version-flag current">Version vigente</span>' : '<span class="version-flag old">Version anterior</span>'}</td>
+        <td class="date-col">${formatDate(report.modifiedTime)}${report.latest ? '<span class="version-flag current">Versión vigente</span>' : '<span class="version-flag old">Versión anterior</span>'}</td>
         <td>
           <div class="report-actions">
             <button type="button" class="report-btn primary" data-preview="${escapeHtml(report.id)}">Ver</button>
@@ -381,7 +381,7 @@
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
-      if (!payload || payload.ok !== true) throw new Error(String(payload?.error || 'respuesta invalida').slice(0, 120));
+      if (!payload || payload.ok !== true) throw new Error(String(payload?.error || 'respuesta inválida').slice(0, 120));
       const files = payload.result?.files;
       if (!Array.isArray(files)) throw new Error('respuesta sin lista de archivos');
       if (payload.result.folder?.id && payload.result.folder.id !== state.folder?.id) throw new Error('la carpeta no coincide');
@@ -439,7 +439,7 @@
     const silent = Boolean(options && options.silent);
     const endpoint = syncEndpoint();
     if (!endpoint) {
-      if (!silent) renderSyncStatus('warn', 'No hay Web App de Drive configurada, asi que se muestra el catalogo publicado. Ver README (Archivo de Reportes).');
+      if (!silent) renderSyncStatus('warn', 'No hay Web App de Drive configurada, así que se muestra el catálogo publicado. Ver README (Archivo de Reportes).');
       return;
     }
 
@@ -457,7 +457,7 @@
         renderSyncStatus('ok', `Sincronizado con Drive a las ${when}: ${state.reports.length} documentos${resumen}.`);
       }
     } catch (error) {
-      const message = `No se pudo sincronizar con Drive (${error.message}). Se mantiene el catalogo del ${formatLongDate(state.syncedAt)}.`;
+      const message = `No se pudo sincronizar con Drive (${error.message}). Se mantiene el catálogo del ${formatLongDate(state.syncedAt)}.`;
       state.syncError = String(error.message || error);
       renderTable();
       if (silent) console.warn('[reportes]', message);

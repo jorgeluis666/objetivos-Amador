@@ -20,11 +20,14 @@
     if (!numberFormats.has(key)) numberFormats.set(key, new Intl.NumberFormat('es-PE', { minimumFractionDigits: min, maximumFractionDigits: max }));
     return numberFormats.get(key).format(Number(value));
   }
+  // Chart.js en Inter, como Royal Baby (ejes, tooltips y leyendas de todos los graficos del tablero).
+  if (window.Chart?.defaults?.font) window.Chart.defaults.font.family = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  // Sin dato: raya (U+2014), como Royal Baby.
   const fmt = {
-    money: value => (finite(value) ? `S/. ${formatNumber(value, 2, 2)}` : '-'),
-    count: value => (finite(value) ? formatNumber(Math.round(Number(value)), 0, 0) : '-'),
-    decimal: (value, digits = 2) => (finite(value) ? formatNumber(value, digits, digits) : '-'),
-    pct: (value, digits = 1) => (finite(value) ? `${formatNumber(value, digits, digits)}%` : '-'),
+    money: value => (finite(value) ? `S/. ${formatNumber(value, 2, 2)}` : '—'),
+    count: value => (finite(value) ? formatNumber(Math.round(Number(value)), 0, 0) : '—'),
+    decimal: (value, digits = 2) => (finite(value) ? formatNumber(value, digits, digits) : '—'),
+    pct: (value, digits = 1) => (finite(value) ? `${formatNumber(value, digits, digits)}%` : '—'),
     // Costos de centavos con mas decimales para que no queden en 0.01.
     unitCost: value => (finite(value) && Number(value) > 0 && Number(value) < 0.1 ? `S/. ${formatNumber(value, 3, 4)}` : fmt.money(value)),
   };
@@ -52,7 +55,7 @@
   // "sab, 11 oct, 09:40" en hora de Lima.
   function formatStamp(value) {
     const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
+    if (Number.isNaN(date.getTime())) return '—';
     try {
       return date.toLocaleString('es-PE', { timeZone: TIMEZONE, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     } catch {
