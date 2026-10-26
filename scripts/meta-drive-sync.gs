@@ -167,6 +167,30 @@ function artesFolderId_() {
   return id ? id.trim() : '';
 }
 
+// Ejecutar UNA vez a mano, desde el editor, y solo si se decide que las piezas se vean en el reporte.
+// Drive sirve la miniatura (drive.google.com/thumbnail) unicamente si el archivo se puede abrir por
+// enlace; con la carpeta compartida solo por correo responde con su pagina de acceso y la tarjeta cae
+// al recuadro con el formato.
+//
+// Abre en modo LECTOR y solo la carpeta de artes, que es la que indica ARTES_FOLDER_ID: las demas
+// carpetas de la marca siguen como estan. Las subcarpetas heredan, no hay que tocarlas una por una.
+// Para cerrarla de nuevo: cerrarArtes().
+function abrirArtesPorEnlace() {
+  const id = artesFolderId_();
+  if (!id) throw new Error('Falta la propiedad del script ' + ARTES_FOLDER_PROPERTY + '.');
+  const folder = DriveApp.getFolderById(id);
+  folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  Logger.log('«%s» queda visible para cualquier persona con el enlace (solo lectura).', folder.getName());
+}
+
+function cerrarArtes() {
+  const id = artesFolderId_();
+  if (!id) throw new Error('Falta la propiedad del script ' + ARTES_FOLDER_PROPERTY + '.');
+  const folder = DriveApp.getFolderById(id);
+  folder.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.VIEW);
+  Logger.log('«%s» vuelve a estar restringida a quien tenga acceso directo.', folder.getName());
+}
+
 function readArtes_() {
   const id = artesFolderId_();
   if (!id) return null;
