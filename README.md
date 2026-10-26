@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.33.0`.
+Version actual: `v1.34.0`.
 
 ## Versionado
 
@@ -19,7 +19,7 @@ Convenciones de pantalla (desde la v1.30.1, alineadas con Royal Baby): soles com
 - Gasto mensual total, con pestanas por mes y una pestana Anual (acumulado de los meses con datos).
 - Periodo y resumen ejecutivo en una tarjeta: inversion, mensajes, costo por mensaje, reservas y costo por reserva, con su variacion contra el mes anterior completo (en la vista anual, el promedio mensual de los meses cerrados).
 - Campanas en un solo marco: distribucion de la inversion por campana y, debajo, un cuadro por objetivo con sus KPIs contra el mes anterior, sus conjuntos y sus anuncios (ver "Gasto publicitario: campanas").
-- Anuncios: modulo propio con el Top 3 por reservas web y la tabla de todos los anuncios (ver "Anuncios").
+- Anuncios: modulo propio con el Top 3 por reservas web y la tabla de todos los anuncios, cada uno con su pieza de «05 Artes» (ver "Anuncios").
 - Proyecciones: cierre de mes estimado con los datos reales y simulador de objetivo.
 - Historico de Campanas: todas las campanas con gasto, activas y finalizadas, con pestanas por mes y Todos (ver "Historico de Campanas").
 - Archivo de Reportes: catalogo de los documentos guardados en la carpeta de Google Drive.
@@ -76,10 +76,11 @@ El spreadsheet esta compartido como "cualquier persona con el enlace / lector", 
 Modulo `view-ads` (en el menu, despues de Gasto publicitario), en `js/objectives.js` (seccion "Modulo Anuncios"). Usa los mismos datos, periodo y comparacion (mes anterior completo) que Gasto publicitario y **comparte el mes elegido**: las dos filas de pestanas se pintan juntas, asi que cambiar de mes en una vista cambia la otra. Puede abrirse primero: la carga de datos es la misma.
 
 - **Periodo**: "Periodo: 1-13 Octubre 2026 (mes en curso)" y "Comparación vs Septiembre completo"; en Anual, "Acumulado del año: sin periodo anterior para comparar". Si el mes anterior no trae anuncios (mayo y antes), no hay comparacion.
-- **Top 3 de anuncios por reservas web**: las reservas web son las "Compras" que Meta atribuye al anuncio (tipo de resultado "Compras en el sitio web"). La descarga trae la columna "Valor de conversion de compras" vacia, asi que no hay ventas ni ROAS. Orden: mas reservas web, luego mas mensajes y luego menos inversion. Cada tarjeta: puesto, anuncio con enlace, objetivo, campaña y conjunto, reservas web y debajo costo por reserva web, mensajes e inversion. Las reservas de la hoja siguen por campaña (son mas: incluyen las que llegan por otros canales).
+- **Top 3 de anuncios por reservas web**: las reservas web son las "Compras" que Meta atribuye al anuncio (tipo de resultado "Compras en el sitio web"). La descarga trae la columna "Valor de conversion de compras" vacia, asi que no hay ventas ni ROAS. Orden: mas reservas web, luego mas mensajes y luego menos inversion. Cada tarjeta: puesto, anuncio con enlace, objetivo, campaña y conjunto, reservas web y debajo costo por reserva web, mensajes e inversion, y debajo la **pieza** del anuncio. Las reservas de la hoja siguen por campaña (son mas: incluyen las que llegan por otros canales).
 - **Tabla**: Objetivo, Anuncio (enlace ↗ a la vista previa y estrella en el lider de cada objetivo), Reservas web, Costo por reserva web, Campaña / conjunto, Estado, Resultado, Resultados, Resultados del mes anterior, Variacion, Costo por resultado, Mensajes, Inversion, Impresiones, Alcance, CPM, Clics y Dias activos. Filtro por objetivo, Compacto (`amador-campaigns-compact-v1`) y Pantalla completa (las pestanas de mes entran al panel; `Esc` o cambiar de modulo la cierran). Sin comparacion se ocultan Mes anterior y Variacion.
 - **Un anuncio** es su nombre dentro de su objetivo: si corre en varios conjuntos o campañas (o meses, en Anual) se suma. Los resultados de tipos distintos no se suman: se muestra el tipo con mas resultados ("y otros tipos" si hubo mas) y se compara con los del mismo tipo del mes anterior ("Nuevo" si no corria). Lider = mas resultados del objetivo.
 - CPM, costos y dias activos salen de las sumas (alcance = suma de filas, no alcance unico). Dias activos = dias con gasto o impresiones (en Anual, la union de fechas). Solo se muestran anuncios con inversion, impresiones, clics, mensajes o reservas web.
+- **La pieza de cada anuncio** sale de la carpeta «05 Artes» de la marca, que el barrido lee si existe la propiedad de script `ARTES_FOLDER_ID` (ver private/amador-artes.local.md en el repo de LR Suite). Dentro va una subcarpeta por campana y mes, y cada archivo se llama **igual que el anuncio en Meta** salvo la extension: esa igualdad es todo el emparejamiento. En la tabla va como miniatura al lado del nombre; en el Top 3, grande debajo de las cifras, y si es un video el clic abre el reproductor de Drive sobre la misma tarjeta. Un anuncio sin pieza se dibuja igual, sin miniatura. Drive solo sirve las miniaturas si la carpeta esta compartida por enlace.
 - Los meses que salen de la hoja (sin descarga de Meta) solo traen gasto y mensajes por anuncio: su resultado son los mensajes y el resto queda en "—".
 
 ## Historico de Campanas

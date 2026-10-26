@@ -2217,6 +2217,115 @@ button.topbar-pill[aria-expanded="true"] .status-chevron {
   font-size: 11px;
 }
 
+/* ── La pieza del anuncio, de «05 Artes» ──────────────────────────────── */
+/* En la tabla, vertical (4:5) porque casi todas son reels o historias. Si Drive no la sirve, el alt
+   vacio deja el hueco y el nombre no se mueve. */
+.ad-thumb {
+  width: 28px;
+  height: 35px;
+  margin-right: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #f8fafc;
+  object-fit: cover;
+  vertical-align: middle;
+}
+
+/* En el Top 3, la pieza grande debajo de las cifras. La tarjeta ya es una columna, asi que el cuerpo
+   solo conserva la separacion que tenian sus hijos cuando colgaban de la tarjeta. */
+.ad-top-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ad-top-arte {
+  min-width: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.ad-arte-media {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  width: 100%;
+  max-width: 230px;
+  aspect-ratio: 9 / 16;
+  margin: 0 auto;
+  border-radius: 8px;
+  background: #0f172a;
+  place-items: center;
+}
+
+.ad-arte-media > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ad-arte-media.is-empty {
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* El reproductor de Drive se pinta a 360x640 y objectives.js lo escala al ancho del marco. */
+.ad-arte-player {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 0;
+  transform-origin: 0 0;
+}
+
+.ad-arte-poster {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.ad-arte-poster img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ad-arte-poster:focus-visible {
+  outline: 3px solid var(--brand-border);
+  outline-offset: -3px;
+}
+
+.ad-arte-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  padding-left: 3px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, .72);
+  color: #fff;
+  font-size: 17px;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  transition: background .15s ease;
+}
+
+.ad-arte-poster:hover .ad-arte-play {
+  background: var(--brand);
+}
+
 /* Anuncios de cada objetivo, al final de su cuadro en Gasto publicitario. */
 .camp-ads-table {
   min-width: 1240px;
@@ -2346,6 +2455,14 @@ button.topbar-pill[aria-expanded="true"] .status-chevron {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Con la pieza delante, el nombre va a su lado y no debajo: el bloque lo empujaba a la linea
+   siguiente. Se descuenta de su ancho lo que ocupa la miniatura para que la columna no crezca. */
+.campaigns-table .ad-thumb + .ad-name-text {
+  display: inline-block;
+  max-width: 184px;
+  vertical-align: middle;
 }
 
 .campaigns-table tbody tr:hover > td {

@@ -1938,6 +1938,77 @@
   const adCpm = ad => (ad.perAd && ad.impressions > 0 && ad.spend > 0 ? (ad.spend / ad.impressions) * 1000 : null);
   const metaOnly = (ad, html) => (ad.fromMeta ? html : '<span class="no-data">—</span>');
   // Nombre del anuncio con la estrella del lider y el enlace a la vista previa de Meta.
+  // ── La pieza del anuncio («05 Artes», del barrido) ───────────────────────
+  // Misma clave que arteKey_() del Apps Script y que la del reporte: sin extension, sin tildes ni
+  // signos. Solo hay pieza de algunos anuncios; el que no la tenga se dibuja igual, sin miniatura.
+  const arteKey = name => String(name || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\.[A-Za-z0-9]{2,5}$/, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+  function arteDe(ad) {
+    const piezas = state.meta?.artes?.piezas;
+    if (!piezas) return null;
+    return piezas[arteKey(ad.ad)] || null;
+  }
+
+  // La miniatura la sirve Drive y la pide el navegador de quien mira el tablero, asi que «05 Artes»
+  // tiene que estar compartida por enlace. Drive rechaza la miniatura si la peticion lleva el referer
+  // del tablero: de ahi el referrerpolicy. De un video devuelve su primer fotograma.
+  const arteImg = (id, sz) => `<img src="https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&amp;sz=w${sz}" alt="" loading="lazy" referrerpolicy="no-referrer">`;
+  const sinArte = '<div class="ad-arte-media is-empty"><span>Sin arte</span></div>';
+
+  function arteThumb(ad) {
+    const arte = arteDe(ad);
+    if (!arte?.id) return '';
+    return `<img class="ad-thumb" src="https://drive.google.com/thumbnail?id=${encodeURIComponent(arte.id)}&sz=w160"
+      alt="" loading="lazy" referrerpolicy="no-referrer" title="${esc(arte.nombre)} · ${arte.tipo === 'video' ? 'Video' : 'Imagen'}">`;
+  }
+
+  // La pieza grande de las tarjetas del Top 3: la miniatura hace de portada y el reproductor de Drive
+  // se carga al hacer clic, porque Drive no deja reproducir sus videos fuera de el.
+  function arteMedia(ad) {
+    const arte = arteDe(ad);
+    if (!arte?.id) return sinArte;
+    if (arte.tipo !== 'video') return `<div class="ad-arte-media">${arteImg(arte.id, 480)}</div>`;
+    return `<div class="ad-arte-media">
+        <button type="button" class="ad-arte-poster" data-arte="${esc(arte.id)}" aria-label="Reproducir ${esc(arte.nombre)}">
+          ${arteImg(arte.id, 480)}<span class="ad-arte-play" aria-hidden="true">&#9654;</span>
+        </button>
+      </div>`;
+  }
+
+  // El reproductor de Drive se descuadra en marcos angostos (franja negra, controles cortados): se
+  // pinta a 360x640, donde encaja justo en 9:16, y se escala al ancho del marco.
+  const DRIVE_PLAYER = { width: 360, height: 640 };
+
+  function reproducirArte(poster) {
+    const box = poster.closest('.ad-arte-media');
+    if (!box) return;
+    const frame = document.createElement('iframe');
+    frame.src = `https://drive.google.com/file/d/${encodeURIComponent(poster.dataset.arte)}/preview`;
+    frame.title = poster.getAttribute('aria-label') || 'Arte del anuncio';
+    frame.allow = 'autoplay; fullscreen';
+    frame.allowFullscreen = true;
+    frame.className = 'ad-arte-player';
+    frame.style.width = `${DRIVE_PLAYER.width}px`;
+    frame.style.height = `${DRIVE_PLAYER.height}px`;
+    const ajustar = () => { frame.style.transform = `scale(${box.clientWidth / DRIVE_PLAYER.width})`; };
+    poster.remove();
+    box.appendChild(frame);
+    ajustar();
+    window.addEventListener('resize', ajustar);
+  }
+
+  // Las piezas se repintan con cada barrido, asi que el clic se escucha en el documento y no en cada
+  // tarjeta.
+  function wireArtes() {
+    document.addEventListener('click', event => {
+      const poster = event.target.closest?.('.ad-arte-poster');
+      if (poster?.dataset.arte) reproducirArte(poster);
+    });
+  }
+
   function adNameHtml(ad) {
     const url = safeUrl(ad.preview);
     const name = esc(ad.ad || '(sin nombre)');
@@ -1996,10 +2067,13 @@
       return `
         <article class="ad-top-card">
           <div class="ad-top-rank">Puesto ${index + 1}</div>
-          <div class="ad-top-name">${adNameHtml({ ...ad, leader: false })}</div>
-          <div class="ad-top-meta"><span class="objective-label" style="--campaign-color:${ad.color}"><i class="campaign-dot"></i>${esc(ad.groupLabel)}</span> ${campaignSetHtml(ad)}</div>
-          <div class="ad-top-value">${fmt.count(ad.purchases)}<span>${ad.purchases === 1 ? 'reserva web' : 'reservas web'}</span></div>
-          <div class="ad-top-detail">${detail.join(' · ')}</div>
+          <div class="ad-top-body">
+            <div class="ad-top-name">${adNameHtml({ ...ad, leader: false })}</div>
+            <div class="ad-top-meta"><span class="objective-label" style="--campaign-color:${ad.color}"><i class="campaign-dot"></i>${esc(ad.groupLabel)}</span> ${campaignSetHtml(ad)}</div>
+            <div class="ad-top-value">${fmt.count(ad.purchases)}<span>${ad.purchases === 1 ? 'reserva web' : 'reservas web'}</span></div>
+            <div class="ad-top-detail">${detail.join(' · ')}</div>
+          </div>
+          <div class="ad-top-arte">${arteMedia(ad)}</div>
         </article>`;
     }).join('');
   }
@@ -2046,7 +2120,7 @@
       return `
         <tr>
           <td class="type-col"><span class="objective-label" style="--campaign-color:${ad.color}"><i class="campaign-dot"></i>${esc(ad.groupLabel)}</span></td>
-          <td class="ad-name-col">${adNameHtml(ad)}</td>
+          <td class="ad-name-col">${arteThumb(ad)}${adNameHtml(ad)}</td>
           <td class="num sales-col">${metaOnly(ad, `<b>${fmt.count(ad.purchases)}</b>`)}</td>
           <td class="num sales-col">${metaOnly(ad, fmt.unitCost(adCost(ad, ad.purchases)))}</td>
           <td class="campaign-set-col">${campaignSetHtml(ad)}</td>
@@ -2096,7 +2170,7 @@
       const share = ad.perAd && total > 0 ? (ad.spend / total) * 100 : null;
       return `
         <tr>
-          <td class="campaign-name">${adNameHtml(ad)}</td>
+          <td class="campaign-name">${arteThumb(ad)}${adNameHtml(ad)}</td>
           ${sales ? `<td class="num sales-col">${metaOnly(ad, `<b>${fmt.count(ad.purchases)}</b>`)}</td><td class="num sales-col">${metaOnly(ad, fmt.unitCost(adCost(ad, ad.purchases)))}</td>` : ''}
           <td class="campaign-set-col">${campaignSetHtml(ad)}</td>
           <td class="num"><b>${fmt.count(ad.results)}</b><small class="cell-sub">${resultTypeHtml(ad)}</small></td>
@@ -2660,6 +2734,7 @@
       loadGoals();
       state.monthKey = latestMonth()?.key || null;
       wireEvents();
+      wireArtes();
       renderAll();
       updateStatusLabel('cargando…');
       syncLiveSheet();
