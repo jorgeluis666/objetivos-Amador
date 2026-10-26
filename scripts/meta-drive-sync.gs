@@ -8,6 +8,8 @@
 // GET ?action=data -> ultimo barrido (o uno nuevo si la carpeta cambio) | ?action=data&fresh=1 -> barrido en el
 // momento (boton Actualizar). Disparador: cada hora (installSweepTriggers).
 const DATA_FOLDER_PROPERTY = 'DATA_FOLDER_ID';
+// Carpeta «05 Artes» de la marca, opcional: sin ella el barrido va igual, solo sin piezas.
+const ARTES_FOLDER_PROPERTY = 'ARTES_FOLDER_ID';
 const TIMEZONE = 'America/Lima';
 const SWEEP_HOUR = 10;
 const SWEEP_HANDLER = 'sweepScheduled';
@@ -139,7 +141,7 @@ function sweep_(origin) {
     // Dos pedidos seguidos (dos personas abren el tablero a la vez) comparten el barrido del primero.
     if ((origin === 'manual' || origin === 'archivo nuevo') && previous && Date.now() - Date.parse(previous.sweptAt) < MANUAL_THROTTLE_MS) return previous;
     const data = readMonths_(previous);
-    const snapshot = { version: SWEEP_VERSION, sweptAt: new Date().toISOString(), origin, months: data.months, ignored: data.ignored };
+    const snapshot = { version: SWEEP_VERSION, sweptAt: new Date().toISOString(), origin, months: data.months, ignored: data.ignored, artes: readArtes_() };
     writeSnapshot_(snapshot);
     return snapshot;
   } finally {
@@ -151,6 +153,62 @@ function dataFolderId_() {
   const id = PropertiesService.getScriptProperties().getProperty(DATA_FOLDER_PROPERTY);
   if (!id) throw new Error('Falta la propiedad del script ' + DATA_FOLDER_PROPERTY + ' (ID de la carpeta de descargas de Meta).');
   return id.trim();
+}
+
+// ── Artes ────────────────────────────────────────────────────────────────
+// La carpeta «05 Artes» de la marca: dentro va una subcarpeta por campaña y mes («Amador Eventos -
+// Octubre») con las piezas, nombradas **igual que el anuncio en Meta** salvo la extension. Esa
+// igualdad es todo el emparejamiento: «OFRENDA - Video.mp4» es la pieza del anuncio «OFRENDA - Video».
+//
+// La propiedad es opcional: sin ella el barrido sigue igual y el reporte muestra el formato en lugar
+// del arte. Un error leyendo la carpeta tampoco tumba el barrido, que es lo que trae los numeros.
+function artesFolderId_() {
+  const id = PropertiesService.getScriptProperties().getProperty(ARTES_FOLDER_PROPERTY);
+  return id ? id.trim() : '';
+}
+
+function readArtes_() {
+  const id = artesFolderId_();
+  if (!id) return null;
+  try {
+    const root = DriveApp.getFolderById(id);
+    const piezas = {};
+    addArtesOf_(root, '', piezas);
+    const campaigns = root.getFolders();
+    while (campaigns.hasNext()) {
+      const campaign = campaigns.next();
+      if (campaign.isTrashed()) continue;
+      addArtesOf_(campaign, campaign.getName(), piezas);
+    }
+    return { folder: { id: root.getId(), name: root.getName() }, piezas: piezas, error: null };
+  } catch (error) {
+    console.error(error);
+    return { folder: null, piezas: {}, error: 'No se pudo leer la carpeta de artes: ' + error.message };
+  }
+}
+
+function addArtesOf_(folder, campana, piezas) {
+  const files = folder.getFiles();
+  while (files.hasNext()) {
+    const file = files.next();
+    if (file.isTrashed()) continue;
+    const mime = String(file.getMimeType() || '');
+    const tipo = mime.indexOf('video/') === 0 ? 'video' : mime.indexOf('image/') === 0 ? 'imagen' : '';
+    if (!tipo) continue;
+    const clave = arteKey_(file.getName());
+    // La primera que aparece se queda: una pieza repetida en dos meses es la misma pieza.
+    if (!clave || piezas[clave]) continue;
+    piezas[clave] = { tipo: tipo, nombre: file.getName(), campana: campana, id: file.getId() };
+  }
+}
+
+// La clave con la que se emparejan pieza y anuncio: sin tildes, sin extension y sin nada que no sea
+// letra o numero, porque «OFRENDA - Estático.jpeg» y «Ofrenda   Estatico» son el mismo anuncio.
+function arteKey_(name) {
+  return String(name || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\.[A-Za-z0-9]{2,5}$/, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
 // Un archivo por mes: si hay varios del mismo mes se usa el editado mas recientemente y se avisa.
@@ -341,8 +399,11 @@ function readSnapshot_() {
   if (!file) return null;
   try {
     const snapshot = JSON.parse(file.getBlob().getDataAsString('UTF-8'));
-    // Un barrido guardado con otro formato (sin columnas) se descarta y se vuelve a leer.
-    return snapshot.months && snapshot.months.every(month => month.columns) ? snapshot : null;
+    // Un barrido guardado con otro formato (sin columnas, o de antes de los artes) se descarta y se
+    // vuelve a leer: asi las piezas aparecen en el primer pedido despues de implementar, sin esperar
+    // al disparador de las 10:00.
+    const completo = snapshot.months && snapshot.months.every(month => month.columns) && 'artes' in snapshot;
+    return completo ? snapshot : null;
   } catch (error) {
     return null;
   }

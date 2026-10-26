@@ -44,6 +44,11 @@
     { key: 'eventos', match: /evento/, title: 'Mensajes IG · eventos', short: 'Eventos', tag: 'Ofrenda · WhatsApp', desc: 'Conversaciones, formatos y conjuntos.', icon: 'chat' },
   ];
 
+  // El arte se pide a Drive como miniatura. El referrerpolicy no es cosmetico: con el referer del
+  // tablero, Drive devuelve 403 y la tarjeta sale vacia.
+  const ARTE_THUMB = 'https://drive.google.com/thumbnail?id=';
+  const ARTE_THUMB_SIZE = 'w480';
+
   // El formato de la pieza sale de su nombre, que es lo unico que trae la descarga de Meta. El orden
   // importa: "Flyer animado" es animado antes que flyer, y "Flyer estatico" es estatico antes que flyer.
   const FORMATOS = [
@@ -248,10 +253,24 @@
 
   const formatoDe = name => (FORMATOS.find(item => item.match.test(normalize(name))) || { label: 'Pieza' }).label;
 
+  // ── Artes ──────────────────────────────────────────────────────────────
+  // Las piezas de «05 Artes», que el barrido trae emparejadas por el nombre del archivo sin extension.
+  // La clave tiene que armarse igual que en scripts/meta-drive-sync.gs: si una cambia, la otra tambien.
+  const arteKey = name => normalize(name).replace(/\.[a-z0-9]{2,5}$/, '').replace(/[^a-z0-9]+/g, '');
+
+  function artesDe() {
+    const piezas = sweep()?.artes?.piezas;
+    return piezas && typeof piezas === 'object' ? piezas : {};
+  }
+
+  // Un video de Drive no se puede incrustar en el PDF, pero su miniatura es el primer fotograma: para
+  // reconocer la pieza alcanza, y es lo que el modelo muestra.
+  const arteThumb = arte => (arte?.id ? `${ARTE_THUMB}${encodeURIComponent(arte.id)}&sz=${ARTE_THUMB_SIZE}` : '');
+
   // Mejores anuncios por el resultado de la campaña. Un anuncio es su nombre: si corre en varios conjuntos se
   // junta y se queda con el conjunto donde mas gasto; si Meta dejo vacia su vista previa se usa la de la misma
   // pieza en otro mes.
-  function bestAds(rows, field, previews) {
+  function bestAds(rows, field, previews, artes) {
     const byName = new Map();
     rows.forEach(row => {
       const key = normalize(row.ad);
@@ -265,15 +284,21 @@
       if (!ad.preview && /^https:\/\//.test(row.preview || '')) ad.preview = row.preview;
     });
     return [...byName.entries()]
-      .map(([key, ad]) => ({
+      .map(([key, ad]) => {
+        const arte = artes[arteKey(ad.name)] || null;
+        return {
         ...ad,
+        arte,
         preview: ad.preview || previews.get(key) || '',
         // «Conjunto Corporativos - PF» se lee como «Corporativos - PF»: la palabra la pone Meta.
         adSet: ([...ad.sets.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] || '').replace(/^conjunto\s+/i, ''),
-        formato: formatoDe(ad.name),
+        // Con la pieza a la vista el formato es un hecho, no una deduccion del nombre: un «Amador
+        // corporativo - pastilla 1» que en Drive es .mp4 es un video, y el nombre no lo decia.
+        formato: arte ? (arte.tipo === 'video' ? 'Video' : formatoDe(ad.name) === 'Pieza' ? 'Estático' : formatoDe(ad.name)) : formatoDe(ad.name),
         from: ad.days.length ? Math.min(...ad.days) : null,
         cost: ad.value > 0 ? ad.spend / ad.value : null,
-      }))
+        };
+      })
       .filter(ad => ad.spend > 0 || ad.value > 0)
       .sort((left, right) => right.value - left.value || right.spend - left.spend)
       .slice(0, MAX_ADS);
@@ -298,6 +323,7 @@
 
   function buildReport(period) {
     const weeks = weeksOf(period);
+    const artes = artesDe();
     const previews = new Map();
     sweepRows().sort((left, right) => right.day.localeCompare(left.day)).forEach(row => {
       const key = normalize(row.ad);
@@ -331,7 +357,7 @@
           chart: series(items, kind.metric, weeks),
           firstWeek,
           lastWeek: spendWeeks.map(spend => spend > 0).lastIndexOf(true),
-          ads: bestAds(items, kind.adsMetric, previews),
+          ads: bestAds(items, kind.adsMetric, previews, artes),
           days: new Set(items.filter(activity).map(row => row.d)).size,
           firstDay: Math.min(...items.filter(activity).map(row => row.d)),
         };
@@ -688,7 +714,10 @@
           const desde = ad.from && ad.from > section.firstDay ? ` · desde ${ad.from} ${shortMonth(period.month)}` : '';
           return `
             <div class="rp-ad-card">
-              <div class="rp-ad-art is-empty">${esc(ad.formato)}</div>
+              ${ad.arte
+                ? `<img class="rp-ad-art" src="${esc(arteThumb(ad.arte))}" alt="${esc(ad.name)}" data-formato="${esc(ad.formato)}" referrerpolicy="no-referrer">
+                   <span class="rp-ad-formato">${esc(ad.formato)}</span>`
+                : `<div class="rp-ad-art is-empty">${esc(ad.formato)}</div>`}
               <div class="rp-ad-name">${esc(ad.name)}</div>
               <div class="rp-ad-meta">${esc(ad.adSet || '—')}${esc(desde)}</div>
               <dl class="rp-ad-figures">
@@ -953,6 +982,21 @@
     host.style.setProperty('--rp-scale', String(Math.min(1, host.clientWidth / PAGE_WIDTH)));
   }
 
+  // Drive solo sirve la miniatura si la carpeta de artes esta compartida por enlace; si no, responde
+  // con su pagina de acceso y la imagen queda rota. En vez del icono de imagen rota, la tarjeta
+  // vuelve al recuadro con el formato, que es como se ve cuando la pieza no esta.
+  function wireArtes(host) {
+    host.querySelectorAll('img.rp-ad-art').forEach(img => {
+      img.addEventListener('error', () => {
+        const caja = document.createElement('div');
+        caja.className = 'rp-ad-art is-empty';
+        caja.textContent = img.dataset.formato || 'Pieza';
+        img.nextElementSibling?.remove();
+        img.replaceWith(caja);
+      }, { once: true });
+    });
+  }
+
   function wireEditables(host, periodId) {
     host.querySelectorAll('[data-note]').forEach(node => {
       try {
@@ -1023,6 +1067,7 @@
       </div>`;
 
     fitDeck();
+    wireArtes(host);
     wireEditables(host, period.id);
   }
 

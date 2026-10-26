@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.32.0`.
+Version actual: `v1.33.0`.
 
 ## Versionado
 
@@ -129,9 +129,13 @@ laminas 16:9 con fondo claro, tarjetas blancas de borde fino y acentos en azul.
   potenciales"; conversaciones = la columna "messages" de Meta. El costo por compra y por lead es la
   inversion de su campana entre su resultado; el costo por mensaje es la inversion total entre los mensajes.
   Cada campana se mide con su propio resultado, tambien en el grafico y en las tarjetas de anuncios.
-- **El formato de cada pieza** sale de su nombre (video, flyer animado, estatico, carrusel), que es lo unico
-  que trae la descarga de Meta. La tarjeta reserva arriba el espacio del arte: hoy muestra el formato porque
-  Amador todavia no tiene una carpeta de artes conectada, como si la tiene Terminal Pesquero.
+- **El arte de cada anuncio** sale de la carpeta «05 Artes» de la marca, que el barrido lee si existe la
+  propiedad de script `ARTES_FOLDER_ID` (ver private/amador-artes.local.md en el repo de LR Suite). Dentro va
+  una subcarpeta por campana y mes, y cada pieza se llama **igual que el anuncio en Meta** salvo la extension:
+  esa igualdad es todo el emparejamiento. La tarjeta muestra la miniatura de Drive con el formato en una
+  etiqueta encima; el formato sale del tipo del archivo (un .mp4 es un video) y, si la pieza no esta, de su
+  nombre. Una pieza que Drive no sirva —la carpeta sigue en Restringido— deja la tarjeta con el recuadro del
+  formato, no con una imagen rota.
 - **Textos:** el destacado, el analisis de cada campana y las conclusiones vienen propuestos con lo que dicen
   los numeros. Se editan con un clic sobre la lamina (`**texto**` va en negrita) y quedan guardados por corte
   en el navegador (`amador-report-notes-v3`, por corte); no se publican con el tablero. "Restablecer textos" vuelve a
