@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.31.0`.
+Version actual: `v1.32.0`.
 
 ## Versionado
 
@@ -23,7 +23,7 @@ Convenciones de pantalla (desde la v1.30.1, alineadas con Royal Baby): soles com
 - Proyecciones: cierre de mes estimado con los datos reales y simulador de objetivo.
 - Historico de Campanas: todas las campanas con gasto, activas y finalizadas, con pestanas por mes y Todos (ver "Historico de Campanas").
 - Archivo de Reportes: catalogo de los documentos guardados en la carpeta de Google Drive.
-  - Pestana Generacion de Reporte, dentro de Archivo de Reportes: el Reporte de Publicidad con el diseño del modelo de Amador, por mes y semana a semana, y descarga en PDF (ver "Generacion de Reporte").
+  - Pestana Generacion de Reporte, dentro de Archivo de Reportes: el Reporte de Publicidad con el diseño del modelo de Amador, por corte acumulado del mes (1–4, 1–11, 1–18...) y semana a semana, y descarga en PDF (ver "Generacion de Reporte").
 - Bitacora: checklist mensual de cambios, comentarios y decisiones de la cuenta.
 
 La barra superior (desde la v1.31.0, como Royal Baby) queda fija al hacer scroll y es translucida (blanco al 88 % con desenfoque). A la izquierda van el boton para minimizar el panel, el titulo de la vista y como bajada la misma descripcion del modulo que muestra el panel lateral. A la derecha, la pildora de sincronizacion: "Sincronizado · hace 12 min" en verde; "cargando…" / "Recargando…" en ambar con el punto latiendo durante una lectura; "Aún no sincronizado" en ambar mientras se ve la copia guardada (tambien ambar si una descarga de Meta del mes no se pudo leer); "Sin conexión con Meta / Google Sheets" en rojo. Al pulsarla se abre el detalle: datos y su corte, ultima y proxima lectura, pestanas leidas, fuente y un aviso (sin conexion, copia guardada, Objetivo Reservas o mes en curso). Al lado, el boton fantasma **Actualizar** con icono de recarga es el unico del tablero: relee la hoja y sincroniza el Archivo de Reportes con Drive (mismo `id="topbar-refresh-btn"` y `data-amador-refresh`).
@@ -110,26 +110,31 @@ laminas 16:9 con fondo claro, tarjetas blancas de borde fino y acentos en azul.
 
 | Pagina | Contenido |
 | --- | --- |
-| Portada | Logo de Lima Retail, "Reporte de Publicidad", cliente, mes ("Octubre 2026 · evolucion semanal") y fecha de emision. |
+| Portada | Logo de Lima Retail, "Reporte de Publicidad", cliente, el corte ("Octubre 2026 · Evolucion semanal (1 - 25 oct) | Meta Ads") y fecha de emision. |
 | Contenido | Una tarjeta por seccion con su icono y su numero de pagina. |
-| Como vamos | Inversion, compras (costo/compra), reservas o leads (costo/reserva) y mensajes (costo/mensaje); conversaciones por semana (S1, S2...); recuadro "Lectura". |
-| Una por campana | Reservas de Almuerzos, Eventos, Corporativos (y cualquier otra campana con gasto, con su propio nombre): 4 KPIs segun lo que mide, evolucion semanal, mejores anuncios (hasta 4, con "Ver »" a la vista previa) y recuadro "Analisis" (Que paso / Que lo ocasiono / Que hacemos). |
-| Conclusiones y acciones | Tres tarjetas: la campana motor, los anuncios a replicar y la campana a revisar; en un mes en curso, la nota de que las metricas se consolidan al cierre. |
+| Resumen por objetivo | Inversion total y un indicador por tipo de resultado, con su insignia de cambio ("1 → 5 por semana"); cuadro con una fila por campana (inversion, resultado, costo/resultado, conversaciones, costo/conversacion) y su total; DESTACADO y Analisis. |
+| Desglose semanal | Cuadro con una fila por semana: inversion y, por campana, el resultado de esa semana con su costo debajo, mas la columna Nota (inicio de mes, pico, entra una campana, una campana x3); DESTACADO y Analisis. |
+| Una por campana | Reservas web almuerzos, Corporativos, Mensajes IG · eventos (y cualquier otra campana con gasto, con su propio nombre): 5 KPIs segun lo que mide, barras por semana, cuadro semanal con CPM o CTR y la causa, mejores anuncios en tarjetas (hasta 4, con formato, conjunto y "Ver anuncio »") y DESTACADO + Analisis. |
+| Conclusiones y proximos pasos | Tres tarjetas: la campana motor, las que sostienen y la que hay que revisar; en un corte que no cierra el mes, la nota de las semanas. |
 | Cierre | Logo y firma de Lima Retail. |
 
-- **Periodo:** se elige el mes (el en curso llega hasta el ultimo dia con datos) y cada pagina lo parte en
-  semanas de lunes a domingo dentro del mes: S1 va del dia 1 al primer domingo. No compara contra el mes
-  anterior.
+- **Periodo:** el filtro ofrece **cortes acumulados**, no meses sueltos: cada domingo cierra una semana y
+  el corte va siempre desde el primer dia con datos del mes (en octubre de 2026: 1–4, 1–11, 1–18 y 1–25).
+  Asi es como el cliente lee el mes mientras corre. Dentro del corte, cada pagina lo parte en semanas de
+  lunes a domingo: S1 va del dia 1 al primer domingo. No compara contra el mes anterior.
 - **De donde salen los numeros:** de las mismas filas del barrido de Meta que usa Gasto publicitario (en
   `window.AMADOR_META_DATA` y en la relectura en vivo que expone `AmadorObjectives.meta()`). No hay una
   fuente nueva ni una lectura extra.
 - **Que mide cada campana:** compras = resultados "Compras en el sitio web"; leads = resultados "Clientes
   potenciales"; conversaciones = la columna "messages" de Meta. El costo por compra y por lead es la
   inversion de su campana entre su resultado; el costo por mensaje es la inversion total entre los mensajes.
-  En las campanas de leads la tabla de anuncios y el grafico miden conversaciones, como en el modelo.
-- **Textos:** la lectura, el analisis de cada campana y las conclusiones vienen propuestos con lo que dicen
-  los numeros. Se editan con un clic sobre la lamina (`**texto**` va en negrita) y quedan guardados por mes
-  en el navegador (`amador-report-notes-v2`); no se publican con el tablero. "Restablecer textos" vuelve a
+  Cada campana se mide con su propio resultado, tambien en el grafico y en las tarjetas de anuncios.
+- **El formato de cada pieza** sale de su nombre (video, flyer animado, estatico, carrusel), que es lo unico
+  que trae la descarga de Meta. La tarjeta reserva arriba el espacio del arte: hoy muestra el formato porque
+  Amador todavia no tiene una carpeta de artes conectada, como si la tiene Terminal Pesquero.
+- **Textos:** el destacado, el analisis de cada campana y las conclusiones vienen propuestos con lo que dicen
+  los numeros. Se editan con un clic sobre la lamina (`**texto**` va en negrita) y quedan guardados por corte
+  en el navegador (`amador-report-notes-v3`, por corte); no se publican con el tablero. "Restablecer textos" vuelve a
   los propuestos, sin dialogo de confirmacion.
 - **El modelo** es el ultimo PDF de la carpeta Reportes (el listado que ya trae Archivo de Reportes): su
   nombre y su enlace salen arriba.

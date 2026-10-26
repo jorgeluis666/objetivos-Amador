@@ -3196,6 +3196,168 @@ body.amador-table-fullscreen {
   font-weight: 700;
 }
 
+/* El titulo de la lamina lleva a la derecha el tramo que se esta leyendo ("Semanas · 1 – 25 oct"). */
+.rp-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.rp-head-tag {
+  flex: none;
+  padding-top: 6px;
+  color: var(--rp-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Los indicadores del modelo van todos en una fila, repartiendose el ancho de la lamina. */
+.rp-grid-kpis {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 13px;
+}
+
+/* La insignia del indicador: el cambio que resume la serie ("1 → 5 por semana", "-81% S2 vs S4"). */
+.rp-badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--rp-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--rp-blue);
+  font-size: 8.5px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+/* Destacado y analisis, uno al lado del otro como en el modelo. */
+.rp-duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 13px;
+}
+
+.rp-duo .rp-insight {
+  margin: 0;
+}
+
+.rp-table .rp-sub {
+  display: block;
+  color: var(--rp-muted);
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+.rp-table tr.rp-total td {
+  border-top: 1px solid var(--rp-ink);
+  font-weight: 700;
+}
+
+.rp-cause {
+  color: var(--rp-muted);
+  font-size: 10px;
+}
+
+.rp-weeks {
+  margin-top: 10px;
+}
+
+/* El cuadro de la lamina ocupa lo que sobra: sin esto queda un hueco entre la tabla y el destacado. */
+.rp-grow {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.rp-grow .rp-table-foot {
+  margin-top: auto;
+}
+
+/* Mejores anuncios: una tarjeta por anuncio con su formato arriba, como en el modelo. */
+.rp-ad-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 10px;
+  padding: 12px 18px 18px;
+}
+
+.rp-ad-card {
+  min-width: 0;
+}
+
+.rp-ad-art {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border: 1px solid var(--rp-line);
+  border-radius: 6px;
+  background: #0f172a;
+  object-fit: cover;
+}
+
+.rp-ad-art.is-empty {
+  border-style: dashed;
+  background: #f8fafc;
+  color: var(--rp-faint);
+  font-size: 10px;
+  font-weight: 700;
+  place-items: center;
+}
+
+.rp-ad-name {
+  margin-top: 7px;
+  overflow-wrap: anywhere;
+  color: var(--rp-ink);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.rp-ad-meta {
+  margin-top: 2px;
+  color: var(--rp-muted);
+  font-size: 9.5px;
+  line-height: 1.3;
+}
+
+.rp-ad-figures {
+  margin: 6px 0 0;
+}
+
+.rp-ad-figures > div {
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
+  padding: 1px 0;
+  font-size: 10px;
+}
+
+.rp-ad-figures dt {
+  color: var(--rp-muted);
+}
+
+.rp-ad-figures dd {
+  margin: 0;
+  color: var(--rp-ink);
+  font-weight: 700;
+}
+
+.rp-ad-link {
+  display: inline-block;
+  margin-top: 5px;
+  color: var(--rp-blue);
+  font-size: 9.5px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 @media print {
   @page {
     size: 1280px 720px;
