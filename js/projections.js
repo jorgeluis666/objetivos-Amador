@@ -485,6 +485,7 @@
     const snapshot = window.AmadorObjectives?.snapshot?.();
     if (!snapshot) {
       renderWaiting();
+      window.AmadorAcciones?.render();
       return;
     }
     const projection = buildProjection(snapshot);
@@ -498,6 +499,8 @@
     renderChart(projection);
     renderTable(projection);
     renderSimulator(projection);
+    // Las acciones sugeridas viven en esta misma vista y salen de las mismas cifras.
+    window.AmadorAcciones?.render();
   }
 
   function handlePosition(chart, projection, metric) {

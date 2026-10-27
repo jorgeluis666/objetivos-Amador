@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.34.0`.
+Version actual: `v1.35.0`.
 
 ## Versionado
 
@@ -96,6 +96,17 @@ a traves de `window.AmadorObjectives.snapshot()` y proyecta el cierre del mes en
 
 - El mes proyectado es el ultimo con actividad (gasto, mensajes o reservas); si ya cerro (calendario de Lima) se muestra completo y el simulador no aplica. Sin gasto cargado, la inversion no se puede simular y los costos salen "—".
 - Ritmo diario = acumulado real / dias con datos; la proyeccion mantiene ese ritmo hasta el ultimo dia del mes.
+- **Acciones sugeridas**, al pie de la vista (`js/acciones.js`): la lista de lo que toca hacer en Meta
+  Ads este mes, con casilla para marcar. El Ciclo Mensual de Analisis y Optimizacion dice en que semana
+  vamos —calibracion, desgaste del arte, formato, escalar y repetir— y las cifras reales dicen que hacer;
+  cada accion lleva el numero exacto, el porque y la ruta del Administrador de anuncios donde se toca.
+  Cada campana se compara consigo misma y con su propio resultado (reservas web, leads o conversaciones),
+  nunca contra otra campana que mide algo distinto. El formato de cada pieza sale de «05 Artes», asi que
+  la accion de mover inversion entre video e imagen solo aparece donde hay piezas conectadas. El hito de
+  la semana pone sus acciones primero, pero no se esconde ninguna. El id de cada accion es estable (tipo
+  + campana o anuncio, nunca la cifra), asi que lo marcado sigue marcado aunque los numeros cambien. El
+  estado es por mes y **vive solo en el navegador** (`amador_acciones_v1`): lo que marca una persona no lo
+  ven las demas, y la tarjeta lo dice.
 - La linea de tiempo marca el dia de la ultima actualizacion y compara contra el presupuesto (inversion) o el objetivo de reservas.
 - Cada sincronizacion con Google Sheets emite el evento `amador:data-updated` y el modulo se recalcula solo; si llega durante el arrastre del nodo, se aplica al soltar. Si los datos no cargan, `amador:data-error` muestra el motivo.
 - Simulador de objetivo: el ultimo punto de la linea de tiempo es un nodo arrastrable. Al moverlo hacia el cierre deseado
