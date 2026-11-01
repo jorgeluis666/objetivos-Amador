@@ -2993,7 +2993,8 @@ body.amador-table-fullscreen {
 }
 
 .rp-table-card .rp-card-title {
-  padding-bottom: 12px;
+  padding-top: 12px;
+  padding-bottom: 6px;
 }
 
 .rp-table {
@@ -3088,12 +3089,25 @@ body.amador-table-fullscreen {
   min-height: 0;
 }
 
+/* El grafico y la tabla de semanas comparten tarjeta: filas mas juntas y menos aire arriba para que
+   los dos quepan sin que la tarjeta desborde. */
+.rp-chart-card .rp-card-title {
+  padding-top: 12px;
+}
+
+.rp-weeks th,
+.rp-weeks td {
+  padding: 4px 16px;
+}
+
 .rp-chart {
   display: block;
   flex: 1;
   width: 100%;
-  min-height: 0;
-  padding: 6px 14px 10px;
+  /* Sin un minimo, la tabla de semanas se queda con casi toda la tarjeta y al grafico le sobran 60px:
+     el viewBox se ajusta por la altura y el dibujo sale a un tercio de su ancho. */
+  min-height: 120px;
+  padding: 2px 14px 6px;
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -3404,7 +3418,7 @@ body.amador-table-fullscreen {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
   gap: 10px;
-  padding: 12px 18px 18px;
+  padding: 10px 18px 6px;
 }
 
 .rp-ad-card {
@@ -3428,7 +3442,12 @@ body.amador-table-fullscreen {
 .rp-ad-art {
   display: grid;
   width: 100%;
-  aspect-ratio: 4 / 5;
+  /* En 4/5 las tres piezas sumaban mas alto que la lamina y la fila de cifras quedaba cortada por el
+     borde de la tarjeta. El cuadrado recorta la pieza pero deja entrar nombre, cifras y enlace.
+     El tope es imprescindible: con dos anuncios la rejilla da columnas de 250px y sin el la pieza
+     creceria hasta 250 de alto, que es justo cuando la tarjeta se desbordaba. */
+  aspect-ratio: 1 / 1;
+  max-height: 150px;
   border: 1px solid var(--rp-line);
   border-radius: 6px;
   background: #0f172a;
@@ -3468,7 +3487,6 @@ body.amador-table-fullscreen {
   display: flex;
   gap: 6px;
   justify-content: space-between;
-  padding: 1px 0;
   font-size: 10px;
 }
 

@@ -676,9 +676,12 @@
   }
 
   // Barras por semana con el valor encima, que es como el modelo muestra la evolucion.
-  function barChart(values, { title, sub, color, labels }) {
-    const top = 42;
-    const bottom = 170;
+  // El titulo y el subtitulo los escribe la tarjeta en HTML: dibujarlos tambien dentro del SVG los
+  // encimaba uno sobre otro. Y el alto del viewBox sigue al de .rp-chart: si no, "meet" ajusta por la
+  // altura, encoge el dibujo a un tercio y lo deja centrado con dos huecos a los lados.
+  function barChart(values, { title, color, labels }) {
+    const top = 10;
+    const bottom = 96;
     const left = 44;
     const right = 600;
     const max = niceMax(Math.max(...values, 0) * 1.25 || 1);
@@ -693,11 +696,9 @@
     const bars = values.map((value, index) => `
       <rect x="${x(index) - width / 2}" y="${y(value)}" width="${width}" height="${Math.max(bottom - y(value), 1)}" rx="3" fill="${color}"/>
       <text x="${x(index)}" y="${y(value) - 7}" text-anchor="middle" class="rp-point" fill="${color}">${compact(value)}</text>
-      <text x="${x(index)}" y="${bottom + 15}" text-anchor="middle" class="rp-axis">${esc(labels[index] || `S${index + 1}`)}</text>`).join('');
+      <text x="${x(index)}" y="${bottom + 13}" text-anchor="middle" class="rp-axis">${esc(labels[index] || `S${index + 1}`)}</text>`).join('');
     return `
-      <svg class="rp-chart" viewBox="0 0 620 192" preserveAspectRatio="xMidYMin meet" role="img" aria-label="${esc(title)}: ${values.map(num).join(', ')}">
-        <text x="${left}" y="14" class="rp-chart-title">${esc(title)}</text>
-        <text x="${left}" y="27" class="rp-chart-sub">${esc(sub)}</text>
+      <svg class="rp-chart" viewBox="0 0 620 115" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${esc(title)}: ${values.map(num).join(', ')}">
         ${grid}
         ${bars}
       </svg>`;
@@ -910,7 +911,7 @@
             <div class="rp-card rp-chart-card">
               <div class="rp-card-title">${esc(kind.chart)}</div>
               <div class="rp-card-sub">Lunes a domingo; la S1 empieza el primer día con datos del mes.</div>
-              ${barChart(section.chart, { title: kind.chart, sub: section.tag || section.title, color: kind.color, labels: report.weeks.spans.map(span => `${span.label} · ${span.range}`) })}
+              ${barChart(section.chart.filter((_, index) => index >= section.firstWeek), { title: kind.chart, color: kind.color, labels: report.weeks.spans.slice(section.firstWeek).map(span => `${span.label} · ${span.range}`) })}
               ${weeksTable(section)}
             </div>
             <div class="rp-card rp-table-card">
