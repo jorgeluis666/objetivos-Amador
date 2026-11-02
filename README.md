@@ -140,10 +140,24 @@ laminas 16:9 con fondo claro, tarjetas blancas de borde fino y acentos en azul.
 - **De donde salen los numeros:** de las mismas filas del barrido de Meta que usa Gasto publicitario (en
   `window.AMADOR_META_DATA` y en la relectura en vivo que expone `AmadorObjectives.meta()`). No hay una
   fuente nueva ni una lectura extra.
-- **Que mide cada campana:** compras = resultados "Compras en el sitio web"; leads = resultados "Clientes
-  potenciales"; conversaciones = la columna "messages" de Meta. El costo por compra y por lead es la
-  inversion de su campana entre su resultado; el costo por mensaje es la inversion total entre los mensajes.
-  Cada campana se mide con su propio resultado, tambien en el grafico y en las tarjetas de anuncios.
+- **Que mide cada campana, y de donde sale:** cada una tiene su fuente, y no es la misma para las tres.
+  - **Reservas web almuerzos:** las reservas son las **compras de Meta** (resultados "Compras en el sitio
+    web"). La plataforma es la fuente.
+  - **Corporativos:** sus resultados **no son reservas, son formularios completados**, y asi se nombran en
+    todo el reporte. Se cuenta la columna `results` de Meta, no la filtrada por tipo: una fila a la que Meta
+    dejo sin "Tipo de resultado" es un formulario igual, y dejarla fuera hacia que el reporte dijera 7 donde
+    la plataforma dice 8.
+  - **Mensajes IG · eventos:** las conversaciones son la columna `messages` de Meta, pero **las reservas las
+    confirma el equipo y salen de la hoja** (pestana del mes de `Distribucion-amador`, campos "Reservas",
+    "Objetivo Reservas" y "Costo por reserva"). Meta no las cuenta. Cuando la hoja las trae, ocupan el lugar
+    de CPM y CTR en la tarjeta. **Solo en el corte del mes entero:** la hoja lleva el total del mes, no el
+    del corte, y ponerlo sobre "1–11 oct" diria que ocurrieron en esos once dias. Si la hoja trae el costo en
+    cero, se calcula con la inversion de la campana.
+
+  El costo de cada campana es su inversion entre su resultado; el costo por mensaje es la inversion total
+  entre los mensajes. El resultado de un tipo en el resumen se suma de sus campanas, no del mes: "resultados"
+  del mes incluye tambien los de la campana de mensajes. Cada campana se mide con su propio resultado,
+  tambien en el grafico y en las tarjetas de anuncios.
 - **El arte de cada anuncio** sale de la carpeta «05 Artes» de la marca, que el barrido lee si existe la
   propiedad de script `ARTES_FOLDER_ID` (ver private/amador-artes.local.md en el repo de LR Suite). Dentro va
   una subcarpeta por campana y mes, y cada pieza se llama **igual que el anuncio en Meta** salvo la extension:
