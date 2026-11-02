@@ -193,7 +193,10 @@ function logros(objetivo) {
 
   // ── Avisos y nivel ─────────────────────────────────────────
   const avisos = [];
-  avisos.push({ tone: 'blue', titulo: `Semana ${Math.ceil(diaCorte / 7)} del mes`, cuerpo: `Datos al día ${diaCorte} de ${diasMes}. Al ritmo de ahora, ${mes.name} cierra en ${moneyCorto(gastoCierre)}.` });
+  // Proyectar el cierre de un mes que ya cerro no dice nada: entonces el aviso cuenta lo que paso.
+  avisos.push(completo
+    ? { tone: 'blue', titulo: `${mes.name} cerrado`, cuerpo: `Los ${diasMes} días completos: ${money(K.spend)} invertidos.` }
+    : { tone: 'blue', titulo: `Semana ${Math.ceil(diaCorte / 7)} del mes`, cuerpo: `Datos al día ${diaCorte} de ${diasMes}. Al ritmo de ahora, ${mes.name} cierra en ${moneyCorto(gastoCierre)}.` });
 
   if (!K.results && !K.messages && !K.purchases) {
     avisos.push({ tone: 'red', titulo: 'El mes no registra ningún resultado', cuerpo: `${money(K.spend)} invertidos sin reservas, leads ni conversaciones.` });
