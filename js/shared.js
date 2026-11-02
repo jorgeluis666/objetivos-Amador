@@ -40,7 +40,7 @@
 
   // Lo que se muestra: un anuncio cuenta si tuvo gasto propio, mensajes o reservas; campanas y conjuntos se filtran
   // por gasto (hasSpend). Sirve para filas y para agregados.
-  const hasActivity = item => Number(item?.spend) > 0 || Number(item?.messages) > 0 || Number(item?.reservations) > 0;
+  const hasActivity = item => Number(item?.spend) > 0 || Number(item?.messages) > 0 || Number(item?.reservations) > 0 || Number(item?.forms) > 0;
   const hasSpend = item => Number(item?.spend) > 0;
 
   // ── Fechas en hora de Lima ─────────────────────────────────────────────

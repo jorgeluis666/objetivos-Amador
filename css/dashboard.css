@@ -1774,6 +1774,20 @@ button.topbar-pill[aria-expanded="true"] .status-chevron {
   font-weight: 600;
 }
 
+/* La unidad del resultado al lado del numero: reservas o formularios, nunca los dos en la misma cifra. */
+.distribution-table .result-col small {
+  display: block;
+  margin-top: 2px;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: lowercase;
+}
+
+.distribution-table .total-row .result-col small {
+  margin-bottom: 5px;
+}
+
 .campaigns-note {
   display: none;
   margin: -5px 0 12px;

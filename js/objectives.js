@@ -23,11 +23,22 @@
   const META_DATA_URL = 'data/amador-meta.json';
   const META_ENDPOINT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
   const META_ENDPOINT = META_ENDPOINT_RE.test(String(window.AMADOR_DATA_ENDPOINT || '')) ? window.AMADOR_DATA_ENDPOINT : '';
-  // Columna "Objetivo" de Meta -> cuadro del tablero (Reservas, Mensajes, Branding). Uno que no esta aqui arma su cuadro.
+  // Columna "Objetivo" de Meta -> cuadro del tablero (Reservas, Formularios, Mensajes, Branding). Uno que no esta
+  // aqui arma su cuadro.
   const META_OBJECTIVE_GROUPS = [
-    { label: 'Reservas', match: /^(ventas|clientes potenciales|trafico|conversiones|reservas?)$/ },
+    { label: 'Reservas', match: /^(ventas|trafico|conversiones|reservas?)$/ },
+    // Lo que Meta llama "clientes potenciales" son formularios completados, no reservas: Corporativos se mide asi y
+    // sus resultados no pueden sumarse con los de la campana de web.
+    { label: 'Formularios', match: /^(clientes potenciales|formularios?)$/ },
     { label: 'Mensajes', match: /^(interaccion|mensajes?)$/ },
     { label: 'Branding', match: /^(reconocimiento|alcance|notoriedad|reproducciones de video)$/ },
+  ];
+  // Lo que de verdad cuenta la columna "Resultados" de Meta lo dice el "Tipo de resultado", no el objetivo ni el
+  // nombre: en junio la campana de web era de Trafico y sus 503 resultados eran clics en el enlace, no reservas.
+  // Sin un tipo de resultado reconocido, el resultado de Meta no se usa y las reservas siguen saliendo de la hoja.
+  const META_RESULT_KINDS = [
+    { field: 'reservas', match: /compra|reserva/ },
+    { field: 'forms', match: /cliente.*potencial|formulario|lead/ },
   ];
   // Reservas de la hoja cuya campana no aparece en Meta (nombre distinto): se suman en una sola fila del mes.
   const UNMATCHED_RESERVATIONS = 'Reservas de la hoja sin campaña en Meta';
@@ -44,6 +55,7 @@
   const CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>';
   const OBJECTIVES = [
     { key: 'reservas', label: 'Reservas', match: /reserva/, color: '#ea580c' },
+    { key: 'formularios', label: 'Formularios', match: /formulario|clientes potenciales/, color: '#0d9488' },
     { key: 'mensajes', label: 'Mensajes', match: /mensaje/, color: '#16a34a' },
     { key: 'branding', label: 'Branding', match: /reconocimiento|thruplay|branding|alcance|notoriedad/, color: '#7c3aed' },
   ];
@@ -56,7 +68,13 @@
     { key: 'costPerMessage', label: 'Costo por mensaje', format: 'money', better: 'down' },
     { key: 'reservations', label: 'Reservas', format: 'count', better: 'up' },
     { key: 'costPerReservation', label: 'Costo por reserva', format: 'money', better: 'down' },
+    { key: 'forms', label: 'Formularios', format: 'count', better: 'up' },
+    { key: 'costPerForm', label: 'Costo por formulario', format: 'money', better: 'down' },
   ];
+  // Un cuadro solo enseña el resultado que mide: el de Formularios no tiene reservas y los demas no tienen
+  // formularios. Mezclarlos en los mismos KPIs llenaria cada cuadro de huecos.
+  const OWN_RESULT_KPIS = ['reservations', 'costPerReservation', 'forms', 'costPerForm'];
+  const ownKpis = (list, item) => list.filter(kpi => !OWN_RESULT_KPIS.includes(kpi.key) || item[kpi.key] != null);
   // Historico: pestana "Todos" (todas las campanas) y filtro por estado.
   const HISTORY_ALL = 'todos';
   const HISTORY_STATUS = [
@@ -72,6 +90,8 @@
     { key: 'reservations', label: 'Reservas', unit: 'count', combineColor: '#ea580c' },
     { key: 'costPerMessage', label: 'Costo por mensaje', unit: 'money', combineColor: '#0f766e' },
     { key: 'costPerReservation', label: 'Costo por reserva', unit: 'money', combineColor: '#db2777' },
+    { key: 'forms', label: 'Formularios', unit: 'count', combineColor: '#0d9488' },
+    { key: 'costPerForm', label: 'Costo por formulario', unit: 'money', combineColor: '#be185d' },
   ];
   // URL del Web App de scripts/google-sheets-sync.gs; vacio = la edicion de objetivos queda solo local.
   // URL del Web App que escribe el Objetivo Reservas en la hoja (scripts/google-sheets-sync.gs). La incrusta el
@@ -90,6 +110,8 @@
     { key: 'costPerMessage', label: 'Costo por mensaje', hint: 'Inversión / mensajes', better: 'down', format: 'money' },
     { key: 'reservations', label: 'Reservas', hint: 'Conversiones de reserva', better: 'up', format: 'count', perMonth: true },
     { key: 'costPerReservation', label: 'Costo por reserva', hint: 'Inversión / reservas', better: 'down', format: 'money' },
+    { key: 'forms', label: 'Formularios', hint: 'Formularios completados', better: 'up', format: 'count', perMonth: true },
+    { key: 'costPerForm', label: 'Costo por formulario', hint: 'Inversión / formularios', better: 'down', format: 'money' },
   ];
   const REQUIRED_HEADERS = ['Tipo','Campaña','Anuncio','Objetivo','Reservas','Objetivo Reservas','Mensajes','Costo por mensaje','Costo por reserva','Ratio de reservas','Estado','Fecha de inicio','Fecha de fin','Duración (días)','Días restantes','Importe diario','Presupuesto total x campaña','Gasto x Campaña','Saldo por campaña','Proyección real de gasto mesual'];
   const OPTIONAL_HEADERS = ['Nuevo ppto diario','Observaciones','Vista previa','Conjunto de anuncios'];
@@ -100,9 +122,11 @@
     investment: { label: 'Inversión', unit: 'money', color: '#2563eb', fill: 'rgba(37,99,235,.11)' },
     messages: { label: 'Mensajes', unit: 'count', color: '#16a34a', fill: 'rgba(22,163,74,.10)' },
     reservations: { label: 'Reservas', unit: 'count', color: '#ea580c', fill: 'rgba(234,88,12,.10)' },
+    forms: { label: 'Formularios', unit: 'count', color: '#0d9488', fill: 'rgba(13,148,136,.10)' },
     // Costos del mes: gasto / resultados con la misma regla que los KPIs; sin resultados, hueco.
     costPerMessage: { label: 'Costo por mensaje', unit: 'money', color: '#0f766e', fill: 'rgba(15,118,110,.10)' },
     costPerReservation: { label: 'Costo por reserva', unit: 'money', color: '#db2777', fill: 'rgba(219,39,119,.10)' },
+    costPerForm: { label: 'Costo por formulario', unit: 'money', color: '#be185d', fill: 'rgba(190,24,93,.10)' },
   };
   const CHART_SERIES_KEY = 'amador-chart-series-v1';
   // Grafico de la cuenta con varios indicadores en un solo cuadro (en vez de paneles apilados).
@@ -286,6 +310,8 @@
   function valueFor(month, type) {
     if (!month) return null;
     if (type === 'investment') return month.spend;
+    // Los formularios solo los cuenta Meta: un mes que salga entero de la hoja no los tiene y queda en hueco.
+    if (type === 'forms') return month.forms ?? null;
     if (Number.isFinite(Number(month[type]))) return Number(month[type]);
     const field = type === 'reservations' ? 'reservas' : 'messages';
     const ads = (month.campaigns || []).flatMap(campaign => campaign.ads || []);
@@ -454,12 +480,21 @@
       const key = campaignMatchKey(name);
       const fromSheet = sheetCampaigns.get(key);
       if (fromSheet) matched.add(key);
-      // El cuadro de la campana es el Objetivo de la hoja ("corporativos" va en Mensajes aunque en Meta sea Clientes
-      // potenciales). Sin campana en la hoja, el objetivo de Meta con mas gasto (en Meta es uno por campana).
+      // El cuadro de la campana es el Objetivo de Meta, que es el unico que sabe que mide cada una: Corporativos
+      // optimiza "clientes potenciales" y lo que trae son formularios completados, aunque la hoja lo anote como
+      // Mensajes y escriba sus resultados en la columna Reservas. La hoja solo decide si Meta no trae objetivo.
       const sheetObjective = String(fromSheet?.objective || fromSheet?.ads?.find(ad => ad.objective)?.objective || '').split('/')[0].trim();
       const spendByObjective = new Map();
-      items.forEach(row => spendByObjective.set(row.objective, (spendByObjective.get(row.objective) || 0) + row.spend + 1e-9));
-      const objective = metaGroup(sheetObjective || [...spendByObjective.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]);
+      items.forEach(row => { if (row.objective) spendByObjective.set(row.objective, (spendByObjective.get(row.objective) || 0) + row.spend + 1e-9); });
+      const metaObjective = [...spendByObjective.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+      // El tipo de resultado con mas resultados: el que define que mide la campana.
+      const resultTypes = new Map();
+      items.forEach(row => { if (row.resultType) resultTypes.set(row.resultType, (resultTypes.get(row.resultType) || 0) + row.results + 1e-9); });
+      const resultType = [...resultTypes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+      const resultKind = META_RESULT_KINDS.find(kind => kind.match.test(normalizeHeader(resultType)))?.field || null;
+      const objective = resultKind === 'reservas' ? 'Reservas'
+        : resultKind === 'forms' ? 'Formularios'
+        : metaGroup(metaObjective || sheetObjective);
       const days = items.filter(active).map(row => row.day).sort();
       const status = recent(days[days.length - 1]) ? 'Activa' : 'Finalizada';
       const byAd = new Map();
@@ -508,6 +543,12 @@
       const planEnd = sheetAds.filter(ad => dateOrderValue(ad.endDate, key0) != null).sort((a, b) => dateOrderValue(b.endDate, key0) - dateOrderValue(a.endDate, key0))[0];
       const spent = round2(sumOf(items, 'spend'));
       const budget = fromSheet?.budget ?? null;
+      // Cada campana se mide con lo suyo y no se suma con las demas: la de web trae reservas, Corporativos
+      // formularios y las de mensajes, conversaciones. Meta cuenta las dos primeras en su columna "Resultados".
+      // Una campana de mensajes tambien deja reservas -los eventos se cierran por chat- pero esas solo existen en la
+      // hoja de seguimiento, porque Meta no ve lo que pasa despues del chat.
+      const results = sumOf(items, 'results');
+      const sheetReservas = sheet ? Number(fromSheet?.reservas || 0) : null;
       return {
         name,
         type: fromSheet?.type || null,
@@ -518,8 +559,10 @@
         balance: budget != null ? round2(budget - spent) : null,
         realBalance: null,
         reservationGoal: fromSheet?.reservationGoal ?? (sheetGoals.length ? sheetGoals.reduce((total, value) => total + Number(value), 0) : null),
-        // Sin pestana del mes en la hoja no hay reservas que mostrar ("-"); con pestana, las de su campana (0 si no esta).
-        reservas: sheet ? Number(fromSheet?.reservas || 0) : null,
+        // Las de Meta cuando ella misma las cuenta; las de la hoja cuando la campana se mide en conversaciones.
+        // Corporativos no trae reservas: lo suyo son formularios y poner un 0 aqui lo leeria como una caida.
+        reservas: resultKind === 'reservas' ? results : resultKind === 'forms' ? null : sheetReservas,
+        forms: resultKind === 'forms' ? results : null,
         messages: sumOf(items, 'messages'),
         observation: fromSheet?.observation || null,
         sheetName: fromSheet?.name || null,
@@ -539,6 +582,7 @@
         objective: 'Reservas',
         budget: null, spent: 0, balance: null, realBalance: null, reservationGoal: null,
         reservas: unmatched.reduce((total, campaign) => total + Number(campaign.reservas || 0), 0),
+        forms: null,
         messages: null,
         observation: `En la hoja: ${unmatched.map(campaign => campaign.name).join(', ')}`,
         sheetName: null,
@@ -553,8 +597,12 @@
       year: meta.year,
       spend,
       messages: sumOf(rows, 'messages'),
-      // Las reservas son las de la hoja (todas sus campanas); sin pestana del mes, null.
-      reservations: sheet ? campaigns.reduce((total, campaign) => total + Number(campaign.reservas || 0), 0) : null,
+      // Reservas y formularios se cuentan aparte: son resultados distintos y sumarlos daria un numero que no
+      // corresponde a nada. Si ninguna campana registra el indicador, el mes lo deja en hueco.
+      reservations: campaigns.some(campaign => campaign.reservas != null)
+        ? campaigns.reduce((total, campaign) => total + Number(campaign.reservas || 0), 0) : null,
+      forms: campaigns.some(campaign => campaign.forms != null)
+        ? campaigns.reduce((total, campaign) => total + Number(campaign.forms || 0), 0) : null,
       impressions: sumOf(rows, 'impressions'),
       reach: sumOf(rows, 'reach'),
       clicks: sumOf(rows, 'clicks'),
@@ -566,6 +614,13 @@
       newDailyTotal: null,
       totalObservation: sheet?.totalObservation || '',
       spendBreakdown: { sales: round2(spend - brandingSpend), branding: brandingSpend },
+      // Gasto que hay detras de cada resultado: solo el de las campanas que lo registran. Sin esto el costo por
+      // reserva del mes dividiria los S/. 4,181 de las tres campanas entre las reservas de una sola.
+      spendBy: {
+        messages: round2(campaigns.filter(campaign => campaign.messages != null).reduce((total, campaign) => total + campaign.spent, 0)),
+        reservations: round2(campaigns.filter(campaign => campaign.reservas != null).reduce((total, campaign) => total + campaign.spent, 0)),
+        forms: round2(campaigns.filter(campaign => campaign.forms != null).reduce((total, campaign) => total + campaign.spent, 0)),
+      },
       campaigns,
       headers: [],
       // Ultimo dia con gasto o impresiones: el corte del mes en curso.
@@ -976,16 +1031,21 @@
     // contarlos bajaria el costo del acumulado. Sin gasto no hay costo ("-").
     const priced = months.filter(month => Number(month.spend) > 0);
     const pricedWith = type => priced.filter(month => valueFor(month, type) != null);
+    // Un mes del barrido sabe cuanto gasto hay detras de cada resultado; uno que sale entero de la hoja no, y
+    // entonces el costo se calcula con el gasto del mes, como antes.
+    const spendFor = (month, type) => Number(month.spendBy?.[type] ?? month.spend);
     const cost = type => ratio(
-      pricedWith(type).reduce((total, month) => total + Number(month.spend), 0),
+      pricedWith(type).reduce((total, month) => total + spendFor(month, type), 0),
       pricedWith(type).reduce((total, month) => total + Number(valueFor(month, type)), 0),
     );
     return {
       spend: months.reduce((total, month) => total + Number(month.spend || 0), 0),
       messages: sum('messages'),
       reservations: sum('reservations'),
+      forms: sum('forms'),
       costPerMessage: cost('messages'),
       costPerReservation: cost('reservations'),
+      costPerForm: cost('forms'),
     };
   }
   // Periodo elegido: un mes (contra el mes anterior completo) o el acumulado del año.
@@ -1093,10 +1153,10 @@
     const current = summarize(period.months);
     const previous = period.compare ? summarize(period.compare.months) : null;
     const average = period.annual ? monthlyAverage(period) : null;
-    host.innerHTML = KPIS.map(kpi => {
+    host.innerHTML = ownKpis(KPIS, current).map(kpi => {
       let note = `<small>${kpi.hint}</small>`;
       // Con el gasto del mes en curso sin cargar, "▼ 100%" o "Sin dato en Septiembre" se leerian mal.
-      if (['spend', 'costPerMessage', 'costPerReservation'].includes(kpi.key) && spendPending(period)) note = '<small>Gasto sin cargar en la hoja</small>';
+      if (['spend', 'costPerMessage', 'costPerReservation', 'costPerForm'].includes(kpi.key) && spendPending(period)) note = '<small>Gasto sin cargar en la hoja</small>';
       else if (previous) note = deltaHtml(current[kpi.key], previous[kpi.key], kpi.better, period.compare.label);
       else if (average?.[kpi.key]) note = `<small title="${esc(average[kpi.key].basis)}">Prom. mensual: ${fmt[kpi.format](average[kpi.key].value)}</small>`;
       return `<div class="kpi-pill"><span>${kpi.label}</span><strong>${fmt[kpi.format](current[kpi.key])}</strong>${note}</div>`;
@@ -1188,6 +1248,7 @@
         spend: Number(campaign.spent) || 0,
         messages: campaign.messages ?? null,
         reservations: campaign.reservas ?? null,
+        forms: campaign.forms ?? null,
         budget: campaign.budget ?? null,
         balance: campaign.balance ?? null,
         // Desde julio el objetivo de reservas viene en la campana; en junio, por anuncio.
@@ -1250,12 +1311,12 @@
   // Base del costo: solo lo que tiene gasto cargado (al empezar el mes la hoja trae mensajes con el gasto en 0 y
   // contarlos bajaria el costo). Las filas anuales traen su propia base, sumada mes a mes.
   const costBase = item => item.costBase || (item.spend > 0
-    ? { spend: item.spend, messages: item.messages ?? null, reservations: item.reservations ?? null }
-    : { spend: 0, messages: null, reservations: null });
-  const addBase = (a, b) => ({ spend: a.spend + b.spend, messages: addNullable(a.messages, b.messages), reservations: addNullable(a.reservations, b.reservations) });
+    ? { spend: item.spend, messages: item.messages ?? null, reservations: item.reservations ?? null, forms: item.forms ?? null }
+    : { spend: 0, messages: null, reservations: null, forms: null });
+  const addBase = (a, b) => ({ spend: a.spend + b.spend, messages: addNullable(a.messages, b.messages), reservations: addNullable(a.reservations, b.reservations), forms: addNullable(a.forms, b.forms) });
   const costs = item => {
     const base = costBase(item);
-    return { costPerMessage: ratio(base.spend, base.messages), costPerReservation: ratio(base.spend, base.reservations) };
+    return { costPerMessage: ratio(base.spend, base.messages), costPerReservation: ratio(base.spend, base.reservations), costPerForm: ratio(base.spend, base.forms) };
   };
   // Totales de varias campanas: los costos usan solo el gasto de las campanas que registran ese resultado.
   function totalsOf(entries) {
@@ -1268,8 +1329,10 @@
       spend: entries.reduce((sum, entry) => sum + entry.spend, 0),
       messages: entries.reduce((sum, entry) => addNullable(sum, entry.messages), null),
       reservations: entries.reduce((sum, entry) => addNullable(sum, entry.reservations), null),
+      forms: entries.reduce((sum, entry) => addNullable(sum, entry.forms), null),
       costPerMessage: cost('messages'),
       costPerReservation: cost('reservations'),
+      costPerForm: cost('forms'),
     };
   }
   // Objetivos del periodo con actividad, de mayor a menor gasto. Los nombres de campana salen solo de las que la tuvieron.
@@ -1315,6 +1378,7 @@
         row.spend += entry.spend;
         row.messages = addNullable(row.messages, entry.messages);
         row.reservations = addNullable(row.reservations, entry.reservations);
+        row.forms = addNullable(row.forms, entry.forms);
         row.goal = addNullable(row.goal, entry.goal);
         row.months.push(...entry.months);
       });
@@ -1403,6 +1467,25 @@
   const periodName = period => (period.annual ? `${period.label} ${period.year}` : `${period.label}`);
 
   // ── Distribucion de la inversion por campana ─────────────────────────────
+  // El resultado propio de una campana, con su unidad al lado: Corporativos trae formularios y las demas reservas.
+  // Van en la misma columna pero nunca en el mismo numero, porque un formulario no es una reserva.
+  const resultOf = row => (row.forms != null
+    ? { value: row.forms, unit: row.forms === 1 ? 'formulario' : 'formularios', cost: row.costPerForm, goal: false }
+    : { value: row.reservations, unit: row.reservations === 1 ? 'reserva' : 'reservas', cost: row.costPerReservation, goal: true });
+  const resultCell = row => {
+    const result = resultOf(row);
+    return `${fmt.count(result.value)}${result.value == null ? '' : `<small>${result.unit}</small>`}`;
+  };
+  // El total no suma reservas con formularios: cada resultado lleva su propia linea.
+  const resultLines = parts => parts.filter(Boolean).map(([value, unit]) => `${value}<small>${unit}</small>`).join('') || '—';
+  const resultTotal = sums => resultLines([
+    sums.reservations != null && [fmt.count(sums.reservations), 'reservas'],
+    sums.forms != null && [fmt.count(sums.forms), 'formularios'],
+  ]);
+  const costTotal = sums => resultLines([
+    sums.costPerReservation != null && [fmt.money(sums.costPerReservation), 'reservas'],
+    sums.costPerForm != null && [fmt.money(sums.costPerForm), 'formularios'],
+  ]);
   function goalInput(row) {
     return `<input class="reservation-goal-input" type="number" min="0" step="1" value="${esc(row.goal ?? '')}" data-month="${esc(row.monthKey)}" data-campaign="${esc(row.name)}" aria-label="Objetivo Reservas ${esc(row.name)}">`;
   }
@@ -1441,9 +1524,9 @@
         <td>${esc(row.type || '—')}</td>
         <td class="num">${fmt.count(row.messages)}</td>
         <td class="num">${fmt.money(row.costPerMessage)}</td>
-        <td class="num">${fmt.count(row.reservations)}</td>
-        <td class="goal-col">${period.annual ? `<span class="goal-sum">${fmt.count(row.goal)}</span>` : goalInput(row)}${renderTrend(row.reservations, row.goal)}</td>
-        <td class="num">${fmt.money(row.costPerReservation)}</td>
+        <td class="num result-col">${resultCell(row)}</td>
+        <td class="goal-col">${!resultOf(row).goal ? '<span class="no-data">—</span>' : period.annual ? `<span class="goal-sum">${fmt.count(row.goal)}</span>` : goalInput(row)}${resultOf(row).goal ? renderTrend(row.reservations, row.goal) : ''}</td>
+        <td class="num">${fmt.money(resultOf(row).cost)}</td>
         <td class="num"><b>${fmt.money(row.spend)}</b></td>
         <td class="share-col"><div class="share-bar" style="--campaign-color:${row.color}"><span style="width:${Math.min(100, row.share || 0).toFixed(1)}%"></span></div><b class="share-value">${fmt.pct(row.share)}</b></td>
         <td class="num">${period.annual ? '—' : fmt.money(row.budget)}</td>
@@ -1470,9 +1553,9 @@
         <td></td><td></td>
         <td class="num">${fmt.count(sums.messages)}</td>
         <td class="num">${fmt.money(sums.costPerMessage)}</td>
-        <td class="num">${fmt.count(sums.reservations)}</td>
+        <td class="num result-col">${resultTotal(sums)}</td>
         <td class="goal-col">${goal != null ? `<span class="goal-sum">${fmt.count(goal)}</span>` : ''}${renderTrend(sums.reservations, goal)}</td>
-        <td class="num">${fmt.money(sums.costPerReservation)}</td>
+        <td class="num result-col">${costTotal(sums)}</td>
         <td class="num">${fmt.money(month ? month.spend : sums.spend)}</td>
         <td><b class="share-value">${(month ? Number(month.spend) : sums.spend) > 0 ? '100%' : '—'}</b></td>
         <td class="num">${month ? fmt.money(month.budgetTotal) : '—'}</td>
@@ -1698,9 +1781,11 @@
   // cuadro primero). El orden sigue la lista, no los clics. En paneles van con el color del objetivo; en un solo
   // cuadro, cada uno con el suyo.
   function blockMetricList(objective, combined) {
-    const result = objective.key === 'reservas' ? 'reservations' : 'messages';
-    const costs = result === 'reservations' ? ['costPerReservation', 'costPerMessage'] : ['costPerMessage', 'costPerReservation'];
-    return [result, 'spend', result === 'messages' ? 'reservations' : 'messages', ...costs]
+    // El indicador propio del cuadro va primero; el de otro resultado solo si ese cuadro lo registra.
+    const result = objective.key === 'reservas' ? 'reservations' : objective.key === 'formularios' ? 'forms' : 'messages';
+    const cost = { reservations: 'costPerReservation', forms: 'costPerForm', messages: 'costPerMessage' };
+    const rest = ['messages', 'reservations', 'forms'].filter(key => key !== result && objective[key] != null);
+    return [result, 'spend', ...rest, cost[result], ...rest.map(key => cost[key])]
       .map(key => BLOCK_METRICS.find(metric => metric.key === key))
       .map(metric => ({ ...metric, color: combined ? metric.combineColor : objective.color }));
   }
@@ -1712,7 +1797,7 @@
     const entries = campaignEntries(month).filter(entry => entry.group === key);
     if (!entries.some(hasActivity)) return null;
     if (metric === 'spend') return entries.reduce((sum, entry) => sum + entry.spend, 0);
-    if (metric === 'costPerMessage' || metric === 'costPerReservation') return totalsOf(entries)[metric];
+    if (metric === 'costPerMessage' || metric === 'costPerReservation' || metric === 'costPerForm') return totalsOf(entries)[metric];
     return entries.reduce((sum, entry) => addNullable(sum, entry[metric]), null);
   }
 
@@ -1795,15 +1880,15 @@
     if (period.annual) comparison = `. ${objectiveMonths(period, model.entries, objective.key)}`;
     else if (period.compare && !period.compare.detail) comparison = `. ${period.compare.month.name} no trae detalle de campañas`;
     else if (period.compare) comparison = before ? ` vs ${period.compare.label}` : `. Nueva: no corría en ${period.compare.month.name}`;
-    const kpis = BLOCK_KPIS.map(kpi => `
+    const kpis = ownKpis(BLOCK_KPIS, objective).map(kpi => `
       <div><dt>${kpi.label}</dt><dd>${fmt[kpi.format](objective[kpi.key])}${before && !(kpi.key === 'spend' && spendPending(period)) ? deltaHtml(objective[kpi.key], before[kpi.key], kpi.better) : ''}</dd></div>`).join('');
     // Con varias campanas en el cuadro, el monto de cada una (la inversion de arriba es su suma).
     const beforeByName = new Map((before?.byCampaign || []).map(item => [item.name, item]));
     const split = objective.byCampaign.length > 1 ? `
         <div class="campaign-split" role="table" aria-label="Inversión por campaña de ${esc(objective.label)}">
-          <div class="campaign-split-row campaign-split-head" role="row"><span role="columnheader">Campaña</span><span role="columnheader" class="num">Inversión</span><span role="columnheader" class="num">% del cuadro</span><span role="columnheader" class="num">Mensajes</span><span role="columnheader" class="num">Reservas</span></div>
+          <div class="campaign-split-row campaign-split-head" role="row"><span role="columnheader">Campaña</span><span role="columnheader" class="num">Inversión</span><span role="columnheader" class="num">% del cuadro</span><span role="columnheader" class="num">Mensajes</span><span role="columnheader" class="num">${objective.forms != null ? 'Formularios' : 'Reservas'}</span></div>
           ${objective.byCampaign.map(item => `
-          <div class="campaign-split-row" role="row"><span role="cell" class="campaign-split-name">${esc(item.name)}</span><span role="cell" class="num"><b>${fmt.money(item.spend)}</b>${beforeByName.has(item.name) && !spendPending(period) ? deltaHtml(item.spend, beforeByName.get(item.name).spend, null) : ''}</span><span role="cell" class="num">${item.share == null ? '—' : fmt.pct(item.share)}</span><span role="cell" class="num">${fmt.count(item.messages)}</span><span role="cell" class="num">${fmt.count(item.reservations)}</span></div>`).join('')}
+          <div class="campaign-split-row" role="row"><span role="cell" class="campaign-split-name">${esc(item.name)}</span><span role="cell" class="num"><b>${fmt.money(item.spend)}</b>${beforeByName.has(item.name) && !spendPending(period) ? deltaHtml(item.spend, beforeByName.get(item.name).spend, null) : ''}</span><span role="cell" class="num">${item.share == null ? '—' : fmt.pct(item.share)}</span><span role="cell" class="num">${fmt.count(item.messages)}</span><span role="cell" class="num">${fmt.count(objective.forms != null ? item.forms : item.reservations)}</span></div>`).join('')}
         </div>` : '';
     return `
       <section class="campaign-block${settings.collapsed ? ' is-collapsed' : ''}" id="campaign-${key}" data-objective="${key}" style="--campaign-color:${objective.color}">
@@ -2523,7 +2608,7 @@
   }
   // Valor de la cuenta en un mes. Los costos son los del resumen ejecutivo (summarize); sin resultados, hueco.
   function accountMonthValue(month, key) {
-    if (key === 'costPerMessage' || key === 'costPerReservation') return hasData(month) ? summarize([month])[key] : null;
+    if (key === 'costPerMessage' || key === 'costPerReservation' || key === 'costPerForm') return hasData(month) ? summarize([month])[key] : null;
     return valueFor(month, key);
   }
   // Cambiar de mes solo repinta lo que depende del mes: pestanas, periodo, KPIs y campanas.

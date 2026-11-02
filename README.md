@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.35.0`.
+Version actual: `v1.36.0`.
 
 ## Versionado
 
@@ -17,7 +17,7 @@ Convenciones de pantalla (desde la v1.30.1, alineadas con Royal Baby): soles com
 ## Modulo activo
 
 - Gasto mensual total, con pestanas por mes y una pestana Anual (acumulado de los meses con datos).
-- Periodo y resumen ejecutivo en una tarjeta: inversion, mensajes, costo por mensaje, reservas y costo por reserva, con su variacion contra el mes anterior completo (en la vista anual, el promedio mensual de los meses cerrados).
+- Periodo y resumen ejecutivo en una tarjeta: inversion, mensajes, costo por mensaje, reservas, costo por reserva y, si el mes las tuvo, formularios y costo por formulario, con su variacion contra el mes anterior completo (en la vista anual, el promedio mensual de los meses cerrados).
 - Campanas en un solo marco: distribucion de la inversion por campana y, debajo, un cuadro por objetivo con sus KPIs contra el mes anterior, sus conjuntos y sus anuncios (ver "Gasto publicitario: campanas").
 - Anuncios: modulo propio con el Top 3 por reservas web y la tabla de todos los anuncios, cada uno con su pieza de «05 Artes» (ver "Anuncios").
 - Proyecciones: cierre de mes estimado con los datos reales y simulador de objetivo.
@@ -62,9 +62,15 @@ El spreadsheet esta compartido como "cualquier persona con el enlace / lector", 
 
 - **Solo lo que tuvo actividad**: meses, campanas y conjuntos con gasto, mensajes o reservas; anuncios con gasto propio, mensajes o reservas (sin heredar el gasto del conjunto). Lo demas no se muestra ni se menciona. Al empezar el mes la hoja puede traer mensajes con el gasto en 0: el mes ya aparece, los costos salen "—" y la inversion dice "Gasto sin cargar en la hoja" en lugar de una variacion.
 - Hasta que se elige una pestana, la vista sigue al ultimo mes con datos: un mes nuevo que llega con la lectura en vivo se muestra solo.
-- **Objetivo (cuadro)**: el de la campana en la hoja (Reservas, Mensajes, Clics, Thruplays...). Junio lo trae por anuncio y en texto libre: cuenta la primera palabra ("Reservas/Mensajes" = Reservas) y, si los anuncios de una campana difieren, el de mayor gasto. Reservas va en naranja, Mensajes en verde y Branding (Reconocimiento, Thruplays) en violeta; otro objetivo toma un color fijo.
+- **Objetivo (cuadro)**: en un mes del barrido lo decide Meta, no la hoja, y antes que el objetivo manda el **"Tipo de resultado"**: "Compras en el sitio web" = Reservas, "Clientes potenciales en el sitio web" = Formularios. La hoja anota Corporativos como "Mensajes" y escribe sus resultados en la columna Reservas, y Meta llama a esos resultados "clientes potenciales": no son ni una cosa ni la otra, son **formularios completados** y tienen su propio cuadro. Un mes que sale entero de la hoja sigue tomando el objetivo de la hoja (texto libre: cuenta la primera palabra, "Reservas/Mensajes" = Reservas, y si los anuncios difieren, el de mayor gasto). Reservas va en naranja, Formularios en verde azulado, Mensajes en verde y Branding (Reconocimiento, Thruplays) en violeta; otro objetivo toma un color fijo.
+- **De donde sale el resultado de cada campana**: lo que Meta cuenta en su columna "Resultados" cambia de campana en campana, asi que no se suman entre si y cada una toma el suyo de donde corresponde.
+  - **Reservas** (tipo de resultado "Compras..."): las cuenta Meta. La hoja de seguimiento no se usa para esa campana, porque suele ir atrasada.
+  - **Formularios** (tipo de resultado "Clientes potenciales..."): los cuenta Meta. Esa campana **no trae reservas**: su celda queda en "—", no en 0, que se leeria como una caida.
+  - **Mensajes y el resto**: Meta solo ve las conversaciones. Las reservas que deja una campana de mensajes (los eventos se cierran por chat) las confirma el equipo y salen de la columna Reservas de la pestana del mes en «Distribucion-amador».
+  - **Sin un tipo de resultado reconocido**, el resultado de Meta no se usa: en junio la campana de web era de Trafico y sus 503 "resultados" eran clics en el enlace, no reservas.
+- **Costo por resultado**: solo con el gasto de las campanas que registran ese resultado. El costo por reserva del mes no divide la inversion entera entre las reservas de una sola campana.
 - **Granularidad de la hoja**: desde julio el gasto viene por conjunto (en su primera fila) y las reservas, el objetivo y las fechas por campana; mensajes y estado por anuncio. Junio trae gasto y reservas por anuncio y no tiene conjuntos; marzo a mayo solo campanas; enero y febrero solo el gasto total. Por eso los conjuntos muestran gasto y mensajes, y desde julio los anuncios muestran "Por conjunto" / "Por campana" en gasto y reservas.
-- **Distribucion**: una fila por campana con mensajes, reservas, **Objetivo Reservas** editable, costos, gasto, % de la inversion, presupuesto, saldo, fin y dias restantes y nuevo presupuesto diario, mas la fila "Total actualizado". En la vista anual las campanas se juntan por nombre exacto y el objetivo es la suma de los meses.
+- **Distribucion**: una fila por campana con mensajes, su **Resultado** propio (reservas o formularios, con la unidad bajo el numero), **Objetivo Reservas** editable, costos, gasto, % de la inversion, presupuesto, saldo, fin y dias restantes y nuevo presupuesto diario, mas la fila "Total actualizado". En la vista anual las campanas se juntan por nombre exacto y el objetivo es la suma de los meses.
 - **Comparacion**: contra el mes anterior completo. Conjuntos y anuncios se comparan por nombre dentro del objetivo; uno que no corria sale como "Nuevo". Sin detalle en el mes anterior (enero, febrero o junio para los conjuntos) no hay comparacion.
 - **Objetivo Reservas**: lo editado se guarda en este navegador por mes y campana (`localStorage`, clave `amador-reservation-goals-v2`, "2026-09::Campana"); los valores de la version anterior (`-v1`, sin mes) pasan a cada mes en que aparece la campana. Proyecciones lo usa como referencia.
 - **Filas propias**: "Agregar campana" (distribucion) guarda filas de nota en este navegador (`amador-custom-rows-v1`, por mes "2026-09"; las guardadas antes por nombre de mes pasan a 2026), sin cifras de la hoja. Los anuncios agregados a mano dejaron de mostrarse en la v1.23.0 (siguen guardados en esa clave).
