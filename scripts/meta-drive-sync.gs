@@ -1,24 +1,24 @@
 // Web App del modulo Gasto publicitario de Amador. Proyecto independiente de script.google.com (no vinculado a una
-// hoja), publicado por la cuenta que tiene acceso a la carpeta de descargas de Meta.
+// hoja), publicado por la cuenta que tiene acceso a la carpeta de descargas de Meta. En Drive se llama
+// «Amador - Barrido Meta».
 // Al cambiar este archivo: pegarlo en el proyecto y Implementar > Administrar implementaciones > editar > Nueva version.
 //
 // Carpeta de datos: un Google Sheet por mes con la descarga de Meta Ads ("Raw Data Report": una fila por
 // dia x edad x sexo x anuncio), nombrado "Amador - Octubre 2026". Su ID NO va en este archivo (el repo es publico):
 // se carga en Configuracion del proyecto > Propiedades del script como DATA_FOLDER_ID.
-// GET ?action=data -> ultimo barrido (o uno nuevo si la carpeta cambio) | ?action=data&fresh=1 -> barrido en el
-// momento (boton Actualizar). Disparador: cada hora (installSweepTriggers).
+// GET ?action=data -> ultimo barrido (o uno nuevo si cambio alguna carpeta) | ?action=data&fresh=1 -> barrido en el
+// momento (boton Actualizar). Disparadores: tres al dia (installSweepTriggers).
 const DATA_FOLDER_PROPERTY = 'DATA_FOLDER_ID';
 // Carpeta «05 Artes» de la marca, opcional: sin ella el barrido va igual, solo sin piezas.
 const ARTES_FOLDER_PROPERTY = 'ARTES_FOLDER_ID';
 const TIMEZONE = 'America/Lima';
-const SWEEP_HOUR = 10;
+const SWEEP_HOURS = [6, 13, 18];
 const SWEEP_HANDLER = 'sweepScheduled';
 const SNAPSHOT_PROPERTY = 'SNAPSHOT_FILE_ID';
 const SNAPSHOT_NAME = 'Amador - barrido del tablero.json';
-// Subirla al cambiar aggregateRaw_, monthRows_, toDay_, toNumber_, RAW_COLUMNS, NEXUS_COLUMNS,
-// OUTPUT_COLUMNS o TIMEZONE: los meses guardados con otra version se vuelven a leer aunque su archivo no
-// haya cambiado.
-const SWEEP_VERSION = 2;
+// Subirla al cambiar aggregateRaw_, nexusMonth_, toDay_, toNumber_, RAW_COLUMNS, OUTPUT_COLUMNS o TIMEZONE: los
+// meses guardados con otra version se vuelven a leer aunque su archivo no haya cambiado.
+const SWEEP_VERSION = 3;
 const MANUAL_THROTTLE_MS = 60 * 1000;
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const MONTH_PATTERNS = [
@@ -44,26 +44,6 @@ const RAW_COLUMNS = {
   preview: ['enlace de vista previa'],
 };
 const REQUIRED_RAW = ['day', 'ad', 'spend', 'impressions', 'reach', 'results', 'campaign'];
-// Pestana que escribe Nexus en la misma hoja del mes. Su cabecera va en ingles y en la fila 2; la fila 1
-// identifica el contrato. Se traduce a las palabras de la exportacion para no duplicar el agregador.
-const NEXUS_MARK = 'nexus_meta_v1';
-const NEXUS_COLUMNS = {
-  day: 'day', ad: 'name', campaign: 'campaign', adSet: 'adset', spend: 'spend', impressions: 'impressions',
-  reach: 'reach', clicks: 'inline_link_clicks', objective: 'objective', resultType: 'result_type',
-  results: 'results', messages: 'messages', purchases: 'purchases',
-};
-const NEXUS_RESULTS = [
-  ['thruplay', 'ThruPlay'], ['messaging_conversation', 'Conversaciones con mensajes iniciadas'],
-  ['profile_visit', 'Visitas al perfil de Instagram'], ['purchase', 'Compras en el sitio web'],
-];
-// De mas especifico a menos: se compara por contenido, asi que el orden decide los empates.
-const NEXUS_OBJECTIVES = [
-  ['outcome_sales', 'Ventas'], ['outcome_awareness', 'Reconocimiento'], ['brand_awareness', 'Reconocimiento'],
-  ['outcome_traffic', 'Trafico'], ['link_clicks', 'Trafico'], ['outcome_engagement', 'Interaccion'],
-  ['post_engagement', 'Interaccion'], ['outcome_leads', 'Clientes potenciales'],
-  ['lead_generation', 'Clientes potenciales'], ['messages', 'Mensajes'], ['conversions', 'Conversiones'],
-  ['video_views', 'Reproducciones de video'], ['reach', 'Alcance'],
-];
 const SUM_FIELDS = ['spend', 'impressions', 'reach', 'clicks', 'results', 'messages', 'purchases'];
 // Filas que devuelve el Web App: una por dia x campana x conjunto x anuncio (se suman edad y sexo).
 const OUTPUT_COLUMNS = ['day', 'campaign', 'adSet', 'ad', 'objective', 'resultType'].concat(SUM_FIELDS, ['preview']);
@@ -74,8 +54,8 @@ function doGet(event) {
     if (params.action !== 'data') throw new Error('Accion no soportada.');
     let snapshot = params.fresh === '1' ? sweep_('manual') : readSnapshot_();
     if (!snapshot) snapshot = sweep_('inicial');
-    // Una descarga subida despues del ultimo barrido (Meta se sube a media manana, despues del de las 10:00) se lee
-    // al abrir el tablero, sin esperar al disparador ni al boton Actualizar.
+    // Una descarga subida despues del ultimo barrido (Meta se sube a media manana) o una pieza recien subida a
+    // «05 Artes» se leen al abrir el tablero, sin esperar al disparador ni al boton Actualizar.
     else if (params.fresh !== '1' && changedSafely_(snapshot)) snapshot = sweep_('archivo nuevo');
     return json_(Object.assign({ ok: true }, snapshot));
   } catch (error) {
@@ -84,13 +64,12 @@ function doGet(event) {
   }
 }
 
-// Disparador de cada hora: solo barre si cambio alguna de las dos carpetas desde el ultimo barrido; el de las
-// 10:00 barre siempre (relee el mes anterior, que Meta completa los primeros dias, aunque Drive no cambie su
-// fecha de edicion).
+// Disparadores de las 6:30, 13:30 y 18:30: barren siempre (el mes anterior se completa los primeros dias y Drive
+// tarda en actualizar la fecha de edicion de un Sheet). Fuera de esas horas solo se barre si algo cambio.
 function sweepScheduled() {
   const hour = Number(Utilities.formatDate(new Date(), TIMEZONE, 'H'));
   const previous = readSnapshot_();
-  if (hour === SWEEP_HOUR || !previous || folderChangedSince_(previous) || artesChangedSince_(previous)) sweep_('automatico');
+  if (SWEEP_HOURS.includes(hour) || !previous || changedSafely_(previous)) sweep_('automatico');
 }
 
 // Ejecutar UNA vez a mano (y otra vez si cambia el horario). Borra los disparadores anteriores del barrido para
@@ -99,14 +78,14 @@ function installSweepTriggers() {
   ScriptApp.getProjectTriggers()
     .filter(trigger => trigger.getHandlerFunction() === SWEEP_HANDLER)
     .forEach(trigger => ScriptApp.deleteTrigger(trigger));
-  ScriptApp.newTrigger(SWEEP_HANDLER).timeBased().everyHours(1).inTimezone(TIMEZONE).create();
+  SWEEP_HOURS.forEach(hour => ScriptApp.newTrigger(SWEEP_HANDLER).timeBased().everyDays(1).atHour(hour).nearMinute(30).inTimezone(TIMEZONE).create());
   logSnapshot_(sweep_('instalacion'));
 }
 
-// Si no se puede revisar la carpeta se sirve el barrido guardado (es lo que habia antes de esta revision).
+// Si no se puede revisar una carpeta se sirve el barrido guardado (es lo que habia antes de esta revision).
 function changedSafely_(snapshot) {
   try {
-    return folderChangedSince_(snapshot);
+    return folderChangedSince_(snapshot) || artesChangedSince_(snapshot);
   } catch (error) {
     console.error(error);
     return false;
@@ -129,9 +108,9 @@ function folderChangedSince_(snapshot) {
   return changed || (snapshot.months || []).some(month => month.fileId && !present[month.fileId]);
 }
 
-// Lo mismo para «05 Artes»: sin esto una pieza nueva no entraba hasta el barrido de las 10:00 del dia
-// siguiente, porque la carpeta de datos no se habia movido. Recorrerla es barato —unas pocas carpetas y
-// una decena de archivos— al lado de releer las hojas, que es lo que se quiere evitar.
+// Lo mismo para «05 Artes»: sin esto una pieza recien subida no entra hasta el siguiente disparador, porque la
+// carpeta de descargas no se habia movido. Recorrerla es barato —unas pocas carpetas y una decena de archivos—
+// al lado de releer las hojas, que es lo que se quiere evitar.
 function artesChangedSince_(snapshot) {
   const id = artesFolderId_();
   if (!id) return false;
@@ -139,8 +118,8 @@ function artesChangedSince_(snapshot) {
   const antes = (snapshot.artes && snapshot.artes.piezas) || {};
   const ahora = {};
   let changed = false;
-  // Se cuenta por clave de arte, no por archivo, y gana la primera: la misma regla que readArtes_, o una
-  // pieza repetida en dos meses se veria como un cambio en cada barrido.
+  // Se cuenta por clave de arte, no por archivo, y gana la primera: la misma regla que readArtes_, o una pieza
+  // repetida en dos meses se veria como un cambio en cada barrido.
   const mirar = folder => {
     const files = folder.getFiles();
     while (files.hasNext()) {
@@ -165,7 +144,7 @@ function artesChangedSince_(snapshot) {
       mirar(campaign);
     }
   } catch (error) {
-    // Si no se puede leer la carpeta de artes no se fuerza nada: el barrido de las 10:00 lo intentara.
+    // Si no se puede leer la carpeta de artes no se fuerza nada: el proximo disparador lo intentara.
     console.error(error);
     return false;
   }
@@ -179,7 +158,8 @@ function probarBarrido() {
 }
 
 function logSnapshot_(snapshot) {
-  console.log('Barrido ' + snapshot.origin + ' ' + snapshot.sweptAt + ' | cada hora si cambia la carpeta de datos o la de artes, y siempre a las ' + SWEEP_HOUR + ':00 (' + TIMEZONE + ')');
+  console.log('Barrido ' + snapshot.origin + ' ' + snapshot.sweptAt + ' | a las ' + SWEEP_HOURS.join(', ') + ':30 (' +
+    TIMEZONE + ') y al abrir el tablero si cambio la carpeta de datos o la de artes');
   snapshot.months.forEach(month => {
     if (month.error) {
       console.log(month.name + ' ' + month.year + ': ERROR ' + month.error);
@@ -193,10 +173,13 @@ function logSnapshot_(snapshot) {
     const index = name => month.columns.indexOf(name);
     const sum = name => month.rows.reduce((total, row) => total + row[index(name)], 0);
     const days = month.rows.map(row => row[index('day')]).sort();
-    console.log(month.name + ' ' + month.year + ': ' + month.rows.length + ' filas, gasto S/ ' + sum('spend').toFixed(2) +
+    console.log(month.name + ' ' + month.year + ': ' + month.rows.length + ' filas' + (month.source === 'nexus' ? ' (Nexus)' : '') +
+      ', gasto S/ ' + sum('spend').toFixed(2) +
       ', mensajes ' + sum('messages') + ', del ' + days[0] + ' al ' + days[days.length - 1] + duplicates);
   });
   snapshot.ignored.forEach(item => console.log('Ignorado: ' + item.fileName + ' -> ' + item.reason));
+  const piezas = snapshot.artes && snapshot.artes.piezas ? Object.keys(snapshot.artes.piezas).length : 0;
+  console.log('Artes: ' + piezas + ' piezas' + (snapshot.artes && snapshot.artes.error ? ' | ' + snapshot.artes.error : ''));
 }
 
 function sweep_(origin) {
@@ -228,6 +211,8 @@ function dataFolderId_() {
 //
 // La propiedad es opcional: sin ella el barrido sigue igual y el reporte muestra el formato en lugar
 // del arte. Un error leyendo la carpeta tampoco tumba el barrido, que es lo que trae los numeros.
+// Un mes sin piezas subidas sale entero en recuadros: eso dice que no hay arte en Drive para ese mes,
+// no que Drive falle.
 function artesFolderId_() {
   const id = PropertiesService.getScriptProperties().getProperty(ARTES_FOLDER_PROPERTY);
   return id ? id.trim() : '';
@@ -347,16 +332,24 @@ function readMonths_(previous) {
       return entry;
     }
     try {
-      const spreadsheet = SpreadsheetApp.openById(file.getId());
-      entry.rows = monthRows_(spreadsheet, spreadsheet.getSpreadsheetTimeZone());
-    } catch (error) {
-      if (unchanged && old.rows.length) {
-        // El archivo no cambio desde el barrido anterior: un fallo pasajero de Google no borra sus filas.
-        console.error(entry.fileName + ': ' + error);
-        entry.columns = old.columns;
-        entry.rows = old.rows;
-      } else {
-        entry.error = String((error && error.message) || error);
+      // La descarga de Meta manda: trae el desglose por edad y sexo y el enlace de vista previa de cada anuncio.
+      // La pestana de Nexus solo entra cuando no hay descarga que leer (el mes recien abierto, antes de la primera
+      // exportacion); al reves se perderian las vistas previas y el objetivo en las palabras de la exportacion.
+      entry.rows = aggregateRaw_(rawValues_(spreadsheetOf_(file)), spreadsheetOf_(file).getSpreadsheetTimeZone());
+    } catch (errorDescarga) {
+      try {
+        const nexus = nexusMonth_(spreadsheetOf_(file), key);
+        if (!nexus) throw errorDescarga;
+        Object.assign(entry, nexus);
+      } catch (error) {
+        if (unchanged && old.rows.length && key < recentKey) {
+          // El archivo no cambio desde el barrido anterior: un fallo pasajero de Google no borra sus filas.
+          console.error(entry.fileName + ': ' + error);
+          entry.columns = old.columns;
+          entry.rows = old.rows;
+        } else {
+          entry.error = String((error && error.message) || error);
+        }
       }
     }
     return entry;
@@ -364,72 +357,18 @@ function readMonths_(previous) {
   return { months, ignored };
 }
 
+// Abrir la hoja es caro: una sola vez por archivo y barrido.
+const SPREADSHEET_CACHE = {};
+function spreadsheetOf_(file) {
+  const id = file.getId();
+  if (!SPREADSHEET_CACHE[id]) SPREADSHEET_CACHE[id] = SpreadsheetApp.openById(id);
+  return SPREADSHEET_CACHE[id];
+}
+
 // Mes anterior al de hoy en Lima ('yyyy-MM'): ese y los siguientes no se reutilizan del barrido anterior.
 function previousMonthKey_() {
   const [year, month] = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-M').split('-').map(Number);
   return month === 1 ? (year - 1) + '-12' : year + '-' + String(month - 1).padStart(2, '0');
-}
-
-// La hoja del mes puede tener dos origenes: la exportacion manual de Meta y la pestana "Nexus Meta" que
-// escribe Nexus tres veces al dia. La exportacion manda; Nexus solo completa los dias que ella no trae,
-// porque mezclar los dos en el mismo dia duplicaria el gasto.
-function monthRows_(spreadsheet, timeZone) {
-  let rows = [];
-  try {
-    rows = aggregateRaw_(rawValues_(spreadsheet), timeZone);
-  } catch (error) {
-    // Un mes recien creado puede tener solo la pestana de Nexus; si tampoco esta, el error es el de siempre.
-    if (!nexusValues_(spreadsheet)) throw error;
-  }
-  const values = nexusValues_(spreadsheet);
-  if (!values) return rows;
-  const dayAt = OUTPUT_COLUMNS.indexOf('day');
-  const exported = {};
-  rows.forEach(row => { exported[row[dayAt]] = true; });
-  const extra = aggregateRaw_(values, timeZone).filter(row => !exported[row[dayAt]]);
-  return extra.length ? rows.concat(extra).sort() : rows;
-}
-
-// Pestana de Nexus (contrato NEXUS_META_V1), traducida a la forma de la exportacion para que la lea
-// aggregateRaw_ sin cambios. Devuelve null si no esta o si no trae lo que este tablero necesita.
-function nexusValues_(spreadsheet) {
-  const sheets = spreadsheet.getSheets();
-  for (let i = 0; i < sheets.length; i += 1) {
-    const values = sheets[i].getDataRange().getValues();
-    if (values.length > 2 && normalize_(values[0][0]) === NEXUS_MARK) return translateNexus_(values);
-  }
-  return null;
-}
-
-function translateNexus_(values) {
-  const headers = values[1].map(cell => normalize_(cell));
-  const at = name => headers.indexOf(name);
-  const level = at('level');
-  // Sin alcance ni resultados el tablero mostraria esos dias en cero, que se lee como una caida real:
-  // esas dos columnas solo llegan si el destino de la cuenta en Nexus tiene activado "extended_fields".
-  if (level < 0 || at('day') < 0 || at('spend') < 0 || at('reach') < 0 || at('results') < 0) return null;
-  const map = Object.keys(NEXUS_COLUMNS).map(key => [key, at(NEXUS_COLUMNS[key])]);
-  const out = [map.map(pair => RAW_COLUMNS[pair[0]][0])];
-  values.slice(2).forEach(row => {
-    // Los tres niveles (campaign, adset, ad) son el mismo gasto contado tres veces: solo cuenta el anuncio.
-    if (normalize_(row[level]) !== 'ad') return;
-    out.push(map.map(pair => {
-      const value = pair[1] < 0 ? '' : row[pair[1]];
-      if (pair[0] === 'resultType') return nexusLabel_(value, NEXUS_RESULTS);
-      return pair[0] === 'objective' ? nexusLabel_(value, NEXUS_OBJECTIVES) : value;
-    }));
-  });
-  return out.length > 1 ? out : null;
-}
-
-// Nexus guarda los nombres crudos de Meta ("video_thruplay_watched_actions", "OUTCOME_SALES"); el tablero
-// agrupa por los de la exportacion ("ThruPlay", "Ventas"), asi que se traducen antes de mezclar.
-function nexusLabel_(value, table) {
-  const text = normalize_(value);
-  for (let i = 0; i < table.length; i += 1) {
-    if (text.indexOf(table[i][0]) >= 0) return table[i][1];
-  }
-  return '';
 }
 
 // La pestana con la descarga es la que tiene las cabeceras "Dia" e "Importe gastado (PEN)" (o "Monto gastado").
@@ -480,6 +419,8 @@ function aggregateRaw_(values, timeZone) {
     if (!group.preview && /^https:\/\//.test(text('preview'))) group.preview = text('preview');
     SUM_FIELDS.forEach(field => { group[field] += col[field] < 0 ? 0 : toNumber_(row[col[field]]); });
   });
+
+  if (!Object.keys(groups).length) throw new Error('La descarga de Meta no tiene filas con fecha valida.');
 
   return Object.keys(groups).sort().map(key => {
     const group = groups[key];
@@ -553,7 +494,7 @@ function readSnapshot_() {
     const snapshot = JSON.parse(file.getBlob().getDataAsString('UTF-8'));
     // Un barrido guardado con otro formato (sin columnas, o de antes de los artes) se descarta y se
     // vuelve a leer: asi las piezas aparecen en el primer pedido despues de implementar, sin esperar
-    // al disparador de las 10:00.
+    // al siguiente disparador.
     const completo = snapshot.months && snapshot.months.every(month => month.columns) && 'artes' in snapshot;
     return completo ? snapshot : null;
   } catch (error) {
@@ -579,4 +520,81 @@ function normalize_(value) {
 
 function json_(payload) {
   return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ── La pestana que escribe Nexus ─────────────────────────────────────────
+// Desde el 31 de octubre de 2026 Nexus escribe en la misma hoja del mes una pestana propia, «Nexus Meta», con el
+// contrato NEXUS_META_V1 en la fila 1 y las cabeceras en ingles en la fila 2. Solo se usa cuando la hoja todavia
+// no trae la descarga de Meta: mezclar los dos origenes en el mismo dia duplicaria el gasto.
+//
+// Los tres niveles (campaign, adset, ad) son el mismo gasto contado tres veces: solo cuentan las filas de nivel
+// «ad». Y los nombres crudos de Meta se traducen a los de la descarga antes de devolverlos, porque el tablero
+// agrupa por esas palabras: con «OUTCOME_SALES» la campana no cae en Reservas, cae en un grupo inventado.
+const NEXUS_OBJETIVOS = {
+  OUTCOME_SALES: 'Ventas',
+  OUTCOME_LEADS: 'Clientes potenciales',
+  OUTCOME_TRAFFIC: 'Tráfico',
+  OUTCOME_ENGAGEMENT: 'Interacción',
+  OUTCOME_AWARENESS: 'Reconocimiento',
+  OUTCOME_APP_PROMOTION: 'Promoción de la aplicación',
+};
+const NEXUS_RESULTADOS = {
+  'actions:offsite_conversion.fb_pixel_purchase': 'Compras en el sitio web',
+  'actions:offsite_conversion.fb_pixel_lead': 'Clientes potenciales',
+  'actions:onsite_conversion.messaging_conversation_started_7d': 'Conversaciones con mensajes iniciadas',
+  'actions:post_engagement': 'Interacciones',
+  'actions:link_click': 'Clics en el enlace',
+  'actions:landing_page_view': 'Visitas a la página de destino',
+  'conversions:contact_website': 'Contactos en el sitio web',
+  'video_thruplay_watched_actions:video_view': 'ThruPlay',
+};
+const NEXUS_REQUERIDAS = ['level', 'day', 'id', 'name', 'campaign', 'adset', 'spend', 'impressions',
+  'inline_link_clicks', 'reach', 'objective', 'result_type', 'results', 'messages', 'purchases'];
+
+function nexusMonth_(spreadsheet, month) {
+  const sheet = spreadsheet.getSheetByName('Nexus Meta');
+  if (!sheet) return null;
+  const values = sheet.getDataRange().getValues();
+  const meta = values[0] || [];
+  const expected = PropertiesService.getScriptProperties().getProperty('META_ACCOUNT_ID');
+  if (!expected || meta[0] !== 'NEXUS_META_V1' || String(meta[2]) !== expected || meta[3] !== 'PEN'
+      || meta[4] !== month || !String(meta[5]).startsWith(month + '-') || !Number.isFinite(Date.parse(meta[1]))) {
+    throw new Error('Captura Nexus incompatible: revisa META_ACCOUNT_ID, moneda y mes.');
+  }
+  const header = values[1] || [];
+  // Sin «reach» ni «results» la pestana no sirve: esos dias saldrian en cero y eso se lee como una caida real.
+  // Las dos llegan solo si el destino de la cuenta en Nexus tiene activado «extended_fields».
+  if (new Set(header).size !== header.length || NEXUS_REQUERIDAS.some(key => header.indexOf(key) < 0)) {
+    throw new Error('Captura Nexus incompleta; falta la extracción con métricas extendidas (extended_fields).');
+  }
+  const seen = {};
+  const rows = [];
+  values.slice(2).forEach(cells => {
+    if (!cells.some(value => value !== '')) return;
+    const row = {};
+    header.forEach((key, index) => { row[key] = cells[index] === undefined ? '' : cells[index]; });
+    if (row.level !== 'ad') return;
+    const key = row.day + ':' + row.id;
+    if (!/^\d+$/.test(String(row.id)) || !String(row.day).startsWith(month + '-') || row.day > meta[5] || seen[key]) {
+      throw new Error('Fila Nexus duplicada o fuera de período: ' + key + '.');
+    }
+    seen[key] = true;
+    const numeric = name => {
+      const value = row[name];
+      if (value === '' || value == null || !Number.isFinite(Number(value)) || Number(value) < 0) {
+        throw new Error('Métrica Nexus no disponible: ' + name + '.');
+      }
+      return Number(value);
+    };
+    const out = {
+      day: row.day, campaign: row.campaign, adSet: row.adset, ad: row.name,
+      objective: NEXUS_OBJETIVOS[row.objective] || row.objective,
+      resultType: NEXUS_RESULTADOS[row.result_type] || row.result_type,
+      preview: '',
+    };
+    SUM_FIELDS.forEach(field => { out[field] = numeric(field === 'clicks' ? 'inline_link_clicks' : field); });
+    rows.push(OUTPUT_COLUMNS.map(field => out[field]));
+  });
+  if (!rows.length) throw new Error('La pestaña de Nexus no trae filas de nivel «ad» para ' + month + '.');
+  return { rows: rows, capturedAt: meta[1], through: meta[5], source: 'nexus' };
 }
