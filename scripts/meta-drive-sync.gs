@@ -179,7 +179,7 @@ function probarBarrido() {
 }
 
 function logSnapshot_(snapshot) {
-  console.log('Barrido ' + snapshot.origin + ' ' + snapshot.sweptAt + ' | cada hora si cambia la carpeta y siempre a las ' + SWEEP_HOUR + ':00 (' + TIMEZONE + ')');
+  console.log('Barrido ' + snapshot.origin + ' ' + snapshot.sweptAt + ' | cada hora si cambia la carpeta de datos o la de artes, y siempre a las ' + SWEEP_HOUR + ':00 (' + TIMEZONE + ')');
   snapshot.months.forEach(month => {
     if (month.error) {
       console.log(month.name + ' ' + month.year + ': ERROR ' + month.error);
