@@ -140,17 +140,33 @@ laminas 16:9 con fondo claro, tarjetas blancas de borde fino y acentos en azul.
 - **De donde salen los numeros:** de las mismas filas del barrido de Meta que usa Gasto publicitario (en
   `window.AMADOR_META_DATA` y en la relectura en vivo que expone `AmadorObjectives.meta()`). No hay una
   fuente nueva ni una lectura extra.
-- **Que mide cada campana:** compras = resultados "Compras en el sitio web"; leads = resultados "Clientes
-  potenciales"; conversaciones = la columna "messages" de Meta. El costo por compra y por lead es la
-  inversion de su campana entre su resultado; el costo por mensaje es la inversion total entre los mensajes.
-  Cada campana se mide con su propio resultado, tambien en el grafico y en las tarjetas de anuncios.
+- **Que mide cada campana, y de donde sale:** cada una tiene su fuente, y no es la misma para las tres.
+  - **Reservas web almuerzos:** las reservas son las **compras de Meta** (resultados "Compras en el sitio
+    web"). La plataforma es la fuente.
+  - **Corporativos:** sus resultados **no son reservas, son formularios completados**, y asi se nombran en
+    todo el reporte. Se cuenta la columna `results` de Meta, no la filtrada por tipo: una fila a la que Meta
+    dejo sin "Tipo de resultado" es un formulario igual, y dejarla fuera hacia que el reporte dijera 7 donde
+    la plataforma dice 8.
+  - **Mensajes IG · eventos:** las conversaciones son la columna `messages` de Meta, pero **las reservas las
+    confirma el equipo y salen de la hoja** (pestana del mes de `Distribucion-amador`, campos "Reservas",
+    "Objetivo Reservas" y "Costo por reserva"). Meta no las cuenta. Cuando la hoja las trae, ocupan el lugar
+    de CPM y CTR en la tarjeta. **Solo en el corte del mes entero:** la hoja lleva el total del mes, no el
+    del corte, y ponerlo sobre "1–11 oct" diria que ocurrieron en esos once dias. Si la hoja trae el costo en
+    cero, se calcula con la inversion de la campana.
+
+  El costo de cada campana es su inversion entre su resultado; el costo por mensaje es la inversion total
+  entre los mensajes. El resultado de un tipo en el resumen se suma de sus campanas, no del mes: "resultados"
+  del mes incluye tambien los de la campana de mensajes. Cada campana se mide con su propio resultado,
+  tambien en el grafico y en las tarjetas de anuncios.
 - **El arte de cada anuncio** sale de la carpeta «05 Artes» de la marca, que el barrido lee si existe la
   propiedad de script `ARTES_FOLDER_ID` (ver private/amador-artes.local.md en el repo de LR Suite). Dentro va
   una subcarpeta por campana y mes, y cada pieza se llama **igual que el anuncio en Meta** salvo la extension:
   esa igualdad es todo el emparejamiento. La tarjeta muestra la miniatura de Drive con el formato en una
   etiqueta encima; el formato sale del tipo del archivo (un .mp4 es un video) y, si la pieza no esta, de su
   nombre. Una pieza que Drive no sirva —la carpeta sigue en Restringido— deja la tarjeta con el recuadro del
-  formato, no con una imagen rota.
+  formato, no con una imagen rota. **Un mes sin piezas subidas se ve igual, todo en recuadros**, y eso es lo
+  que dice: no hay arte en Drive para ese mes, no es que Drive falle. Al abrir el tablero el barrido mira
+  tambien esta carpeta, asi que una pieza nueva entra sin esperar al siguiente disparador.
 - **Textos:** el destacado, el analisis de cada campana y las conclusiones vienen propuestos con lo que dicen
   los numeros. Se editan con un clic sobre la lamina (`**texto**` va en negrita) y quedan guardados por corte
   en el navegador (`amador-report-notes-v3`, por corte); no se publican con el tablero. "Restablecer textos" vuelve a
@@ -240,7 +256,7 @@ Desde ese momento, los cambios en `Objetivo Reservas` se actualizan localmente y
 
 ## Descargas de Meta (Web App)
 
-`scripts/meta-drive-sync.gs` es un proyecto independiente de Apps Script (no vinculado a una hoja), publicado por una cuenta con acceso a la carpeta "Meta Files - Amador". Barre la carpeta cada hora si cambio algo (un archivo nuevo, editado o borrado), siempre a las 10:00 de Lima, al abrir el tablero si hay una descarga mas nueva que el ultimo barrido (desde la v1.25.0: Meta se sube a media manana, despues de las 10:00) y cuando se pulsa Actualizar (`?action=data&fresh=1`); dos pedidos dentro del mismo minuto comparten un barrido. suma edad y sexo por dia, campana, conjunto y anuncio, y guarda el resultado en un JSON de Mi unidad ("Amador - barrido del tablero.json"). Los meses cerrados cuyo archivo no cambio no se vuelven a leer; el mes en curso y el anterior, siempre.
+`scripts/meta-drive-sync.gs` es un proyecto independiente de Apps Script (no vinculado a una hoja), publicado por una cuenta con acceso a la carpeta "Meta Files - Amador". Barre a las 6:30, 13:30 y 18:30 de Lima, al abrir el tablero si cambio alguna de sus dos carpetas desde el ultimo barrido —la de descargas (un archivo nuevo, editado o borrado) o la de artes (una pieza nueva, reemplazada o borrada)— y cuando se pulsa Actualizar (`?action=data&fresh=1`); dos pedidos dentro del mismo minuto comparten un barrido. suma edad y sexo por dia, campana, conjunto y anuncio, y guarda el resultado en un JSON de Mi unidad ("Amador - barrido del tablero.json"). Los meses cerrados cuyo archivo no cambio no se vuelven a leer; el mes en curso y el anterior, siempre.
 
 Configuracion unica:
 

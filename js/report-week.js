@@ -31,7 +31,11 @@
   // (Interaccion / Mensajes) o, si no es ninguno, el resultado que da Meta.
   const KINDS = {
     compras: { key: 'compras', metric: 'compras', adsMetric: 'compras', label: 'Reservas web', short: 'reservas', one: 'reserva', many: 'reservas', article: 'las', costLabel: 'Costo/reserva', chart: 'Reservas web por semana', column: 'RESERVAS', color: RED, rate: 'cpm' },
-    leads: { key: 'leads', metric: 'leads', adsMetric: 'leads', label: 'Clientes potenciales', short: 'leads', one: 'lead', many: 'leads', article: 'los', costLabel: 'Costo/lead', chart: 'Clientes potenciales por semana', column: 'LEADS', color: TEAL, rate: 'ctr' },
+    // Lo que Meta llama «clientes potenciales» en Corporativos son formularios completados, no reservas: el
+    // reporte los nombra asi. Y cuenta «results», no la columna filtrada por tipo: una fila a la que Meta
+    // dejo sin «Tipo de resultado» es un formulario igual, y dejarla fuera hacia que el reporte dijera 7
+    // donde la plataforma dice 8.
+    leads: { key: 'leads', metric: 'results', adsMetric: 'results', label: 'Formularios completados', short: 'formularios', one: 'formulario', many: 'formularios', article: 'los', costLabel: 'Costo/formulario', chart: 'Formularios completados por semana', column: 'FORMULARIOS', color: TEAL, rate: 'ctr' },
     mensajes: { key: 'mensajes', metric: 'messages', adsMetric: 'messages', label: 'Conversaciones', short: 'conversaciones', one: 'conversación', many: 'conversaciones', article: 'las', costLabel: 'Costo/conversación', chart: 'Conversaciones por semana', column: 'CONVERS.', color: TEAL, rate: 'ctr' },
     resultados: { key: 'resultados', metric: 'results', adsMetric: 'results', label: 'Resultados', short: 'resultados', one: 'resultado', many: 'resultados', article: 'los', costLabel: 'Costo/result.', chart: 'Resultados por semana', column: 'RESULT.', color: TEAL, rate: 'cpm' },
   };
@@ -40,7 +44,7 @@
   // Una campaña nueva arma su pagina con su propio nombre.
   const CAMPAIGNS = [
     { key: 'almuerzos', match: /almuerzo|reservas web/, title: 'Reservas web almuerzos', short: 'Reservas web', tag: 'Ventas · almuerzos', desc: 'Evolución, conjuntos y mejores anuncios.', icon: 'trend' },
-    { key: 'corporativos', match: /corporativ/, title: 'Corporativos', short: 'Corporativos', tag: 'Clientes potenciales', desc: 'Clientes potenciales y mejores anuncios.', icon: 'briefcase' },
+    { key: 'corporativos', match: /corporativ/, title: 'Corporativos', short: 'Corporativos', tag: 'Formularios completados', desc: 'Formularios completados y mejores anuncios.', icon: 'briefcase' },
     { key: 'eventos', match: /evento/, title: 'Mensajes IG · eventos', short: 'Eventos', tag: 'Ofrenda · WhatsApp', desc: 'Conversaciones, formatos y conjuntos.', icon: 'chat' },
   ];
 
@@ -267,6 +271,31 @@
   // reconocer la pieza alcanza, y es lo que el modelo muestra.
   const arteThumb = arte => (arte?.id ? `${ARTE_THUMB}${encodeURIComponent(arte.id)}&sz=${ARTE_THUMB_SIZE}` : '');
 
+  // ── Reservas de la hoja de seguimiento ─────────────────────────────────
+  // Meta no cuenta las reservas de la campaña de eventos: las confirma el equipo y quedan en la pestaña del
+  // mes de «Distribucion-amador», la misma hoja que alimenta Gasto publicitario. De ahi salen tambien su
+  // costo por reserva y el objetivo del mes.
+  //
+  // Solo en el corte del mes entero: la hoja lleva el total del mes, no el del corte, y ponerlo sobre «1–11
+  // oct» diria que esas reservas ocurrieron en esos once dias.
+  function sheetReservations(section, period) {
+    if (!section.match || !period.closed || period.to !== period.days) return null;
+    const months = window.AmadorObjectives?.snapshot?.()?.months || [];
+    const key = `${period.year}-${String(period.month).padStart(2, '0')}`;
+    const month = months.find(item => item.key === key);
+    const campaign = (month?.campaigns || []).find(item => section.match.test(normalize(item.name)));
+    const reservas = Number(campaign?.reservas);
+    if (!Number.isFinite(reservas) || reservas <= 0) return null;
+    const costSheet = Number(campaign.costPerReservation);
+    const goal = Number(campaign.reservationGoal);
+    return {
+      reservas,
+      // La hoja a veces trae el costo en cero: entonces se calcula con la inversion de la campaña.
+      cost: Number.isFinite(costSheet) && costSheet > 0 ? costSheet : (section.sum.spend > 0 ? section.sum.spend / reservas : null),
+      goal: Number.isFinite(goal) && goal > 0 ? goal : null,
+    };
+  }
+
   // Mejores anuncios por el resultado de la campaña. Un anuncio es su nombre: si corre en varios conjuntos se
   // junta y se queda con el conjunto donde mas gasto; si Meta dejo vacia su vista previa se usa la de la misma
   // pieza en otro mes.
@@ -374,16 +403,23 @@
       .sort((left, right) => order(left.key) - order(right.key) || right.sum.spend - left.sum.spend);
 
     const sum = totals(period.rows);
-    const spendOf = kind => sections.filter(section => section.kind === kind).reduce((total, section) => total + section.sum.spend, 0);
+    // El resultado de un tipo se suma de sus campañas, no del mes: «resultados» del mes incluye tambien los
+    // de la campaña de mensajes, y el resumen diria otra cosa que la pagina de la campaña.
+    const byKind = kind => {
+      const items = sections.filter(section => section.kind === kind);
+      if (!items.length) return null;
+      const value = items.reduce((total, section) => total + section.value, 0);
+      const spend = items.reduce((total, section) => total + section.sum.spend, 0);
+      return { value, spend, cost: value > 0 ? spend / value : null };
+    };
     return {
       period,
       labels: period.labels,
       weeks,
       sections,
       sum,
+      byKind: { compras: byKind(KINDS.compras), leads: byKind(KINDS.leads) },
       costs: {
-        compras: sum.compras > 0 ? spendOf(KINDS.compras) / sum.compras : null,
-        leads: sum.leads > 0 ? spendOf(KINDS.leads) / sum.leads : null,
         messages: sum.messages > 0 ? sum.spend / sum.messages : null,
       },
       // El desglose semanal del mes entero: inversion de la semana y, por campaña, su resultado.
@@ -796,13 +832,13 @@
 
   // Pagina 03: el cuadro con una fila por campaña, que es el corazon del modelo.
   function resumenPage(report, notes, total) {
-    const { sum, costs, sections, labels } = report;
+    const { sum, byKind, sections, labels } = report;
     const compras = sections.find(section => section.kind === KINDS.compras);
     const leads = sections.find(section => section.kind === KINDS.leads);
     const cards = [
       kpi('Inversión total', money(sum.spend), `${num(sections.length)} ${sections.length === 1 ? 'campaña' : 'campañas'} · ${labels.range}`),
-      compras ? kpi(KINDS.compras.label, num(sum.compras), `${cost(costs.compras)} c/u`, badgeOf(compras)) : '',
-      leads ? kpi(KINDS.leads.label, num(sum.leads), `${cost(costs.leads)} c/u`, badgeOf(leads)) : '',
+      byKind.compras ? kpi(KINDS.compras.label, num(byKind.compras.value), `${cost(byKind.compras.cost)} c/u`, badgeOf(compras)) : '',
+      byKind.leads ? kpi(KINDS.leads.label, num(byKind.leads.value), `${cost(byKind.leads.cost)} c/u`, badgeOf(leads)) : '',
       sum.messages > 0 ? kpi('Conversaciones', num(sum.messages), 'WhatsApp · todas las campañas') : '',
     ].filter(Boolean);
     const destacado = notes['resumen:destacado'] != null ? notes['resumen:destacado'] : suggestResumenDestacado(report);
@@ -891,12 +927,19 @@
   function sectionPage(section, report, notes, page, total) {
     const { kind, sum } = section;
     const diario = section.days > 0 ? sum.spend / section.days : null;
+    // En la campaña de eventos la reserva es el resultado que importa y no la cuenta Meta: cuando la hoja de
+    // seguimiento la trae, ocupa el lugar de CPM y CTR, que para esa campaña son secundarios.
+    const reservas = kind === KINDS.mensajes ? sheetReservations(section, report.period) : null;
     const cards = [
       kpi('Inversión', money(sum.spend), diario ? `${money(diario)} por día en promedio` : 'Inversión de la campaña'),
       kpi(kind.label, num(section.value), `${section.weeks.length ? `${section.weeks[section.weeks.length - 1].label}: ${num(section.weeks[section.weeks.length - 1].value)}` : '—'}`, badgeOf(section)),
       kpi(kind.costLabel, cost(section.cost), section.weeks.length ? `${section.weeks[section.weeks.length - 1].label}: ${cost(section.weeks[section.weeks.length - 1].cost)}` : '—', costBadge(section)),
-      kind !== KINDS.mensajes ? kpi('Conversaciones', num(sum.messages), 'WhatsApp · adicionales') : kpi('CPM', money2(sum.cpm), 'Costo por mil impresiones'),
-      kind !== KINDS.mensajes ? kpi('Costo/conversación', cost(section.costMessage), 'Inversión ÷ conversaciones') : kpi('CTR', percent(sum.ctr), 'Clics ÷ impresiones'),
+      reservas
+        ? kpi('Reservas confirmadas', num(reservas.reservas), reservas.goal ? `Objetivo del mes: ${num(reservas.goal)}` : 'Hoja de seguimiento')
+        : kind !== KINDS.mensajes ? kpi('Conversaciones', num(sum.messages), 'WhatsApp · adicionales') : kpi('CPM', money2(sum.cpm), 'Costo por mil impresiones'),
+      reservas
+        ? kpi('Costo/reserva', cost(reservas.cost), 'Hoja de seguimiento')
+        : kind !== KINDS.mensajes ? kpi('Costo/conversación', cost(section.costMessage), 'Inversión ÷ conversaciones') : kpi('CTR', percent(sum.ctr), 'Clics ÷ impresiones'),
     ];
     const destacadoKey = `destacado:${section.key}`;
     const analisisKey = `analisis:${section.key}`;
