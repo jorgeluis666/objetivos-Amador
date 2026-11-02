@@ -84,12 +84,13 @@ function doGet(event) {
   }
 }
 
-// Disparador de cada hora: solo barre si la carpeta cambio desde el ultimo barrido; el de las 10:00 barre siempre
-// (relee el mes anterior, que Meta completa los primeros dias, aunque Drive no cambie su fecha de edicion).
+// Disparador de cada hora: solo barre si cambio alguna de las dos carpetas desde el ultimo barrido; el de las
+// 10:00 barre siempre (relee el mes anterior, que Meta completa los primeros dias, aunque Drive no cambie su
+// fecha de edicion).
 function sweepScheduled() {
   const hour = Number(Utilities.formatDate(new Date(), TIMEZONE, 'H'));
   const previous = readSnapshot_();
-  if (hour === SWEEP_HOUR || !previous || folderChangedSince_(previous)) sweep_('automatico');
+  if (hour === SWEEP_HOUR || !previous || folderChangedSince_(previous) || artesChangedSince_(previous)) sweep_('automatico');
 }
 
 // Ejecutar UNA vez a mano (y otra vez si cambia el horario). Borra los disparadores anteriores del barrido para
@@ -126,6 +127,50 @@ function folderChangedSince_(snapshot) {
     if (file.getLastUpdated().getTime() > sweptAt) changed = true;
   }
   return changed || (snapshot.months || []).some(month => month.fileId && !present[month.fileId]);
+}
+
+// Lo mismo para «05 Artes»: sin esto una pieza nueva no entraba hasta el barrido de las 10:00 del dia
+// siguiente, porque la carpeta de datos no se habia movido. Recorrerla es barato —unas pocas carpetas y
+// una decena de archivos— al lado de releer las hojas, que es lo que se quiere evitar.
+function artesChangedSince_(snapshot) {
+  const id = artesFolderId_();
+  if (!id) return false;
+  const sweptAt = Date.parse(snapshot.sweptAt) || 0;
+  const antes = (snapshot.artes && snapshot.artes.piezas) || {};
+  const ahora = {};
+  let changed = false;
+  // Se cuenta por clave de arte, no por archivo, y gana la primera: la misma regla que readArtes_, o una
+  // pieza repetida en dos meses se veria como un cambio en cada barrido.
+  const mirar = folder => {
+    const files = folder.getFiles();
+    while (files.hasNext()) {
+      const file = files.next();
+      if (file.isTrashed()) continue;
+      const mime = String(file.getMimeType() || '');
+      if (mime.indexOf('video/') !== 0 && mime.indexOf('image/') !== 0) continue;
+      const clave = arteKey_(file.getName());
+      if (!clave || ahora[clave]) continue;
+      ahora[clave] = true;
+      // Una pieza que no estaba, otra en su lugar, o la misma reemplazada conservando el archivo.
+      if (!antes[clave] || antes[clave].id !== file.getId() || file.getLastUpdated().getTime() > sweptAt) changed = true;
+    }
+  };
+  try {
+    const root = DriveApp.getFolderById(id);
+    mirar(root);
+    const campaigns = root.getFolders();
+    while (campaigns.hasNext()) {
+      const campaign = campaigns.next();
+      if (campaign.isTrashed()) continue;
+      mirar(campaign);
+    }
+  } catch (error) {
+    // Si no se puede leer la carpeta de artes no se fuerza nada: el barrido de las 10:00 lo intentara.
+    console.error(error);
+    return false;
+  }
+  // Tambien cuenta que falte una pieza que antes estaba (se borro o se movio fuera de la carpeta).
+  return changed || Object.keys(ahora).length !== Object.keys(antes).length;
 }
 
 // Barrido manual desde el editor, para revisar que los archivos se leen bien.

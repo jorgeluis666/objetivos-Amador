@@ -150,7 +150,9 @@ laminas 16:9 con fondo claro, tarjetas blancas de borde fino y acentos en azul.
   esa igualdad es todo el emparejamiento. La tarjeta muestra la miniatura de Drive con el formato en una
   etiqueta encima; el formato sale del tipo del archivo (un .mp4 es un video) y, si la pieza no esta, de su
   nombre. Una pieza que Drive no sirva —la carpeta sigue en Restringido— deja la tarjeta con el recuadro del
-  formato, no con una imagen rota.
+  formato, no con una imagen rota. **Un mes sin piezas subidas se ve igual, todo en recuadros**, y eso es lo
+  que dice: no hay arte en Drive para ese mes, no es que Drive falle. El barrido de cada hora mira tambien
+  esta carpeta, asi que una pieza nueva entra en menos de una hora sin esperar al barrido de las 10:00.
 - **Textos:** el destacado, el analisis de cada campana y las conclusiones vienen propuestos con lo que dicen
   los numeros. Se editan con un clic sobre la lamina (`**texto**` va en negrita) y quedan guardados por corte
   en el navegador (`amador-report-notes-v3`, por corte); no se publican con el tablero. "Restablecer textos" vuelve a
@@ -240,7 +242,7 @@ Desde ese momento, los cambios en `Objetivo Reservas` se actualizan localmente y
 
 ## Descargas de Meta (Web App)
 
-`scripts/meta-drive-sync.gs` es un proyecto independiente de Apps Script (no vinculado a una hoja), publicado por una cuenta con acceso a la carpeta "Meta Files - Amador". Barre la carpeta cada hora si cambio algo (un archivo nuevo, editado o borrado), siempre a las 10:00 de Lima, al abrir el tablero si hay una descarga mas nueva que el ultimo barrido (desde la v1.25.0: Meta se sube a media manana, despues de las 10:00) y cuando se pulsa Actualizar (`?action=data&fresh=1`); dos pedidos dentro del mismo minuto comparten un barrido. suma edad y sexo por dia, campana, conjunto y anuncio, y guarda el resultado en un JSON de Mi unidad ("Amador - barrido del tablero.json"). Los meses cerrados cuyo archivo no cambio no se vuelven a leer; el mes en curso y el anterior, siempre.
+`scripts/meta-drive-sync.gs` es un proyecto independiente de Apps Script (no vinculado a una hoja), publicado por una cuenta con acceso a la carpeta "Meta Files - Amador". Barre cada hora si cambio algo en alguna de sus dos carpetas —la de descargas (un archivo nuevo, editado o borrado) y la de artes (una pieza nueva, reemplazada o borrada)—, siempre a las 10:00 de Lima, al abrir el tablero si hay una descarga mas nueva que el ultimo barrido (desde la v1.25.0: Meta se sube a media manana, despues de las 10:00) y cuando se pulsa Actualizar (`?action=data&fresh=1`); dos pedidos dentro del mismo minuto comparten un barrido. suma edad y sexo por dia, campana, conjunto y anuncio, y guarda el resultado en un JSON de Mi unidad ("Amador - barrido del tablero.json"). Los meses cerrados cuyo archivo no cambio no se vuelven a leer; el mes en curso y el anterior, siempre.
 
 Configuracion unica:
 
