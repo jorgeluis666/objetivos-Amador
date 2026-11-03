@@ -280,10 +280,13 @@ function piezas_(idsPedidos) {
     if (!dentro[id]) { fuera.push(id); return; }
     try {
       // La miniatura y no el archivo: un video pesa megas y lo que el reporte enseña es su cuadro.
-      // Se pide con el token del script, que es la cuenta que ve la carpeta.
+      // Sin cabecera de autorizacion: «thumbnail» es un endpoint web, no de la API. El token viaja en
+      // el redirect a lh3, que lo rechaza y devuelve una pagina en vez de la imagen. No hace falta:
+      // la carpeta de artes esta compartida por enlace, que es lo mismo que hace que la miniatura se
+      // vea en el tablero.
       const respuesta = UrlFetchApp.fetch(
         'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w' + PIEZA_ANCHO,
-        { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true }
+        { muteHttpExceptions: true }
       );
       if (respuesta.getResponseCode() !== 200) return;
       const blob = respuesta.getBlob();
