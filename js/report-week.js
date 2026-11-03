@@ -73,6 +73,7 @@
     target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
     calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
     pulse: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+    spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/><circle cx="12" cy="12" r="3"/>',
   };
   const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.target}</svg>`;
 
@@ -625,7 +626,40 @@
         text: `La campaña ${poor.title} gastó ${money(poor.sum.spend)} por ${num(poor.value)} ${noun(poor.kind, poor.value)}. Revisar público y creativos, o mover ese presupuesto a las campañas que sí rinden.`,
       });
     }
-    return cards.slice(0, 3);
+    const creativo = suggestCreativeConclusion(report);
+    return creativo ? cards.slice(0, 3).concat([creativo]) : cards.slice(0, 3);
+  }
+
+  // La unica conclusion que mira el creativo y no la campaña: el anuncio que entro a mitad de mes y
+  // aun asi rindio mejor que los que ya corrian. Es la que dice que repetir el mes que viene, y el
+  // reporte tiene el dato pero no lo decia en ninguna parte.
+  //
+  // Los costos solo se comparan DENTRO de una campaña: una reserva a S/. 169 y una conversacion a
+  // S/. 3 no son comparables, y el anuncio mas barato del reporte siempre seria uno de mensajes.
+  function suggestCreativeConclusion(report) {
+    const candidato = report.sections
+      .map(section => {
+        const conCosto = section.ads
+          .filter(ad => ad.value > 0 && finite(ad.cost))
+          .sort((left, right) => left.cost - right.cost);
+        if (conCosto.length < 2) return null;
+        const [mejor, segundo] = conCosto;
+        // Nuevo del mes: empezo despues del primer dia en que corrio la campaña. Un anuncio que
+        // viene de antes puede ser el mas barato, pero no es nada que decidir ahora.
+        if (!(mejor.from > section.firstDay)) return null;
+        return { section, ad: mejor, segundo, dias: new Set(mejor.days).size };
+      })
+      .filter(Boolean)
+      .sort((left, right) => right.section.sum.spend - left.section.sum.spend)[0];
+    if (!candidato) return null;
+    const { section, ad, segundo, dias } = candidato;
+    const unidad = noun(section.kind, 1);
+    return {
+      wide: true,
+      icon: 'spark',
+      title: `${ad.name}: el formato a repetir`,
+      text: `Se implementó en ${report.period.name.toLowerCase()} y es el anuncio con mejor costo por ${unidad} de ${section.short.toLowerCase()}: ${cost(ad.cost)} frente a ${cost(segundo.cost)} del siguiente, y en ${dias} ${dias === 1 ? 'día' : 'días'} de entrega. Mantener su estructura y formato en los próximos contenidos.`,
+    };
   }
 
   // ── Textos guardados por corte ─────────────────────────────────────────
@@ -974,7 +1008,7 @@
       const title = notes[`concl:${index}:title`] != null ? notes[`concl:${index}:title`] : card.title;
       const text = notes[`concl:${index}:text`] != null ? notes[`concl:${index}:text`] : card.text;
       return `
-        <div class="rp-card rp-conclusion">
+        <div class="rp-card rp-conclusion${card.wide ? ' is-wide' : ''}">
           <div class="rp-toc-top"><span class="rp-icon framed">${icon(card.icon)}</span><span class="rp-concl-num">${pageNumber(index + 1)}</span></div>
           ${editable(`concl:${index}:title`, title, 'h3')}
           ${editable(`concl:${index}:text`, text)}
@@ -1225,6 +1259,16 @@
       render();
     });
     document.getElementById('week-print')?.addEventListener('click', printReport);
+    // Los textos siempre se pudieron editar con un clic, pero nada lo decia salvo un tooltip: este
+    // boton los marca todos a la vez, que es como se descubre que el reporte se puede retocar antes
+    // de bajarlo. La marca es solo de pantalla; al imprimir no sale.
+    document.getElementById('week-edit')?.addEventListener('click', event => {
+      const boton = event.currentTarget;
+      const activo = document.getElementById('week-report')?.classList.toggle('is-editing');
+      boton.setAttribute('aria-pressed', activo ? 'true' : 'false');
+      boton.classList.toggle('active', Boolean(activo));
+      if (activo) document.querySelector('#week-report .rp-edit')?.focus();
+    });
     // Sin dialogo de confirmacion: el boton vuelve directo a los textos propuestos del corte.
     document.getElementById('week-reset')?.addEventListener('click', () => {
       if (!selectedPeriod) return;

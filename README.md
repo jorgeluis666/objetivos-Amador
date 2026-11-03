@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.37.0`.
+Version actual: `v1.38.0`.
 
 ## Versionado
 
@@ -136,7 +136,7 @@ laminas 16:9 con fondo claro, tarjetas blancas de borde fino y acentos en azul.
 | Resumen por objetivo | Inversion total y un indicador por tipo de resultado, con su insignia de cambio ("1 → 5 por semana"); cuadro con una fila por campana (inversion, resultado, costo/resultado, conversaciones, costo/conversacion) y su total; DESTACADO y Analisis. |
 | Desglose semanal | Cuadro con una fila por semana: inversion y, por campana, el resultado de esa semana con su costo debajo, mas la columna Nota (inicio de mes, pico, entra una campana, una campana x3); DESTACADO y Analisis. |
 | Una por campana | Reservas web almuerzos, Corporativos, Mensajes IG · eventos (y cualquier otra campana con gasto, con su propio nombre): 5 KPIs segun lo que mide, barras por semana, cuadro semanal con CPM o CTR y la causa, mejores anuncios en tarjetas (hasta 4, con formato, conjunto y "Ver anuncio »") y DESTACADO + Analisis. |
-| Conclusiones y proximos pasos | Tres tarjetas: la campana motor, las que sostienen y la que hay que revisar; en un corte que no cierra el mes, la nota de las semanas. |
+| Conclusiones y proximos pasos | Tres tarjetas: la campana motor, las que sostienen y la que hay que revisar. Debajo, a lo ancho, la del creativo: el anuncio que entro a mitad de mes y aun asi consiguio el mejor costo por resultado de su campana, que es lo que hay que repetir. Los costos se comparan solo dentro de una campana, porque una reserva y una conversacion no valen lo mismo. En un corte que no cierra el mes, la nota de las semanas. |
 | Cierre | Logo y firma de Lima Retail. |
 
 - **Periodo:** el filtro ofrece **cortes acumulados**, no meses sueltos: cada domingo cierra una semana y
@@ -177,6 +177,9 @@ laminas 16:9 con fondo claro, tarjetas blancas de borde fino y acentos en azul.
   los numeros. Se editan con un clic sobre la lamina (`**texto**` va en negrita) y quedan guardados por corte
   en el navegador (`amador-report-notes-v3`, por corte); no se publican con el tablero. "Restablecer textos" vuelve a
   los propuestos, sin dialogo de confirmacion.
+  **"Editar textos" marca de una vez todo lo que se puede cambiar**: antes solo se notaba pasando el raton por
+  encima de cada parrafo, asi que no habia como enterarse de que el reporte se retoca antes de bajarlo. La marca
+  es de pantalla y no sale impresa.
 - **El modelo** es el ultimo PDF de la carpeta Reportes (el listado que ya trae Archivo de Reportes): su
   nombre y su enlace salen arriba.
 - **Descargar PDF** abre el dialogo de impresion con las laminas solas, una por hoja de 13.33 x 7.5 in (el
