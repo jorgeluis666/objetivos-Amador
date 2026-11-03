@@ -2,7 +2,7 @@
 
 Dashboard de Agencia Lima Retail para controlar la inversion publicitaria de Amador.
 
-Version actual: `v1.36.0`.
+Version actual: `v1.37.0`.
 
 ## Versionado
 
@@ -182,6 +182,16 @@ laminas 16:9 con fondo claro, tarjetas blancas de borde fino y acentos en azul.
 - **Descargar PDF** abre el dialogo de impresion con las laminas solas, una por hoja de 13.33 x 7.5 in (el
   tamaño del modelo), y el nombre del archivo ya armado. Activar "Graficos de fondo" si el navegador no lo
   hace solo.
+- **Las piezas se incrustan antes de imprimir.** En pantalla cada tarjeta le pide su miniatura a Drive,
+  pero al imprimir Chrome arma el documento otra vez y esas peticiones no llegan a tiempo: el PDF salia
+  con los recuadros oscuros y sin arte. Al pulsar el boton, el reporte le pide al Web App del barrido
+  (`?action=piezas&ids=…`, una sola llamada con los ids de la pagina) las piezas en base64 y las pone en
+  el `<img>` como `data:`, asi el PDF no depende de ninguna descarga. Desde la pagina no se pueden leer
+  esos bytes: Drive no manda CORS en «thumbnail» y lh3.googleusercontent.com responde 429 a la segunda
+  lectura por codigo; el Web App si puede, porque corre con la cuenta dueña de la carpeta.
+  **Si el Web App no esta, no contesta o devuelve una pieza que no decodifica, esa pieza se queda con su
+  miniatura** y el reporte sale como salia antes, no peor. El boton dice "Preparando las piezas…" mientras
+  tanto. El Web App solo entrega archivos que esten dentro de `ARTES_FOLDER_ID`.
 
 El modulo es `js/report-week.js` y su template es propio de Amador: cada tablero de marca tiene el suyo,
 adaptado por la marca. Sus estilos y los de impresion estan al final de `css/dashboard.css`.
