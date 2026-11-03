@@ -3223,6 +3223,16 @@ body.amador-table-fullscreen {
   align-items: stretch;
 }
 
+/* La conclusion del creativo va a lo ancho, en su propia fila: no es una campaña mas, es lo que
+   hay que repetir el mes que viene. */
+.rp-conclusion.is-wide {
+  grid-column: 1 / -1;
+}
+
+.rp-conclusion.is-wide .rp-edit + .rp-edit {
+  max-width: 76ch;
+}
+
 .rp-conclusion {
   padding: 26px 28px;
 }
@@ -3298,6 +3308,18 @@ body.amador-table-fullscreen {
 
 .rp-edit:hover {
   box-shadow: 0 0 0 2px #fff, 0 0 0 3px #93c5fd;
+}
+
+/* Con «Editar textos» pulsado, todo lo que se puede cambiar queda marcado a la vez: antes solo se
+   notaba pasando el raton por encima, y no habia manera de saber que habia que probar. */
+#week-report.is-editing .rp-edit {
+  background: rgba(147, 197, 253, 0.14);
+  box-shadow: 0 0 0 1px rgba(147, 197, 253, 0.9);
+}
+
+#week-report.is-editing .rp-edit:hover,
+#week-report.is-editing .rp-edit:focus {
+  background: #fff;
 }
 
 .rp-edit:focus {
@@ -3569,7 +3591,9 @@ body.amador-table-fullscreen {
   }
 
   .rp-edit:hover,
-  .rp-edit:focus {
+  .rp-edit:focus,
+  #week-report.is-editing .rp-edit {
+    background: none;
     box-shadow: none;
   }
 }
