@@ -51,6 +51,7 @@ const OUTPUT_COLUMNS = ['day', 'campaign', 'adSet', 'ad', 'objective', 'resultTy
 function doGet(event) {
   try {
     const params = (event && event.parameter) || {};
+    if (params.action === 'piezas') return json_(piezas_(params.ids));
     if (params.action !== 'data') throw new Error('Accion no soportada.');
     let snapshot = params.fresh === '1' ? sweep_('manual') : readSnapshot_();
     if (!snapshot) snapshot = sweep_('inicial');
@@ -240,6 +241,62 @@ function cerrarArtes() {
   const folder = DriveApp.getFolderById(id);
   folder.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.VIEW);
   Logger.log('«%s» vuelve a estar restringida a quien tenga acceso directo.', folder.getName());
+}
+
+// ── Las piezas, para el PDF del reporte ────────────────────────────────────
+// El navegador puede MOSTRAR la miniatura de Drive en una etiqueta <img>, pero no puede LEER sus
+// bytes: «thumbnail» no manda CORS y lh3.googleusercontent.com responde 429 a la segunda lectura
+// por codigo. Al imprimir, Chrome arma el documento otra vez y esas miniaturas no llegan a tiempo,
+// asi que el PDF salia con los recuadros oscuros y sin arte. El reporte las pide aca antes de
+// imprimir, las incrusta como data: y deja de depender de ninguna descarga.
+//
+// Se pide una sola vez con todos los ids de la pagina, no uno por uno: cada llamada recorre la
+// carpeta de artes y hacerlo ocho veces seguidas es mucho mas lento que hacerlo una.
+//
+// **Solo sirve archivos que esten dentro de ARTES_FOLDER_ID.** El Web App corre con la cuenta dueña
+// de las carpetas del cliente y su URL es lo unico que lo protege, asi que no puede entregar
+// cualquier archivo de ese Drive a quien acierte un id.
+const PIEZAS_MAX = 24;
+const PIEZA_ANCHO = 480;
+
+function piezas_(idsPedidos) {
+  const ids = String(idsPedidos || '')
+    .split(',')
+    .map(id => id.trim())
+    .filter(id => /^[A-Za-z0-9_-]{10,}$/.test(id));
+  if (!ids.length) return { ok: false, error: 'Sin ids de piezas.' };
+  if (ids.length > PIEZAS_MAX) return { ok: false, error: 'Demasiadas piezas de una vez.' };
+
+  const artes = readArtes_();
+  if (!artes) return { ok: false, error: 'Falta la propiedad del script ' + ARTES_FOLDER_PROPERTY + '.' };
+  if (artes.error) return { ok: false, error: artes.error };
+
+  const dentro = {};
+  Object.keys(artes.piezas).forEach(clave => { dentro[artes.piezas[clave].id] = true; });
+
+  const piezas = {};
+  const fuera = [];
+  ids.forEach(id => {
+    if (!dentro[id]) { fuera.push(id); return; }
+    try {
+      // La miniatura y no el archivo: un video pesa megas y lo que el reporte enseña es su cuadro.
+      // Se pide con el token del script, que es la cuenta que ve la carpeta.
+      const respuesta = UrlFetchApp.fetch(
+        'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w' + PIEZA_ANCHO,
+        { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true }
+      );
+      if (respuesta.getResponseCode() !== 200) return;
+      const blob = respuesta.getBlob();
+      const mime = String(blob.getContentType() || '');
+      if (mime.indexOf('image/') !== 0) return;
+      piezas[id] = { mime: mime, datos: Utilities.base64Encode(blob.getBytes()) };
+    } catch (error) {
+      // Una pieza que no se pueda traer se queda fuera: el reporte la deja con su miniatura.
+      console.error(error);
+    }
+  });
+
+  return { ok: true, piezas: piezas, fuera: fuera, ancho: PIEZA_ANCHO };
 }
 
 function readArtes_() {

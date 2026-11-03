@@ -1115,11 +1115,99 @@
     wireEditables(host, period.id);
   }
 
+  // ── Las piezas, dentro del PDF ─────────────────────────────────────────
+  // En pantalla las piezas se ven porque el navegador le pide la miniatura a Drive al dibujar la
+  // tarjeta. Al imprimir, Chrome arma el documento otra vez y esas peticiones no llegan a tiempo:
+  // el PDF salia con los recuadros oscuros y sin arte.
+  //
+  // No se pueden leer desde la pagina para incrustarlas: Drive no manda CORS en «thumbnail» y el
+  // mismo archivo por lh3.googleusercontent.com responde 429 a la segunda lectura por codigo. Quien
+  // si puede es el Web App del barrido, que corre con la cuenta dueña de la carpeta. Le pedimos las
+  // piezas de la pagina de una sola vez y las incrustamos como data: antes de imprimir, con lo que
+  // el PDF deja de depender de ninguna descarga.
+  //
+  // Si el Web App no esta o no contesta, cada pieza se queda con su miniatura: el reporte sale como
+  // salia antes, no peor.
+  // Se lee en el momento y no al cargar: el build incrusta la URL en el HTML y el orden de los
+  // scripts no deberia importar para algo que solo hace falta al pulsar «Descargar PDF».
+  const PIEZAS_ENDPOINT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
+  const piezasEndpoint = () => (PIEZAS_ENDPOINT_RE.test(String(window.AMADOR_DATA_ENDPOINT || '')) ? window.AMADOR_DATA_ENDPOINT : '');
+  const PIEZAS_FETCH_MS = 25000;
+
+  async function incrustarArtes(host) {
+    const imgs = [...host.querySelectorAll('img.rp-ad-art')].filter(img => !/^data:/.test(img.src));
+    const porId = new Map();
+    imgs.forEach(img => {
+      const id = (img.getAttribute('src').match(/[?&]id=([A-Za-z0-9_-]+)/) || [])[1];
+      if (!id) return;
+      if (!porId.has(id)) porId.set(id, []);
+      porId.get(id).push(img);
+    });
+    const endpoint = piezasEndpoint();
+    if (!endpoint || !porId.size) return { total: imgs.length, incrustadas: 0 };
+
+    const control = new AbortController();
+    const corte = window.setTimeout(() => control.abort(), PIEZAS_FETCH_MS);
+    let piezas = null;
+    try {
+      const respuesta = await fetch(`${endpoint}?action=piezas&ids=${encodeURIComponent([...porId.keys()].join(','))}`, { signal: control.signal });
+      if (respuesta.ok) {
+        const cuerpo = await respuesta.json();
+        if (cuerpo && cuerpo.ok) piezas = cuerpo.piezas || {};
+      }
+    } catch {
+      // Sin red o sin Web App: las miniaturas se quedan como estan.
+    } finally {
+      window.clearTimeout(corte);
+    }
+    if (!piezas) return { total: imgs.length, incrustadas: 0 };
+
+    let incrustadas = 0;
+    for (const [id, elementos] of porId) {
+      const pieza = piezas[id];
+      if (!pieza || !pieza.datos) continue;
+      const fuente = `data:${pieza.mime || 'image/jpeg'};base64,${pieza.datos}`;
+      // Se comprueba aparte antes de tocar la tarjeta: la tarjeta tiene un manejador de error que
+      // cambia la pieza por el recuadro vacio, asi que una incrustacion que no decodifique borraria
+      // una pieza que en pantalla se veia bien. Si no carga, se queda la miniatura.
+      const sirve = await new Promise(listo => {
+        const prueba = new Image();
+        prueba.onload = () => listo(prueba.naturalWidth > 0);
+        prueba.onerror = () => listo(false);
+        prueba.src = fuente;
+      });
+      if (!sirve) continue;
+      for (const img of elementos) {
+        img.src = fuente;
+        // Sin esperar el decode, imprimir puede adelantarse al dibujado de la pieza recien puesta.
+        await img.decode().catch(() => {});
+        incrustadas += 1;
+      }
+    }
+    return { total: imgs.length, incrustadas };
+  }
+
   // El nombre del PDF lo pone el navegador con el titulo del documento: se cambia solo mientras imprime.
-  function printReport() {
+  async function printReport() {
     const period = periods().find(item => item.id === selectedPeriod);
     if (!period) return;
     document.activeElement?.blur?.();
+    const boton = document.getElementById('week-print');
+    const etiqueta = boton?.textContent;
+    if (boton) {
+      boton.disabled = true;
+      boton.textContent = 'Preparando las piezas…';
+    }
+    try {
+      await incrustarArtes(document.getElementById('week-report') || document);
+    } catch {
+      // Ninguna pieza puede dejar al reporte sin imprimirse.
+    } finally {
+      if (boton) {
+        boton.disabled = false;
+        boton.textContent = etiqueta;
+      }
+    }
     const title = document.title;
     document.title = period.labels.file;
     const restore = () => { document.title = title; window.removeEventListener('afterprint', restore); };
