@@ -3223,16 +3223,6 @@ body.amador-table-fullscreen {
   align-items: stretch;
 }
 
-/* La conclusion del creativo va a lo ancho, en su propia fila: no es una campaña mas, es lo que
-   hay que repetir el mes que viene. */
-.rp-conclusion.is-wide {
-  grid-column: 1 / -1;
-}
-
-.rp-conclusion.is-wide .rp-edit + .rp-edit {
-  max-width: 76ch;
-}
-
 .rp-conclusion {
   padding: 26px 28px;
 }
