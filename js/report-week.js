@@ -45,7 +45,10 @@
   const CAMPAIGNS = [
     { key: 'almuerzos', match: /almuerzo|reservas web/, title: 'Reservas web almuerzos', short: 'Reservas web', tag: 'Ventas · almuerzos', desc: 'Evolución, conjuntos y mejores anuncios.', icon: 'trend' },
     { key: 'corporativos', match: /corporativ/, title: 'Corporativos', short: 'Corporativos', tag: 'Formularios completados', desc: 'Formularios completados y mejores anuncios.', icon: 'briefcase' },
-    { key: 'eventos', match: /evento/, title: 'Mensajes IG · eventos', short: 'Eventos', tag: 'Ofrenda · WhatsApp', desc: 'Conversaciones, formatos y conjuntos.', icon: 'chat' },
+    // Eventos es una campaña puntual: la marca avisa cuando la habra y no corre todos los meses. Su
+    // pagina se arma igual, pero no da conclusion: «sostener» o «en crecimiento» no significan nada
+    // sobre algo que el mes que viene puede no existir.
+    { key: 'eventos', match: /evento/, title: 'Mensajes IG · eventos', short: 'Eventos', tag: 'Ofrenda · WhatsApp', desc: 'Conversaciones, formatos y conjuntos.', icon: 'chat', puntual: true },
   ];
 
   // El arte se pide a Drive como miniatura. El referrerpolicy no es cosmetico: con el referer del
@@ -598,36 +601,44 @@
 
   function suggestConclusions(report) {
     const cards = [];
-    const main = [...report.sections].filter(section => section.value > 0 && !weak(section))
+    // Solo las campañas que se sostienen mes a mes. Las puntuales se cuentan en el reporte, pero una
+    // conclusion sobre ellas no se puede llevar al mes siguiente.
+    const sostenidas = report.sections.filter(section => !section.puntual);
+    const main = [...sostenidas].filter(section => section.value > 0 && !weak(section))
       .sort((left, right) => right.sum.spend - left.sum.spend)[0];
     if (main) {
       const serie = main.chart.filter((_, index) => index >= main.firstWeek);
       cards.push({
+        key: `camp:${main.key}`,
         icon: main.icon,
         title: `${main.short}: ${serie.length > 1 && serie[serie.length - 1] > serie[0] ? 'más con la misma inversión' : 'el motor del mes'}`,
         text: `${num(main.value)} ${noun(main.kind, main.value)} a ${cost(main.cost)} c/u con ${money(main.sum.spend)}. Sostener la inversión y replicar los anuncios que convierten.`,
       });
     }
-    report.sections.filter(section => section !== main && section.value > 0).forEach(section => {
+    sostenidas.filter(section => section !== main && section.value > 0).forEach(section => {
       if (cards.length >= 3) return;
       const serie = section.chart.filter((_, index) => index >= section.firstWeek);
       const growth = serie.length > 1 && serie[0] > 0 && serie[serie.length - 1] >= serie[0] * 2;
       cards.push({
+        key: `camp:${section.key}`,
         icon: section.icon,
         title: growth ? `${section.short} en crecimiento` : `Sostener ${section.short.toLowerCase()}`,
         text: `${num(section.value)} ${noun(section.kind, section.value)} a ${cost(section.cost)} c/u${section.sum.messages > 0 && section.kind !== KINDS.mensajes ? ` y ${num(section.sum.messages)} conversaciones` : ''}. Mantener el contenido que engancha para sostener el volumen.`,
       });
     });
-    const poor = report.sections.find(weak);
+    const poor = sostenidas.find(weak);
     if (poor && cards.length < 3 && !cards.some(card => card.title.toLowerCase().includes(poor.short.toLowerCase()))) {
       cards.push({
+        key: `rev:${poor.key}`,
         icon: 'chat',
         title: `Revisar ${poor.short.toLowerCase()}`,
         text: `La campaña ${poor.title} gastó ${money(poor.sum.spend)} por ${num(poor.value)} ${noun(poor.kind, poor.value)}. Revisar público y creativos, o mover ese presupuesto a las campañas que sí rinden.`,
       });
     }
+    // El creativo ocupa el ultimo lugar de la fila, no una fila propia: tres tarjetas en una linea y
+    // la pagina sin hueco.
     const creativo = suggestCreativeConclusion(report);
-    return creativo ? cards.slice(0, 3).concat([creativo]) : cards.slice(0, 3);
+    return creativo ? cards.slice(0, 2).concat([creativo]) : cards.slice(0, 3);
   }
 
   // La unica conclusion que mira el creativo y no la campaña: el anuncio que entro a mitad de mes y
@@ -655,7 +666,7 @@
     const { section, ad, segundo, dias } = candidato;
     const unidad = noun(section.kind, 1);
     return {
-      wide: true,
+      key: 'creativo',
       icon: 'spark',
       title: `${ad.name}: el formato a repetir`,
       text: `Se implementó en ${report.period.name.toLowerCase()} y es el anuncio con mejor costo por ${unidad} de ${section.short.toLowerCase()}: ${cost(ad.cost)} frente a ${cost(segundo.cost)} del siguiente, y en ${dias} ${dias === 1 ? 'día' : 'días'} de entrega. Mantener su estructura y formato en los próximos contenidos.`,
@@ -1005,13 +1016,17 @@
 
   function conclusionsPage(report, notes, page, total) {
     const cards = suggestConclusions(report).map((card, index) => {
-      const title = notes[`concl:${index}:title`] != null ? notes[`concl:${index}:title`] : card.title;
-      const text = notes[`concl:${index}:text`] != null ? notes[`concl:${index}:text`] : card.text;
+      // El texto editado se guarda contra la tarjeta, no contra su posicion. Atado a la posicion, el
+      // dia que cambia el juego de conclusiones lo escrito para una tarjeta reaparece sobre otra y el
+      // reporte parece no haber cambiado.
+      const note = `concl:${card.key}`;
+      const title = notes[`${note}:title`] != null ? notes[`${note}:title`] : card.title;
+      const text = notes[`${note}:text`] != null ? notes[`${note}:text`] : card.text;
       return `
-        <div class="rp-card rp-conclusion${card.wide ? ' is-wide' : ''}">
+        <div class="rp-card rp-conclusion">
           <div class="rp-toc-top"><span class="rp-icon framed">${icon(card.icon)}</span><span class="rp-concl-num">${pageNumber(index + 1)}</span></div>
-          ${editable(`concl:${index}:title`, title, 'h3')}
-          ${editable(`concl:${index}:text`, text)}
+          ${editable(`${note}:title`, title, 'h3')}
+          ${editable(`${note}:text`, text)}
         </div>`;
     }).join('');
     return `
