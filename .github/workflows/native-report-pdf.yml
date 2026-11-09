@@ -35,15 +35,15 @@ jobs:
         run: npm install --no-save --no-package-lock --no-audit --no-fund puppeteer-core@25.16.0
       - name: Verificar artes y descarga manual
         run: node scripts/test-report-art.cjs
-      - name: Generar el PDF del tablero
+      - name: Verificar descarga desde produccion
         env:
           CHROME_PATH: /usr/bin/google-chrome
           REPORT_DATE: ${{ inputs.fecha }}
-          NATIVE_REPORT_TOKEN: ${{ (github.event_name == 'schedule' || inputs.cargar) && secrets.NATIVE_REPORT_TOKEN || '' }}
+          DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
           NATIVE_SCHEDULED: ${{ github.event_name == 'schedule' && '1' || '0' }}
           TP_DATA_ENDPOINT: ${{ secrets.TP_DATA_ENDPOINT }}
           DATA_ENDPOINT: ${{ secrets.DATA_ENDPOINT }}
-        run: node scripts/export-native-report.cjs
+        run: node scripts/verify-production-pdf.cjs
       - name: Guardar PDF de verificación
         uses: actions/upload-artifact@v4
         with:
