@@ -173,6 +173,10 @@ laminas 16:9 con fondo claro, tarjetas blancas de borde fino y acentos en azul.
   formato, no con una imagen rota. **Un mes sin piezas subidas se ve igual, todo en recuadros**, y eso es lo
   que dice: no hay arte en Drive para ese mes, no es que Drive falle. Al abrir el tablero el barrido mira
   tambien esta carpeta, asi que una pieza nueva entra sin esperar al siguiente disparador.
+  El build guarda las miniaturas dentro del tablero cifrado. Al descargar, el generador las
+  incrusta y decodifica antes de imprimir; las piezas nuevas se recuperan por el Web App.
+  Si falla un arte esperado, muestra un aviso y permite reintentar sin descargar un PDF incompleto.
+  El exportador automatico de Nexus ejecuta la misma preparacion y valida las imagenes tras clonar el reporte.
 - **Textos:** el destacado, el analisis de cada campana y las conclusiones vienen propuestos con lo que dicen
   los numeros. Se editan con un clic sobre la lamina (`**texto**` va en negrita) y quedan guardados por corte
   en el navegador (`amador-report-notes-v3`, por corte); no se publican con el tablero. "Restablecer textos" vuelve a
