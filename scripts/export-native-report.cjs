@@ -36,6 +36,7 @@ async function main(){
   const endpoint=process.env[config.endpoint];if(!endpoint||!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(endpoint))throw Error('Missing authorized data endpoint');
   const response=await fetch(endpoint+'?action=data',{signal:AbortSignal.timeout(120000)});if(!response.ok)throw Error('Source HTTP '+response.status);
   const data=await response.json();if(data.ok===false||!Array.isArray(data.months))throw Error('Invalid source snapshot');
+  if(config.kind==='amador')console.log('REPORT_ART',await require('./embed-report-art.cjs').embedReportArt(data));
   fs.writeFileSync(path.join(root,config.snapshot),JSON.stringify(data));
  }
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
@@ -60,6 +61,7 @@ async function main(){
    await page.waitForSelector(deck+' section',{timeout:60000});
    await page.evaluate(()=>document.fonts.ready);
    await page.waitForNetworkIdle({idleTime:500,timeout:15000}).catch(()=>{});
+   if(config.kind==='amador')console.log('PDF_ART',await page.evaluate(()=>window.ReporteSemanal.preparePdf()));
    const proof=await page.evaluate((c,deck,from,end)=>{
     if(c.kind==='royal'){const r=window.RB_REPORTE_LISTO;if(r?.inicio!==from||r?.fin!==end)throw Error('Royal Baby period mismatch');}
     if(['sumi','aquarius','hers'].includes(c.kind)){const m=window[c.data].months().find(m=>m.key===from.slice(0,7));if(m?.lastDay!==Number(end.slice(8))||m.firstDay!==1)throw Error('Monthly source does not cover requested range');}
@@ -72,6 +74,11 @@ async function main(){
     return {pages:pages.length,cover:pages[0].innerText,text};
    },config,deck,from,end);
    await page.addStyleTag({content:'@media print { body { margin:0!important;padding:0!important } .rp-deck,.rpt {display:block!important} .rp-page {zoom:1!important} }'});
+   // Cloning creates new image elements. Decode those too before Chromium prints.
+   await page.evaluate(async()=>{
+    await Promise.all([...document.images].map(img=>img.decode()));
+    if([...document.images].some(img=>!img.naturalWidth))throw Error('PDF image did not decode');
+   });
    const name=`${config.brand}-${type}-${from}-${end}`,file=path.join(output,name+'.pdf');
    await page.pdf({path:file,printBackground:true,preferCSSPageSize:true,displayHeaderFooter:false});
    const pdf=fs.readFileSync(file),commit=cp.execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();

@@ -273,7 +273,19 @@
 
   // Un video de Drive no se puede incrustar en el PDF, pero su miniatura es el primer fotograma: para
   // reconocer la pieza alcanza, y es lo que el modelo muestra.
-  const arteThumb = arte => (arte?.id ? `${ARTE_THUMB}${encodeURIComponent(arte.id)}&sz=${ARTE_THUMB_SIZE}` : '');
+  const embeddedArt = new Map();
+  const isEmbeddedArt = value => /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(value || '');
+  // Keep the build's embedded images even when a live metrics refresh replaces the snapshot.
+  function rememberArt(pieces) {
+    Object.values(pieces || {}).forEach(piece => {
+      if (piece.id && isEmbeddedArt(piece.thumbnailData)) embeddedArt.set(piece.id, piece.thumbnailData);
+    });
+  }
+  rememberArt(window.AMADOR_META_DATA?.artes?.piezas);
+  const arteThumb = arte => {
+    rememberArt(sweep()?.artes?.piezas);
+    return arte?.id ? embeddedArt.get(arte.id) || `${ARTE_THUMB}${encodeURIComponent(arte.id)}&sz=${ARTE_THUMB_SIZE}` : '';
+  };
 
   // ── Reservas de la hoja de seguimiento ─────────────────────────────────
   // Meta no cuenta las reservas de la campaña de eventos: las confirma el equipo y quedan en la pestaña del
@@ -797,7 +809,7 @@
           return `
             <div class="rp-ad-card">
               ${ad.arte
-                ? `<img class="rp-ad-art" src="${esc(arteThumb(ad.arte))}" alt="${esc(ad.name)}" data-formato="${esc(ad.formato)}" referrerpolicy="no-referrer">
+                ? `<img class="rp-ad-art" src="${esc(arteThumb(ad.arte))}" alt="${esc(ad.name)}" data-arte-id="${esc(ad.arte.id)}" data-formato="${esc(ad.formato)}" referrerpolicy="no-referrer">
                    <span class="rp-ad-formato">${esc(ad.formato)}</span>`
                 : `<div class="rp-ad-art is-empty">${esc(ad.formato)}</div>`}
               <div class="rp-ad-name">${esc(ad.name)}</div>
@@ -1084,8 +1096,10 @@
         const caja = document.createElement('div');
         caja.className = 'rp-ad-art is-empty';
         caja.textContent = img.dataset.formato || 'Pieza';
-        img.nextElementSibling?.remove();
-        img.replaceWith(caja);
+        // Preserve the image and its Drive ID so export can recover a failed screen request.
+        img.hidden = true;
+        caja.dataset.artePlaceholder = 'true';
+        img.insertAdjacentElement('afterend', caja);
       }, { once: true });
     });
   }
@@ -1107,7 +1121,9 @@
     });
   }
 
+  let preparingReport = false;
   function render() {
+    if (preparingReport) return;
     const host = document.getElementById('week-report');
     if (!host) return;
 
@@ -1175,8 +1191,8 @@
   // piezas de la pagina de una sola vez y las incrustamos como data: antes de imprimir, con lo que
   // el PDF deja de depender de ninguna descarga.
   //
-  // Si el Web App no esta o no contesta, cada pieza se queda con su miniatura: el reporte sale como
-  // salia antes, no peor.
+  // El build incrusta una copia de las miniaturas. El Web App queda como respaldo para piezas nuevas.
+  // Nunca se imprime si un arte esperado no pudo incrustarse y decodificarse.
   // Se lee en el momento y no al cargar: el build incrusta la URL en el HTML y el orden de los
   // scripts no deberia importar para algo que solo hace falta al pulsar «Descargar PDF».
   const PIEZAS_ENDPOINT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
@@ -1184,85 +1200,112 @@
   const PIEZAS_FETCH_MS = 25000;
 
   async function incrustarArtes(host) {
-    const imgs = [...host.querySelectorAll('img.rp-ad-art')].filter(img => !/^data:/.test(img.src));
+    const imgs = [...host.querySelectorAll('img.rp-ad-art')];
+    rememberArt(sweep()?.artes?.piezas);
     const porId = new Map();
     imgs.forEach(img => {
-      const id = (img.getAttribute('src').match(/[?&]id=([A-Za-z0-9_-]+)/) || [])[1];
+      const id = img.dataset.arteId;
       if (!id) return;
       if (!porId.has(id)) porId.set(id, []);
       porId.get(id).push(img);
     });
     const endpoint = piezasEndpoint();
-    if (!endpoint || !porId.size) return { total: imgs.length, incrustadas: 0 };
+    const missing = [...porId.keys()].filter(id => !embeddedArt.has(id));
 
     const control = new AbortController();
     const corte = window.setTimeout(() => control.abort(), PIEZAS_FETCH_MS);
     let piezas = null;
     try {
-      const respuesta = await fetch(`${endpoint}?action=piezas&ids=${encodeURIComponent([...porId.keys()].join(','))}`, { signal: control.signal });
-      if (respuesta.ok) {
-        const cuerpo = await respuesta.json();
-        if (cuerpo && cuerpo.ok) piezas = cuerpo.piezas || {};
+      if (endpoint && missing.length) {
+        const respuesta = await fetch(`${endpoint}?action=piezas&ids=${encodeURIComponent(missing.join(','))}`, { signal: control.signal });
+        if (respuesta.ok) {
+          const cuerpo = await respuesta.json();
+          if (cuerpo && cuerpo.ok) piezas = cuerpo.piezas || {};
+        }
       }
     } catch {
-      // Sin red o sin Web App: las miniaturas se quedan como estan.
+      // La validacion final informa que piezas faltan; no imprime un PDF incompleto.
     } finally {
       window.clearTimeout(corte);
     }
-    if (!piezas) return { total: imgs.length, incrustadas: 0 };
 
     let incrustadas = 0;
     for (const [id, elementos] of porId) {
-      const pieza = piezas[id];
-      if (!pieza || !pieza.datos) continue;
-      const fuente = `data:${pieza.mime || 'image/jpeg'};base64,${pieza.datos}`;
+      const pieza = piezas?.[id];
+      const fuente = embeddedArt.get(id) || (pieza?.datos ? `data:${pieza.mime || 'image/jpeg'};base64,${pieza.datos}` : '');
+      if (!isEmbeddedArt(fuente)) continue;
       // Se comprueba aparte antes de tocar la tarjeta: la tarjeta tiene un manejador de error que
       // cambia la pieza por el recuadro vacio, asi que una incrustacion que no decodifique borraria
       // una pieza que en pantalla se veia bien. Si no carga, se queda la miniatura.
       const sirve = await new Promise(listo => {
         const prueba = new Image();
-        prueba.onload = () => listo(prueba.naturalWidth > 0);
-        prueba.onerror = () => listo(false);
+        const timer = window.setTimeout(() => listo(false), 10000);
+        const finish = ok => { window.clearTimeout(timer); listo(ok); };
+        prueba.onload = () => finish(prueba.naturalWidth > 0);
+        prueba.onerror = () => finish(false);
         prueba.src = fuente;
       });
       if (!sirve) continue;
+      embeddedArt.set(id, fuente);
       for (const img of elementos) {
         img.src = fuente;
         // Sin esperar el decode, imprimir puede adelantarse al dibujado de la pieza recien puesta.
-        await img.decode().catch(() => {});
+        await img.decode();
+        if (!img.naturalWidth) continue;
+        img.hidden = false;
+        img.parentElement.querySelector('[data-arte-placeholder]')?.remove();
         incrustadas += 1;
       }
     }
+    if (incrustadas !== imgs.length) {
+      const names = imgs.filter(img => !isEmbeddedArt(img.src) || !img.naturalWidth || img.hidden).map(img => img.alt);
+      throw new Error(`No se pudo preparar ${names.length || imgs.length - incrustadas} arte(s): ${names.join(', ')}. Pulsa Actualizar y vuelve a descargar.`);
+    }
     return { total: imgs.length, incrustadas };
+  }
+
+  async function preparePdf() {
+    const host = document.getElementById('week-report') || document;
+    const result = await incrustarArtes(host);
+    await document.fonts.ready;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return result;
   }
 
   // El nombre del PDF lo pone el navegador con el titulo del documento: se cambia solo mientras imprime.
   async function printReport() {
     const period = periods().find(item => item.id === selectedPeriod);
-    if (!period) return;
+    if (!period || preparingReport) return;
+    preparingReport = true;
     document.activeElement?.blur?.();
     const boton = document.getElementById('week-print');
     const etiqueta = boton?.textContent;
+    const selector = document.getElementById('week-select');
+    if (selector) selector.disabled = true;
+    document.getElementById('week-print-error')?.remove();
     if (boton) {
       boton.disabled = true;
       boton.textContent = 'Preparando las piezas…';
     }
     try {
-      await incrustarArtes(document.getElementById('week-report') || document);
-    } catch {
-      // Ninguna pieza puede dejar al reporte sin imprimirse.
+      await preparePdf();
+      const title = document.title;
+      document.title = period.labels.file;
+      try { window.print(); } finally { document.title = title; }
+    } catch (error) {
+      const message = document.createElement('p');
+      message.id = 'week-print-error';
+      message.setAttribute('role', 'alert');
+      message.textContent = error.message || 'No se pudieron preparar las imágenes. Vuelve a intentar la descarga.';
+      boton?.insertAdjacentElement('afterend', message);
     } finally {
+      preparingReport = false;
+      if (selector) selector.disabled = false;
       if (boton) {
         boton.disabled = false;
         boton.textContent = etiqueta;
       }
     }
-    const title = document.title;
-    document.title = period.labels.file;
-    const restore = () => { document.title = title; window.removeEventListener('afterprint', restore); };
-    window.addEventListener('afterprint', restore);
-    window.print();
-    window.setTimeout(restore, 2000);
   }
 
   function init() {
@@ -1298,5 +1341,5 @@
     });
   }
 
-  window.ReporteSemanal = { init };
+  window.ReporteSemanal = { init, preparePdf };
 })();

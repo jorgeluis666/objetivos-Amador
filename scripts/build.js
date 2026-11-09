@@ -83,6 +83,8 @@ async function loadMeta() {
 
 async function main() {
   const { endpoint, meta } = await loadMeta();
+  const art = await require('./embed-report-art.cjs').embedReportArt(meta);
+  console.log(`[build] Artes incrustados: ${art.embedded}/${art.total}`);
   const metaData = JSON.stringify(meta).replace(/</g, '\\u003c');
   let html = readFile('index.html');
   const css = readFile('css/dashboard.css');
