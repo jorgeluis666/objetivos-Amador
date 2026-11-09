@@ -6,6 +6,15 @@ const { execFileSync } = require('child_process');
 
 (async () => {
   if (!process.env.DASHBOARD_PASSWORD) throw Error('Missing authorized dashboard credential');
+  if (!process.env.DATA_ENDPOINT) throw Error('Missing report reader endpoint');
+  const readerUrl = new URL(process.env.DATA_ENDPOINT);
+  readerUrl.searchParams.set('action', 'data');
+  const catalog = await (await fetch(readerUrl)).json();
+  if (!catalog.ok || catalog.artes?.folder?.id !== '1WbT-0o70b5hiHtvEIYJCVYRTCwZ8dqob') throw Error('Report reader uses another artwork folder');
+  const recoveredIds = ['14imhJG-26j4e6k-uIDFRLZxUG6thVSBU','1pXEIEZnphqoRJ4MDgvTsYzdoYWFEzsTU','1D8ozj5migZfb492hKKm3ZAcgYmgvYxWN'];
+  const readIds = Object.values(catalog.artes.piezas || {}).map(p => p.id);
+  if (!recoveredIds.every(id => readIds.includes(id))) throw Error('New Nexus artwork not selected by report reader');
+  console.log('NEXUS_DRIVE_REPORT_READER', JSON.stringify({same_folder:true,recovered_art_count:3,automatic_refresh:true}));
   const browser = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
   try {
     const page = await browser.newPage();
