@@ -3489,6 +3489,9 @@ body.amador-table-fullscreen {
   place-items: center;
 }
 
+.rp-ad-art[hidden] { display: none; }
+#week-print-error { color: #b42318; font-size: 13px; }
+
 .rp-ad-name {
   margin-top: 7px;
   overflow-wrap: anywhere;
