@@ -9,3 +9,6 @@ credentials/
 
 # Copia local del barrido de Meta (datos del cliente): se baja con el build, no va a git.
 data/amador-meta*.json
+
+# Private generated PDF attachments
+native-report-output/

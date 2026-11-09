@@ -1,0 +1,8 @@
+{
+  "kind": "amador",
+  "data": "AmadorObjectives",
+  "module": "ReporteSemanal",
+  "endpoint": "DATA_ENDPOINT",
+  "snapshot": "data/amador-meta.json",
+  "brand": "amador"
+}
