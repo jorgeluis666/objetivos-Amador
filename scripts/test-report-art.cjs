@@ -51,6 +51,34 @@ const ids = ['drive_file_one', 'drive_file_two', 'drive_file_three'];
     page = await setup({}, Object.fromEntries(ids.map(id => [id, { mime: 'image/png', datos: 'AAAA' }])));
     await assert.rejects(page.evaluate(() => window.ReporteSemanal.preparePdf()), /No se pudo preparar 3 arte/);
     await page.close();
+    // Exercise the real download button, including the print gate and UI restoration.
+    for (const online of [true, false]) {
+      page = await browser.newPage();
+      await page.setRequestInterception(true);
+      page.on('request', req => req.url().startsWith('https://drive.google.com/') ? req.abort() : req.continue());
+      await page.setContent('<select id="week-select"></select><button id="week-print">Descargar PDF</button><div id="view-week" class="visible"><div id="week-report"></div></div>');
+      await page.addScriptTag({ path: path.join(__dirname, '../js/shared.js') });
+      await page.evaluate((ids, uri, online) => {
+        window.AMADOR_META_DATA = {
+          months: [{ columns: ['day','campaign','ad','spend','results','resultType'], rows: ids.map(id => ['2026-11-08','Reservas web almuerzos',id,10,1,'Compras']) }],
+          artes: { piezas: Object.fromEntries(ids.map(id => [id.replace(/_/g,''), { id, tipo: 'video', thumbnailData: online ? uri : undefined }])) }
+        };
+        window.printCount = 0;
+        window.print = () => {
+          if ([...document.querySelectorAll('img.rp-ad-art')].some(img => !img.src.startsWith('data:') || !img.naturalWidth || img.hidden)) throw Error('Printed incomplete artwork');
+          window.printCount++;
+        };
+      }, ids, uri, online);
+      await page.addScriptTag({ path: path.join(__dirname, '../js/report-week.js') });
+      await page.evaluate(() => window.ReporteSemanal.init());
+      await page.click('#week-print');
+      await page.waitForFunction(() => !document.getElementById('week-print').disabled);
+      assert.equal(await page.evaluate(() => window.printCount), online ? 1 : 0);
+      assert.equal(await page.$eval('#week-select', el => el.disabled), false);
+      assert.equal(await page.$eval('#week-print', el => el.textContent), 'Descargar PDF');
+      assert.equal((await page.$$('#week-print-error')).length, online ? 0 : 1);
+      await page.close();
+    }
     console.log('PASS: embedded offline, live refresh, failed-image recovery, missing/partial/corrupt artwork');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
