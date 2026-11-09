@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const puppeteer = require('puppeteer-core');
+const { execFileSync } = require('child_process');
 
 (async () => {
   if (!process.env.DASHBOARD_PASSWORD) throw Error('Missing authorized dashboard credential');
@@ -37,12 +38,12 @@ const puppeteer = require('puppeteer-core');
     if (!proof.requested || proof.error || proof.images.length !== 3 || proof.images.some(i => !i.embedded || !i.width || i.hidden)) throw Error('Incomplete production artwork: ' + JSON.stringify(proof));
     await page.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.querySelectorAll('#week-report img')].map(img => img.decode())); });
     const pdf = Buffer.from(await page.pdf({ printBackground: true, preferCSSPageSize: true, displayHeaderFooter: false }));
-    const manifest = { source: 'https://amador.limaretail.com/', production_html_sha256: deployedHash, generated_at: new Date().toISOString(), ...proof, sha256: crypto.createHash('sha256').update(pdf).digest('hex') };
-    const key = crypto.randomBytes(32), iv = crypto.randomBytes(12), cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-    const data = Buffer.concat([cipher.update(Buffer.from(JSON.stringify({ manifest, pdf: pdf.toString('base64') }))), cipher.final()]);
-    const wrapped = crypto.publicEncrypt({ key: fs.readFileSync(path.join(__dirname, 'native-preview-public.pem')), oaepHash: 'sha256' }, key);
-    fs.mkdirSync('native-report-output', { recursive: true });
-    fs.writeFileSync('native-report-output/production.encrypted.json', JSON.stringify({ version: 1, key: wrapped.toString('base64'), iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: data.toString('base64') }));
-    console.log(JSON.stringify(manifest));
+    const images = await page.$$eval('#week-report img.rp-ad-art', imgs => imgs.map(img => img.src));
+    // PDF and source pixels travel only over stdin to the local validation process.
+    // No report, screenshot, credential or private metric is saved/uploaded as an artifact.
+    const verification = execFileSync('python', [path.join(__dirname, 'verify-production-images.py')], {
+      input: JSON.stringify({ pdf: pdf.toString('base64'), images }), encoding: 'utf8', maxBuffer: 1024 * 1024
+    });
+    console.log('PRODUCTION_PDF', JSON.stringify({ url: 'https://amador.limaretail.com/', production_html_sha256: deployedHash, print_button_passed: true, ...JSON.parse(verification) }));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error.message); process.exitCode = 1; });

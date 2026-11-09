@@ -35,6 +35,8 @@ jobs:
         run: npm install --no-save --no-package-lock --no-audit --no-fund puppeteer-core@25.16.0
       - name: Verificar artes y descarga manual
         run: node scripts/test-report-art.cjs
+      - name: Instalar validador local de PDF
+        run: python -m pip install --quiet pymupdf==1.26.6
       - name: Verificar descarga desde produccion
         env:
           CHROME_PATH: /usr/bin/google-chrome
@@ -44,10 +46,3 @@ jobs:
           TP_DATA_ENDPOINT: ${{ secrets.TP_DATA_ENDPOINT }}
           DATA_ENDPOINT: ${{ secrets.DATA_ENDPOINT }}
         run: node scripts/verify-production-pdf.cjs
-      - name: Guardar PDF de verificación
-        uses: actions/upload-artifact@v4
-        with:
-          name: pdf-original
-          path: native-report-output/*.encrypted.json
-          retention-days: 3
-          if-no-files-found: error
