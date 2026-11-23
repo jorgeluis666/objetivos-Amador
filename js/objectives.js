@@ -623,13 +623,27 @@
       },
       campaigns,
       headers: [],
-      // Ultimo dia con gasto o impresiones: el corte del mes en curso.
-      lastDataDay: Number(lastDay.slice(8, 10)),
-      meta: { fileName: meta.fileName, modifiedTime: meta.modifiedTime, lastDay, duplicates: meta.duplicates || [] },
+      // La cobertura certificada de Nexus incluye dias sin entrega. No confundirla
+      // con lastDay, que se conserva para determinar actividad de anuncios.
+      lastDataDay: Number(metaCoverageDay(meta, lastDay).slice(8, 10)),
+      meta: { fileName: meta.fileName, modifiedTime: meta.modifiedTime, lastDay, through: metaCoverageDay(meta, lastDay), capturedAt: meta.capturedAt || null, duplicates: meta.duplicates || [] },
       sheetTab: sheet ? (sheet.tabName || sheet.name) : null,
       readAt: sheet?.readAt,
       source: `Meta / ${meta.fileName}${sheet ? ` + Distribucion-amador / ${sheet.tabName || sheet.name}` : ''}`,
     };
+  }
+  function metaCoverageDay(meta, lastActivityDay) {
+    const through = String(meta.through || '');
+    const key = monthKey(meta.year, meta.month - 1);
+    const date = new Date(`${through}T00:00:00Z`);
+    const captured = new Date(meta.capturedAt);
+    if (meta.source !== 'nexus' || !/^\d{4}-\d{2}-\d{2}$/.test(through)
+        || !through.startsWith(`${key}-`) || !Number.isFinite(date.getTime())
+        || date.toISOString().slice(0, 10) !== through || !Number.isFinite(captured.getTime())) return lastActivityDay;
+    const parts = limaParts(captured);
+    const capturedDay = `${monthKey(parts.year, parts.month)}-${String(parts.day).padStart(2, '0')}`;
+    if (through < lastActivityDay || through > capturedDay) return lastActivityDay;
+    return through;
   }
   // Lo que se muestra: cada mes del barrido de Meta (con las reservas de su pestana) y el resto de la hoja.
   function composeData() {
@@ -683,7 +697,7 @@
       month.closed = month.key < now.key;
       let day = month.days;
       if (!month.closed) {
-        // Un mes de Meta llega hasta su ultimo dia con gasto; uno de la hoja, hasta su lectura.
+        // Meta usa la cobertura de Nexus si esta certificada; la hoja, su lectura.
         if (month.lastDataDay) day = month.lastDataDay;
         else if (month.readAt) day = limaParts(new Date(month.readAt)).day;
         else if (fileCutoff.startsWith(month.key)) day = Number(fileCutoff.slice(8, 10));
